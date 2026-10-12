@@ -20,7 +20,7 @@ func installedApps() ([]InstalledApp, error) {
  @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')|ForEach-Object{Get-ItemProperty "$_\*"|ForEach-Object{if($_.DisplayName -and $_.DisplayIcon){$path=$_.DisplayIcon -replace ',\s*-?\d+$','';AddApp $_.DisplayName $path ($_.SystemComponent -eq 1)}}}
  Get-CimInstance Win32_Process|ForEach-Object{AddApp $_.Name $_.ExecutablePath}
  @($items.Values|Sort-Object name)|ConvertTo-Json -Depth 3 -Compress`
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(platformCommandContext, 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
 	hideCommand(cmd)
@@ -41,7 +41,7 @@ func installedApps() ([]InstalledApp, error) {
 }
 func chooseExecutable() (string, error) {
 	script := `[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);Add-Type -AssemblyName System.Windows.Forms;$d=New-Object System.Windows.Forms.OpenFileDialog;$d.Filter='Windows applications (*.exe)|*.exe';$d.Title='PersianSocks';$d.CheckFileExists=$true;if($d.ShowDialog() -eq 'OK'){$d.FileName|ConvertTo-Json -Compress}`
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-STA", "-Command", script)
+	cmd := exec.CommandContext(platformCommandContext, "powershell.exe", "-NoProfile", "-STA", "-Command", script)
 	hideCommand(cmd)
 	b, err := cmd.Output()
 	if err != nil {

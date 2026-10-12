@@ -872,6 +872,7 @@ func main() {
 	var once sync.Once
 	a.shutdown = func() {
 		once.Do(func() {
+			stopPlatformCommands()
 			a.mu.Lock()
 			if a.speedBatchCancel != nil {
 				a.speedBatchCancel()

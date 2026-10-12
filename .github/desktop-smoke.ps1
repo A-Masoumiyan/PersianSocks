@@ -20,7 +20,7 @@ try {
  function Get-State{Invoke-RestMethod "$base/api/state" -Headers $headers}
  function Do-Action($payload){Invoke-RestMethod "$base/api/action" -Method Post -Headers $headers -ContentType 'application/json' -Body ($payload|ConvertTo-Json -Depth 10)|Out-Null}
  Wait-For {(Get-State).desktop.ready} 'Embedded WebView did not initialize'
- $h=[WindowSmoke]::FindWindow('PersianSocksDesktopWindow',$null)
+ $h=[WindowSmoke]::FindWindow('PersianSocksDesktopWindow','PersianSocks')
  if($h -eq [IntPtr]::Zero){throw 'Primary window missing'}
  [WindowSmoke]::PostMessage($h,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
  Wait-For {!((Get-State).desktop.visible)} 'Close did not hide primary window'
@@ -29,7 +29,7 @@ try {
  Wait-For {(Get-State).desktop.visible} 'Second launch did not restore primary window'
  $second.WaitForExit(5000)|Out-Null
  if(!$second.HasExited){throw 'Second launch created an extra running instance'}
- if([WindowSmoke]::FindWindow('PersianSocksDesktopWindow',$null) -ne $h){throw 'Window identity changed'}
+ if([WindowSmoke]::FindWindow('PersianSocksDesktopWindow','PersianSocks') -ne $h){throw 'Window identity changed'}
  $settings=(Get-State).settings;$settings.exitOnClose=$true;Do-Action @{action='settings';settings=$settings}
  [WindowSmoke]::PostMessage($h,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
  Wait-For {$p.Refresh();$p.HasExited} 'Exit-on-close did not stop EXE'
