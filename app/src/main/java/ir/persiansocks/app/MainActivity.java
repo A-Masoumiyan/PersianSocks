@@ -75,7 +75,10 @@ public final class MainActivity extends Activity {
     private final java.util.concurrent.atomic.AtomicBoolean redrawQueued=new java.util.concurrent.atomic.AtomicBoolean();
     private TextView status, listStatus, catalogInfo, counter, selection;
     private TextView vpnStatus, vpnBadge, activeProfile, selectionProtocol, filterSummary, trafficDown, trafficUp, trafficDownTotal, trafficUpTotal, speedResult, testScope;
-    private Button speedButton, probeButton;
+    private Button speedButton, probeButton, filteredSpeedButton;
+    private FilteredSpeedBatch speedBatch;
+    private boolean preparingSpeedBatch;
+    private int speedBatchGeneration;
     private DownloadSpeedTest speedTest;
     private SingleProxyTest singleTest;
     private ProxyEndpoint testingProxy, resultProxy;
@@ -195,6 +198,7 @@ public final class MainActivity extends Activity {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(sidebarBack);
             sidebarBack = null;
         }
+        stopFilteredSpeed();
         cancelSingleTests();
         if(scanning)stopScan();
         collecting = false; collectGeneration++; scanner.stop();
@@ -355,6 +359,10 @@ public final class MainActivity extends Activity {
         filterRow.addView(serviceButton,weighted(48,1,6));filterRow.addView(protocolButton,weighted(48,1,0));
         limitRow.addView(pingButton,weighted(48,1,6));limitRow.addView(sortButton,weighted(48,1,0));
         root.addView(filterRow,margin(dp(6),0));root.addView(limitRow,margin(dp(6),0));
+        filteredSpeedButton=button("تست سرعت همهٔ نتایج فیلترشده",false);
+        filteredSpeedButton.setTextSize(12);
+        filteredSpeedButton.setOnClickListener(v->{if(speedBatch!=null||preparingSpeedBatch)stopFilteredSpeed();else prepareFilteredSpeed();});
+        root.addView(filteredSpeedButton,sized(dp(42),dp(6)));
         rebuildFilters();
         filterSummary = text("", 11, SECONDARY, false);
         filterSummary.setSingleLine(true); filterSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -696,13 +704,18 @@ public final class MainActivity extends Activity {
         selection.setText(displayed == null ? (address.isEmpty() ? "انتخاب نشده" : address) : displayed.address());
         selectionProtocol.setText(displayed == null ? "—" : displayed.type.name());
         selection.setContentDescription(address.isEmpty() ? "پروکسی انتخاب نشده" : address);
-        boolean busy = speedTest != null || singleTest != null;
+        boolean busy = speedTest != null || singleTest != null || speedBatch != null || preparingSpeedBatch;
         speedButton.setText(speedTest != null ? "توقف سرعت" : "تست سرعت");
         probeButton.setText(singleTest != null ? "توقف تست" : "تست اتصال");
-        speedButton.setEnabled(speedTest != null || (selected != null && !busy));
+        speedButton.setEnabled(speedBatch == null && !preparingSpeedBatch && (speedTest != null || (selected != null && !busy)));
         probeButton.setEnabled(singleTest != null || (selected != null && !busy));
         speedButton.setAlpha(speedButton.isEnabled() ? 1f : .45f);
         probeButton.setAlpha(probeButton.isEnabled() ? 1f : .45f);
+        if(filteredSpeedButton!=null){
+            filteredSpeedButton.setText(speedBatch!=null?"توقف تست سرعت • "+speedBatch.done()+" / "+speedBatch.total():preparingSpeedBatch?"توقف آماده‌سازی…":"تست سرعت همهٔ نتایج فیلترشده");
+            filteredSpeedButton.setEnabled(speedBatch!=null||preparingSpeedBatch||(!busy&&!healthy.isEmpty()));
+            filteredSpeedButton.setAlpha(filteredSpeedButton.isEnabled()?1f:.45f);
+        }
         ProxyEndpoint target = busy ? testingProxy : resultProxy != null ? resultProxy : selected;
         boolean another = target != null && (selected == null || !target.key().equals(selected.key()));
         testScope.setText(target == null ? "ابتدا پروکسی انتخاب کن" : another ?
@@ -1202,7 +1215,7 @@ public final class MainActivity extends Activity {
     }
     private boolean prepareSingleTest(ProxyEndpoint proxy) {
         if (proxy == null) { Toast.makeText(this, "اول یک پروکسی انتخاب کن", Toast.LENGTH_SHORT).show(); return false; }
-        if (speedTest != null || singleTest != null) {
+        if (speedTest != null || singleTest != null || speedBatch != null || preparingSpeedBatch) {
             Toast.makeText(this, "یک تست در حال اجراست؛ اول آن را متوقف کن", Toast.LENGTH_SHORT).show(); return false;
         }
         if (!DistributionPolicy.allows(proxy)) {
@@ -1211,6 +1224,8 @@ public final class MainActivity extends Activity {
         return true;
     }
     private void cancelSingleTests() {
+        speedBatchGeneration++;preparingSpeedBatch=false;
+        if(speedBatch!=null){speedBatch.cancel();speedBatch=null;}
         DownloadSpeedTest download = speedTest; SingleProxyTest probe = singleTest;
         ProxyEndpoint previous = testingProxy;
         speedTest = null; singleTest = null; testingProxy = null;
@@ -1275,6 +1290,9 @@ public final class MainActivity extends Activity {
     }
     private void startSpeedTest(ProxyEndpoint proxy) {
         if (!prepareSingleTest(proxy)) return;
+        runSpeedTest(proxy);
+    }
+    private void runSpeedTest(ProxyEndpoint proxy) {
         final DownloadSpeedTest test = new DownloadSpeedTest(); speedTest = test; testingProxy = proxy; liveDownloadMBps = -1;
         resultProxy = proxy;
         showTestMessage("تست سرعت دانلود…"); render();
@@ -1315,7 +1333,49 @@ public final class MainActivity extends Activity {
         ProxyTestResult record = resultFor(proxy); record.speedError = error; record.downloadedBytes = bytes;
         if (error.isEmpty()) record.downloadMBps = ProxyTestResult.fromMbps(mbps);
         saveTestResults();
-        showTestMessage("سرعت دانلود: " + (error.isEmpty() ? isolated(record.speedValue()) : ProxyTestResult.shortError(error))); render();
+        showTestMessage("سرعت دانلود: " + (error.isEmpty() ? isolated(record.speedValue()) : ProxyTestResult.shortError(error)));
+        if(speedBatch!=null){speedBatch.completed();nextFilteredSpeed();}
+        render();
+    }
+    private void prepareFilteredSpeed() {
+        if(speedTest!=null||singleTest!=null||speedBatch!=null||preparingSpeedBatch)return;
+        preparingSpeedBatch=true;final int generation=++speedBatchGeneration;
+        final String service=filter;final ProxyResults.Sort order=sort;
+        final ProxyResults.Protocol kind=protocol;final ProxyResults.PingLimit limit=pingLimit;
+        final List<ProxyEndpoint> snapshot=healthy.snapshot();updateActions();
+        rankWorker.execute(()->{
+            final FilteredSpeedBatch batch=new FilteredSpeedBatch(snapshot,service,order,kind,limit);
+            ui.post(()->{
+                if(isDestroyed()||generation!=speedBatchGeneration)return;
+                preparingSpeedBatch=false;updateActions();
+                if(batch.total()==0){Toast.makeText(this,"نتیجه‌ای مطابق فیلترها نیست",Toast.LENGTH_SHORT).show();return;}
+                new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle("تست سرعت نتایج فیلترشده")
+                    .setMessage("تمام "+batch.total()+" نتیجهٔ مطابق فیلترهای فعلی به‌ترتیب تست می‌شوند؛ حتی کارت‌های پایین فهرست.\nحداکثر مصرف: "+TrafficMeter.bytes(batch.maximumBytes())+" (۲۰ MB برای هر پروکسی).\nتغییر فیلتر پس از شروع، صف تست را تغییر نمی‌دهد.")
+                    .setNegativeButton("انصراف",null).setPositiveButton("شروع تست",(d,w)->{
+                        if(isDestroyed()||generation!=speedBatchGeneration||speedTest!=null||singleTest!=null||speedBatch!=null)return;
+                        speedBatch=batch;nextFilteredSpeed();render();
+                    }).show();
+            });
+        });
+    }
+    private void nextFilteredSpeed() {
+        if(speedBatch==null)return;
+        ProxyEndpoint proxy;
+        while((proxy=speedBatch.next())!=null){
+            ProxyEndpoint current=healthy.find(proxy.key());
+            if(current!=null&&DistributionPolicy.allows(current)){runSpeedTest(current);return;}
+            speedBatch.completed();
+        }
+        int done=speedBatch.done();speedBatch=null;
+        showTestMessage("تست سرعت گروهی تمام شد؛ "+done+" نتیجه بررسی شد");updateActions();
+    }
+    private void stopFilteredSpeed() {
+        speedBatchGeneration++;preparingSpeedBatch=false;
+        if(speedBatch!=null){
+            speedBatch.cancel();speedBatch=null;cancelSingleTests();
+            showTestMessage("تست سرعت گروهی متوقف شد؛ نتایج تکمیل‌شده ذخیره شدند");
+        }
+        updateActions();
     }
     private ProxyTestResult resultFor(ProxyEndpoint proxy) {
         ProxyTestResult result = testResults.get(proxy.key());
