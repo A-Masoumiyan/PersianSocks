@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Host tests, with an isolated TLS fixture that never enters the application APK."""
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -24,10 +25,10 @@ with tempfile.TemporaryDirectory(prefix='persiansocks-tests-') as tmp:
     src=[root/'app/src/main/java/ir/persiansocks/app'/(name+'.java') for name in names]+list((root/'tests').glob('*.java'))+[flag]
     run(jdk/'bin/javac','-encoding','UTF-8','-cp',json,'-d',classes,*src)
     for name,extra in [('ScanHarness',[tls]),('FeatureHarness',[root/'app/src/main/assets/ip-country.bin']),
-            ('ControlsHarness',[]),('ResultsHarness',[]),('PingFilterHarness',[]),('SplitTunnelHarness',[]),('FilteredSpeedHarness',[]),('MaxScanHarness',[]),('ProtocolTrafficHarness',[tls]),('OptionalTlsHarness',[tls]),('SingleProxyHarness',[tls]),('ResultDisplayHarness',[]),('ScanResumeHarness',[tls]),('LargeCacheHarness',[]),('ScanRouteHarness',[tls])]:
-        run(jdk/'bin/java',*(['-Xmx128m'] if name=='LargeCacheHarness' else []),'-cp',str(classes)+':'+str(json),name,*extra)
+            ('ControlsHarness',[]),('ResultsHarness',[]),('DownloadRankingHarness',[]),('PingFilterHarness',[]),('SplitTunnelHarness',[]),('FilteredSpeedHarness',[]),('MaxScanHarness',[]),('ProtocolTrafficHarness',[tls]),('OptionalTlsHarness',[tls]),('SingleProxyHarness',[tls]),('ResultDisplayHarness',[]),('ScanResumeHarness',[tls]),('LargeCacheHarness',[]),('ScanRouteHarness',[tls])]:
+        run(jdk/'bin/java',*(['-Xmx128m'] if name=='LargeCacheHarness' else []),'-cp',str(classes)+os.pathsep+str(json),name,*extra)
     # Compile the whole transport stack again for Play; javac inlines the immutable flag.
     play=work/'play-classes';play.mkdir()
     flag.write_text('package ir.persiansocks.app; public final class BuildConfig { public static final boolean PLAY_DISTRIBUTION = true; }')
     run(jdk/'bin/javac','-encoding','UTF-8','-cp',json,'-d',play,*src)
-    run(jdk/'bin/java','-cp',str(play)+':'+str(json),'PlaySecurityHarness',tls)
+    run(jdk/'bin/java','-cp',str(play)+os.pathsep+str(json),'PlaySecurityHarness',tls)

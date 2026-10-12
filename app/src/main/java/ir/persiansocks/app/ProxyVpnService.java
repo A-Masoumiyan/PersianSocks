@@ -639,7 +639,7 @@ public final class ProxyVpnService extends VpnService {
             .setStyle(new Notification.BigTextStyle().bigText(txt+(phase==CONNECTED?"\n"+trafficSnapshot.rates()+
                 "\nمجموع دانلود: "+TrafficMeter.bytes(trafficSnapshot.downloaded)+" • آپلود: "+TrafficMeter.bytes(trafficSnapshot.uploaded):"")))
             .setOnlyAlertOnce(true)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(R.drawable.ic_qs_vpn)
             .setContentIntent(openPi)
             .setOngoing(true)
             .addAction(new Notification.Action.Builder(null, autoScanning?"توقف اسکن":"قطع اتصال", stopPi).build())

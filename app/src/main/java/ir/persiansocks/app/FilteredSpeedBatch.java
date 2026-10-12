@@ -11,6 +11,11 @@ public final class FilteredSpeedBatch {
             ProxyResults.Protocol protocol, ProxyResults.PingLimit ping) {
         input = ProxyResults.visible(source, service, sort, protocol, ping);
     }
+    public FilteredSpeedBatch(List<ProxyEndpoint> source, String service, ProxyResults.Sort sort,
+            ProxyResults.Protocol protocol, ProxyResults.PingLimit ping,
+            java.util.Map<String, Double> speeds, boolean smooth) {
+        input = ProxyResults.visible(source, service, sort, protocol, ping, speeds, smooth);
+    }
     public ProxyEndpoint next() { return cancelled || done >= input.size() ? null : input.get(done); }
     public void completed() { if (!cancelled && done < input.size()) done++; }
     public void cancel() { cancelled = true; }
