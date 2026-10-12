@@ -1,0 +1,59 @@
+name: Build and publish Windows
+on:
+  push:
+    branches: [main]
+    paths: ['windows/**', '.github/workflows/build-windows.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: persiansocks-windows-release
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache: false
+      - name: Build verified self-contained EXE
+        shell: pwsh
+        run: ./windows/build.ps1
+      - name: Validate on Windows
+        shell: pwsh
+        run: |
+          $env:PERSIANSOCKS_TEST_CORE = (Resolve-Path windows/release/bin/sing-box.exe).Path
+          Set-Location windows
+          go test -race -buildvcs=false -v .
+          if ($LASTEXITCODE -ne 0) { throw 'Windows tests failed' }
+      - name: Publish current Windows EXE
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $release = gh api repos/$env:GH_REPO/releases/latest | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve current release' }
+          $name = 'PersianSocks-Windows-0.2.0-x64.exe'
+          Copy-Item windows/release/PersianSocks.exe $name
+          gh release upload $release.tag_name $name --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'EXE upload failed' }
+          $updated = gh api "repos/$env:GH_REPO/releases/$($release.id)" | ConvertFrom-Json
+          $asset = $updated.assets | Where-Object name -eq $name
+          if (!$asset -or $asset.size -ne (Get-Item $name).Length) { throw 'Uploaded size mismatch' }
+          foreach ($old in $updated.assets) {
+            if ($old.name -match '^PersianSocks-Windows.*\.(exe|zip)$' -and $old.name -ne $name) {
+              gh release delete-asset $updated.tag_name $old.name --yes
+              if ($LASTEXITCODE -ne 0) { throw 'Old Windows asset removal failed' }
+            }
+          }
+          $body = $updated.body -replace 'PersianSocks-Windows-0\.1\.2-x64\.exe',$name -replace 'Windows 0\.1\.2','Windows 0.2.0'
+          $body | Set-Content release-notes.txt -Encoding utf8
+          gh release edit $updated.tag_name --notes-file release-notes.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Notes update failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PersianSocks-Windows-0.2.0-x64
+          path: windows/release/PersianSocks.exe

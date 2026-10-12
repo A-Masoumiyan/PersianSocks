@@ -29,6 +29,8 @@ type Endpoint struct {
 	Services []string `json:"services,omitempty"`
 	Updated  int64    `json:"updated,omitempty"`
 	Note     string   `json:"note,omitempty"`
+	UDP      bool     `json:"udp"`
+	Checked  []string `json:"checked,omitempty"`
 }
 
 func (e Endpoint) key() string {
@@ -55,6 +57,12 @@ func parseEndpoint(line, typ, source string) (Endpoint, bool) {
 	}
 	ip, err := netip.ParseAddr(u.Hostname())
 	if err != nil {
+		if t == "HTTPS" && validPublicHostname(u.Hostname()) {
+			port, err := strconv.Atoi(u.Port())
+			if err == nil && port > 0 && port <= 65535 {
+				return Endpoint{Host: strings.ToLower(u.Hostname()), Port: port, Type: t, Source: source}, true
+			}
+		}
 		return Endpoint{}, false
 	}
 	ip = ip.Unmap()
@@ -246,7 +254,7 @@ func (p Probe) request(ctx context.Context, e Endpoint, u string) (*http.Respons
 		return nil, nil, err
 	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
-	req.Header.Set("User-Agent", "PersianSocks-Windows/0.1.0")
+	req.Header.Set("User-Agent", "PersianSocks-Windows/"+version)
 	req.Header.Set("Accept-Encoding", "identity")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Close = true
@@ -281,9 +289,11 @@ var targets = []Target{{"telegram", "تلگرام", "https://web.telegram.org/k/
 
 func (p Probe) inspect(ctx context.Context, e Endpoint, timeout int, ts []Target) (Endpoint, error) {
 	e.Services = nil
+	e.Checked = nil
 	e.Ping = 0
 	var last error
 	for _, t := range ts {
+		e.Checked = append(e.Checked, t.ID)
 		if ctx.Err() != nil {
 			return e, ctx.Err()
 		}
@@ -324,9 +334,12 @@ func (p Probe) inspect(ctx context.Context, e Endpoint, timeout int, ts []Target
 	}
 	e.Updated = time.Now().UnixMilli()
 	e.Note = ""
+	if e.Type == "SOCKS5" {
+		e.UDP = p.udpCapability(ctx, e)
+	}
 	return e, nil
 }
-func (p Probe) speed(ctx context.Context, e Endpoint) (float64, int64, error) {
+func (p Probe) speed(ctx context.Context, e Endpoint, progress ...func(float64, int64)) (float64, int64, error) {
 	c, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	r, conn, err := p.request(c, e, "https://speed.cloudflare.com/__down?bytes=20000000&ts="+strconv.FormatInt(time.Now().UnixNano(), 10))
@@ -342,7 +355,33 @@ func (p Probe) speed(ctx context.Context, e Endpoint) (float64, int64, error) {
 		return 0, 0, errors.New("پاسخ فشردهٔ تست سرعت پذیرفته نشد")
 	}
 	start := time.Now()
-	n, err := io.Copy(io.Discard, io.LimitReader(r.Body, 20_000_000))
+	var n int64
+	buf := make([]byte, 32768)
+	last := start
+	for n < 20_000_000 {
+		max := int64(len(buf))
+		if 20_000_000-n < max {
+			max = 20_000_000 - n
+		}
+		var m int
+		m, err = r.Body.Read(buf[:max])
+		n += int64(m)
+		now := time.Now()
+		if len(progress) > 0 && now.Sub(last) > 300*time.Millisecond {
+			progress[0](float64(n)/1e6/now.Sub(start).Seconds(), n)
+			last = now
+		}
+		if err == io.EOF {
+			err = nil
+			break
+		}
+		if err != nil || now.Sub(start) > 12*time.Second {
+			break
+		}
+	}
+	if ctx.Err() != nil {
+		err = ctx.Err()
+	}
 	if err != nil {
 		return 0, n, err
 	}
@@ -375,4 +414,31 @@ func country(host string) string {
 		}
 	}
 	return ""
+}
+
+// UDP ASSOCIATE acceptance describes server capability; it does not guarantee end-to-end UDP delivery.
+func (p Probe) udpCapability(ctx context.Context, e Endpoint) bool {
+	cctx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+	defer cancel()
+	c, err := p.Physical.dial(cctx, "tcp4", net.JoinHostPort(e.Host, strconv.Itoa(e.Port)))
+	if err != nil {
+		return false
+	}
+	defer c.Close()
+	deadline, _ := cctx.Deadline()
+	c.SetDeadline(deadline)
+	stop := context.AfterFunc(cctx, func() { c.Close() })
+	defer stop()
+	if _, err = c.Write([]byte{5, 1, 0}); err != nil {
+		return false
+	}
+	b, err := exact(c, 2)
+	if err != nil || b[0] != 5 || b[1] != 0 {
+		return false
+	}
+	if _, err = c.Write([]byte{5, 3, 0, 1, 0, 0, 0, 0, 0, 0}); err != nil {
+		return false
+	}
+	b, err = exact(c, 4)
+	return err == nil && b[0] == 5 && b[1] == 0 && b[2] == 0
 }

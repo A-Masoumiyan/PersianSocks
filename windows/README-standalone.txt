@@ -1,5 +1,38 @@
-PersianSocks Windows 0.1.2 — self-contained EXE.
-Run build.ps1 with Go 1.25 or later installed. It downloads and verifies official sing-box/Wintun, bundles the runtime, and builds PersianSocks.exe.
-Bypass rules are restricted to the TUN inbound, so the local verification proxy cannot route through the direct bypass.
-Windows TUN and actual Windows runtime execution have not been tested in this environment. Native core run is blocked here by netlink permissions; its three proxy-forwarding tests are SKIPPED, not runtime passes.
-Controller is MIT; sing-box is GPL-3.0-or-later. https://github.com/SagerNet/sing-box/tree/v1.14.3
+PersianSocks Windows 0.2.0 — self-contained EXE (Windows x64).
+
+Run PersianSocks.exe. Approve the Windows Administrator prompt needed for TUN routing.
+The embedded sing-box/Wintun runtime is verified and extracted on first connection.
+
+Android 0.18 feature parity:
+- Right sidebar with Connection, Scan, Sources/Proxies, Tools/Reports groups.
+- 72px cards: three columns at 1366x768 (15 full cards visible), four on large screens.
+- Full/service/custom-target filters; HTTP+HTTPS grouping; strict ping boundaries;
+  ping/service/recent/UDP sorting, plus speed sorting.
+- Separate scan types, Max, slow mode, resume, healthy rescan, 20-fastest refresh,
+  cancellable collection, cancellable per-proxy connection/ping/speed tests.
+- 23 sources with fallbacks, 20 custom sources, 8 named HTTPS test destinations,
+  manual/text import, local country database and offline SVG country flags.
+- Per-process split tunneling: all, only selected, all except selected. Includes
+  installed/active app search, system-app toggle, retained hidden selections, file picker.
+  Changes apply next connection. Uninstalled files are skipped; empty only mode fails.
+- Live engine traffic rates and totals; tray quick controls and floating desktop widget.
+  Closing the web UI leaves the app running. Exit from the tray/sidebar to stop it.
+- Failover checks the actual core proxy path twice, chooses up to eight filtered
+  candidates with a five-minute cooldown, and waits for a physical adapter when offline.
+- Scan remains bound to physical NIC/DNS while VPN is active.
+
+Validation: local Go tests with race detection, real TLS fixtures, engine config check
+for all three proxy types and all three split modes, runtime extraction/repair,
+50,000-result persistence, browser UI interactions and 800/1366/1920px layout passed.
+The three native engine-forwarding cases are explicitly skipped in this Linux sandbox
+because creating its netlink socket is denied. Actual Windows TUN routing, native tray,
+app inventory and per-application routing still require a Windows runtime test.
+UDP marks SOCKS5 UDP ASSOCIATE acceptance, not guaranteed end-to-end UDP forwarding.
+Traffic counts flows recorded by the engine, including captured direct routes.
+
+Build: Go 1.25+ and PowerShell; run build.ps1. It verifies pinned official downloads,
+bundles the runtime/flags/licenses, then builds a Windows GUI EXE. Source package omits
+binary runtime.zip; build.ps1 recreates it. Controller MIT; sing-box GPL-3.0-or-later;
+Wintun and flag-icons licenses and notices are bundled.
+https://github.com/SagerNet/sing-box/tree/v1.14.3
+https://github.com/lipis/flag-icons/tree/v7.5.0

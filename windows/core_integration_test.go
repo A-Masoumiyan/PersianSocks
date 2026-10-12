@@ -20,7 +20,10 @@ import (
 )
 
 func TestRealCoreForwardsThroughSelectedProxy(t *testing.T) {
-	bin, _ := filepath.Abs("../toolchain/sing-box/sing-box-1.14.3-linux-amd64/sing-box")
+	bin, _ := filepath.Abs("../toolchain/sing-box-1.14.3-linux-amd64/sing-box")
+	if override := os.Getenv("PERSIANSOCKS_TEST_CORE"); override != "" {
+		bin = override
+	}
 	if _, err := os.Stat(bin); err != nil {
 		t.Skip("native validation core not available")
 	}

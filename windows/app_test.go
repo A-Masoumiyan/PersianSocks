@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -223,7 +224,7 @@ func TestBalancedSourcesAndDedup(t *testing.T) {
 	}
 }
 func TestPersistentOutOfOrderCheckpointAndFilters(t *testing.T) {
-	a := newApp(t.TempDir())
+	a := newTestApp(t)
 	defer os.RemoveAll(a.dir)
 	e := Endpoint{Host: "8.8.8.8", Port: 1, Type: "SOCKS5", Ping: 500, Services: []string{"telegram"}}
 	e2 := e
@@ -254,7 +255,7 @@ func TestPersistentOutOfOrderCheckpointAndFilters(t *testing.T) {
 func TestStopResumeUsesSavedInputs(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) }))
 	defer server.Close()
-	a := newApp(t.TempDir())
+	a := newTestApp(t)
 	a.disk.Settings.Workers = 2
 	var closes []func()
 	for i := 0; i < 4; i++ {
@@ -310,7 +311,7 @@ func TestStopResumeUsesSavedInputs(t *testing.T) {
 	}
 }
 func TestLoopbackAPIAuthorization(t *testing.T) {
-	a := newApp(t.TempDir())
+	a := newTestApp(t)
 	a.origin = "http://127.0.0.1:12345"
 	a.token = "secret"
 	h := a.handler()
@@ -330,7 +331,10 @@ func TestLoopbackAPIAuthorization(t *testing.T) {
 	}
 }
 func TestConfigAcceptedByBundledCore(t *testing.T) {
-	root, err := filepath.Abs("../toolchain/sing-box/sing-box-1.14.3-linux-amd64/sing-box")
+	root, err := filepath.Abs("../toolchain/sing-box-1.14.3-linux-amd64/sing-box")
+	if override := os.Getenv("PERSIANSOCKS_TEST_CORE"); override != "" {
+		root = override
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +360,7 @@ func TestConfigAcceptedByBundledCore(t *testing.T) {
 	}
 }
 func TestLargeStoreAndPageBound(t *testing.T) {
-	a := newApp(t.TempDir())
+	a := newTestApp(t)
 	for i := 1; i <= 50000; i++ {
 		e := Endpoint{Host: "8.8.8.8", Port: i, Type: "SOCKS5", Ping: int64(i)}
 		a.disk.Results[e.key()] = e
@@ -375,7 +379,7 @@ func TestLargeStoreAndPageBound(t *testing.T) {
 }
 
 func TestStateSerializationDuringUpdates(t *testing.T) {
-	a := newApp(t.TempDir())
+	a := newTestApp(t)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -394,4 +398,13 @@ func TestStateSerializationDuringUpdates(t *testing.T) {
 		}
 	}
 	wg.Wait()
+}
+
+func newTestApp(t *testing.T) *App {
+	t.Helper()
+	a := newApp(t.TempDir())
+	if runtime.GOOS == "windows" {
+		a.physical = Physical{Index: 1, Name: "Loopback Pseudo-Interface 1", IP: "127.0.0.1"}
+	}
+	return a
 }

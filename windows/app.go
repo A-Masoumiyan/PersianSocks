@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"embed"
@@ -8,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -25,7 +25,7 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.1.2"
+const version = "0.2.0"
 
 type Source struct {
 	Name     string `json:"name"`
@@ -34,13 +34,18 @@ type Source struct {
 	Type     string `json:"type"`
 }
 type Settings struct {
-	Workers       int    `json:"workers"`
-	Timeout       int    `json:"timeout"`
-	Max           int    `json:"max"`
-	TLSOnly       bool   `json:"tlsOnly"`
-	Failover      bool   `json:"failover"`
-	CustomSources string `json:"customSources"`
-	CustomTargets string `json:"customTargets"`
+	Workers       int      `json:"workers"`
+	Timeout       int      `json:"timeout"`
+	Max           int      `json:"max"`
+	TLSOnly       bool     `json:"tlsOnly"`
+	Failover      bool     `json:"failover"`
+	CustomSources string   `json:"customSources"`
+	CustomTargets string   `json:"customTargets"`
+	ScanTypes     []string `json:"scanTypes"`
+	Slow          bool     `json:"slow"`
+	SplitMode     string   `json:"splitMode"`
+	SplitApps     []string `json:"splitApps"`
+	SplitShowAll  bool     `json:"splitShowAll"`
 }
 type Checkpoint struct {
 	Input    []Endpoint `json:"input"`
@@ -49,78 +54,139 @@ type Checkpoint struct {
 	Targets  []Target   `json:"targets"`
 }
 type Disk struct {
-	Raw        []Endpoint          `json:"raw"`
-	Results    map[string]Endpoint `json:"results"`
-	Checkpoint *Checkpoint         `json:"checkpoint,omitempty"`
-	Settings   Settings            `json:"settings"`
+	Raw        []Endpoint            `json:"raw"`
+	Results    map[string]Endpoint   `json:"results"`
+	Checkpoint *Checkpoint           `json:"checkpoint,omitempty"`
+	Settings   Settings              `json:"settings"`
+	Filter     Filter                `json:"filter"`
+	Selected   string                `json:"selected"`
+	Tests      map[string]TestResult `json:"tests"`
+	Traffic    Traffic               `json:"traffic"`
 }
 type App struct {
-	mu             sync.Mutex
-	saveMu         sync.Mutex
-	disk           Disk
-	dir            string
-	physical       Physical
-	scanCancel     context.CancelFunc
-	scanRunning    bool
-	fetching       bool
-	message        string
-	err            string
-	scanError      string
-	sourceReport   []string
-	test           map[string]bool
-	vpnState       string
-	connected      *Endpoint
-	connectCancel  context.CancelFunc
-	core           *exec.Cmd
-	coreDone       chan error
-	coreLog        *logTail
-	job            uintptr
-	token          string
-	origin         string
-	lastSeen       time.Time
-	shutdown       func()
-	connectMu      sync.Mutex
-	attemptVersion map[string]uint64
-	sequence       uint64
-	lastDone       int
-	lastTotal      int
+	mu                sync.Mutex
+	saveMu            sync.Mutex
+	disk              Disk
+	dir               string
+	physical          Physical
+	scanCancel        context.CancelFunc
+	scanRunning       bool
+	fetching          bool
+	message           string
+	err               string
+	scanError         string
+	sourceReport      []string
+	test              map[string]bool
+	vpnState          string
+	connected         *Endpoint
+	connectCancel     context.CancelFunc
+	core              *exec.Cmd
+	coreDone          chan error
+	coreLog           *logTail
+	job               uintptr
+	token             string
+	origin            string
+	lastSeen          time.Time
+	shutdown          func()
+	connectMu         sync.Mutex
+	attemptVersion    map[string]uint64
+	sequence          uint64
+	lastDone          int
+	lastTotal         int
+	fetchCancel       context.CancelFunc
+	tasks             map[string]*TestTask
+	report            []string
+	apps              []InstalledApp
+	appsLoading       bool
+	appsLoaded        bool
+	appsError         string
+	corePort          int
+	statsPort         int
+	trafficDown       int64
+	trafficUp         int64
+	trafficAt         time.Time
+	activeSettings    Settings
+	cooldown          map[string]time.Time
+	recovering        bool
+	autoConnect       bool
+	userDisconnect    bool
+	controlGeneration uint64
+	fastScan          bool
 }
 
-func defaultSettings() Settings { return Settings{Workers: 12, Timeout: 8, Max: 1000} }
+func defaultSettings() Settings {
+	return Settings{Workers: 12, Timeout: 8, Max: 5000, Failover: true, ScanTypes: []string{"SOCKS5", "HTTP", "HTTPS"}, SplitMode: "all"}
+}
 func validateSettings(s Settings) error {
 	if s.Workers < 1 || s.Workers > 24 || s.Timeout < 3 || s.Timeout > 30 || s.Max < 0 || s.Max > 100000 {
 		return errors.New("تعداد کارگر ۱ تا ۲۴، مهلت ۳ تا ۳۰ ثانیه و سقف ۰ تا ۱۰۰۰۰۰ است؛ صفر یعنی همه")
 	}
-	_, err := customTargets(s.CustomTargets)
-	return err
+	if _, err := customTargets(s.CustomTargets); err != nil {
+		return err
+	}
+	if _, err := parseCustomSources(s.CustomSources); err != nil {
+		return err
+	}
+	if s.SplitMode != "" && s.SplitMode != "all" && s.SplitMode != "only" && s.SplitMode != "except" {
+		return errors.New("حالت اسپلیت تونل نامعتبر است")
+	}
+	if s.SplitMode == "only" && len(s.SplitApps) == 0 {
+		return errors.New("حداقل یک برنامه انتخاب کن")
+	}
+	for _, path := range s.SplitApps {
+		if !validExecutablePath(path) {
+			return errors.New("مسیر فایل exe باید کامل و معتبر باشد")
+		}
+	}
+	for _, typ := range s.ScanTypes {
+		if typ != "SOCKS5" && typ != "HTTP" && typ != "HTTPS" {
+			return errors.New("نوع اسکن نامعتبر است")
+		}
+	}
+	return nil
 }
 func customTargets(raw string) ([]Target, error) {
 	ts := append([]Target(nil), targets...)
-	i := 0
+	seen := map[string]bool{}
 	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		i++
-		if i > 8 {
+		name, u := "", line
+		if parts := strings.SplitN(line, "|", 2); len(parts) == 2 {
+			name = strings.TrimSpace(parts[0])
+			u = strings.TrimSpace(parts[1])
+		}
+		if !strings.Contains(u, "://") {
+			u = "https://" + u
+		}
+		r, err := http.NewRequest("GET", u, nil)
+		if err != nil || r.URL.Scheme != "https" || r.URL.User != nil || !validPublicHostname(r.URL.Hostname()) || (r.URL.Port() != "" && r.URL.Port() != "443") {
+			return nil, errors.New("مقصد باید دامنهٔ عمومی HTTPS باشد")
+		}
+		u = r.URL.String()
+		if seen[u] {
+			continue
+		}
+		seen[u] = true
+		if len(seen) > 8 {
 			return nil, errors.New("حداکثر ۸ مقصد دلخواه")
 		}
-		if !strings.Contains(line, "://") {
-			line = "https://" + line
+		if name == "" {
+			name = r.URL.Hostname()
 		}
-		r, err := http.NewRequest("GET", line, nil)
-		if err != nil || r.URL.Scheme != "https" || r.URL.User != nil || r.URL.Hostname() == "" || (r.URL.Port() != "" && r.URL.Port() != "443") {
-			return nil, errors.New("مقصد باید نشانی HTTPS معتبر باشد")
+		if len([]rune(name)) > 30 {
+			return nil, errors.New("نام مقصد حداکثر ۳۰ حرف است")
 		}
-		ts = append(ts, Target{ID: line, Name: r.URL.Hostname(), URL: line})
+		ts = append(ts, Target{ID: u, Name: name, URL: u})
 	}
 	return ts, nil
 }
 func newApp(dir string) *App {
 	a := &App{dir: dir, disk: Disk{Results: map[string]Endpoint{}, Settings: defaultSettings()}, test: map[string]bool{}, attemptVersion: map[string]uint64{}, vpnState: "off", lastSeen: time.Now()}
 	os.MkdirAll(dir, 0700)
-	if b, err := os.ReadFile(filepath.Join(dir, "state.json")); err == nil && len(b) < 100_000_000 {
+	if b, err := os.ReadFile(filepath.Join(dir, "state.json")); err == nil && len(b) < 512_000_000 {
 		var d Disk
 		if json.Unmarshal(b, &d) == nil && d.Results != nil && validateSettings(d.Settings) == nil {
 			a.disk = d
@@ -130,11 +196,19 @@ func newApp(dir string) *App {
 	if cp != nil && (len(cp.Input) != len(cp.Done) || validateSettings(cp.Settings) != nil || len(cp.Targets) == 0) {
 		a.disk.Checkpoint = nil
 	}
-	var err error
-	a.physical, err = physicalNetwork()
-	if err != nil {
-		a.err = err.Error()
+	if a.disk.Tests == nil {
+		a.disk.Tests = map[string]TestResult{}
 	}
+	if len(a.disk.Settings.ScanTypes) == 0 {
+		a.disk.Settings.ScanTypes = defaultSettings().ScanTypes
+	}
+	if a.disk.Settings.SplitMode == "" {
+		a.disk.Settings.SplitMode = "all"
+	}
+	a.disk.Traffic.DownRate = 0
+	a.disk.Traffic.UpRate = 0
+	a.tasks = map[string]*TestTask{}
+	a.cooldown = map[string]time.Time{}
 	return a
 }
 func (a *App) save() error {
@@ -173,9 +247,7 @@ func balanced(groups [][]Endpoint) []Endpoint {
 			if !seen[e.key()] {
 				seen[e.key()] = true
 				out = append(out, e)
-				if len(out) >= 100000 {
-					return out
-				}
+
 			}
 		}
 		if !added {
@@ -191,19 +263,23 @@ func parseList(raw, typ, source string) []Endpoint {
 			e.Country = country(e.Host)
 			seen[e.key()] = true
 			out = append(out, e)
-			if len(out) >= 50000 {
-				break
-			}
+
 		}
 	}
 	return out
 }
 func (a *App) fetch() error {
 	a.mu.Lock()
+	if !physicalReady(a.physical) {
+		a.mu.Unlock()
+		return errors.New("کارت شبکهٔ اصلی هنوز آماده نیست")
+	}
 	if a.fetching {
 		a.mu.Unlock()
 		return errors.New("دریافت لیست در حال اجراست")
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	a.fetchCancel = cancel
 	a.fetching = true
 	a.message = "در حال دریافت منابع"
 	a.err = ""
@@ -212,31 +288,19 @@ func (a *App) fetch() error {
 	old := append([]Endpoint(nil), a.disk.Raw...)
 	a.mu.Unlock()
 	go func() {
-		defer func() { a.mu.Lock(); a.fetching = false; a.mu.Unlock() }()
+		defer func() { cancel(); a.mu.Lock(); a.fetching = false; a.fetchCancel = nil; a.mu.Unlock() }()
 		var sources []Source
 		b, _ := bundle.ReadFile("assets/sources.json")
 		json.Unmarshal(b, &sources)
-		for i, line := range strings.Split(s.CustomSources, "\n") {
-			fields := strings.Fields(line)
-			if len(fields) == 0 {
-				continue
-			}
-			typ, u := "SOCKS5", fields[0]
-			if len(fields) == 2 {
-				typ, u = strings.ToUpper(fields[0]), fields[1]
-			}
-			r, err := http.NewRequest("GET", u, nil)
-			if err == nil && r.URL.Scheme == "https" && r.URL.User == nil && (typ == "SOCKS5" || typ == "HTTP" || typ == "HTTPS") {
-				sources = append(sources, Source{fmt.Sprintf("دلخواه %d", i+1), u, "", typ})
-			}
-		}
+		custom, _ := parseCustomSources(s.CustomSources)
+		sources = append(sources, custom...)
 		groups := make([][]Endpoint, len(sources)+4)
 		reports := make([]string, len(sources))
 		sem := make(chan struct{}, 6)
 		var wg sync.WaitGroup
 		tr := &http.Transport{DialContext: p.dial, Proxy: nil, TLSHandshakeTimeout: 5 * time.Second, MaxIdleConns: 6, DisableKeepAlives: true}
 		defer tr.CloseIdleConnections()
-		client := &http.Client{Transport: tr, Timeout: 12 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
+		client := &http.Client{Transport: tr, Timeout: 30 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 			if len(via) > 3 || r.URL.Scheme != "https" {
 				return errors.New("تغییر مسیر نامعتبر")
 			}
@@ -246,23 +310,39 @@ func (a *App) fetch() error {
 			wg.Add(1)
 			go func(i int, src Source) {
 				defer wg.Done()
-				sem <- struct{}{}
+				select {
+				case sem <- struct{}{}:
+				case <-ctx.Done():
+					return
+				}
 				defer func() { <-sem }()
 				for _, u := range []string{src.URL, src.Fallback} {
 					if u == "" {
 						continue
 					}
-					r, err := client.Get(u)
+					req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
+					r, err := client.Do(req)
 					if err != nil {
 						continue
 					}
-					raw, err := io.ReadAll(io.LimitReader(r.Body, 2_000_001))
-					r.Body.Close()
-					if err == nil && r.StatusCode == 200 && len(raw) <= 2_000_000 {
-						groups[i] = parseList(string(raw), src.Type, src.Name)
-						if len(groups[i]) > 0 {
-							break
+					if r.StatusCode == 200 {
+						scanner := bufio.NewScanner(r.Body)
+						scanner.Buffer(make([]byte, 4096), 65536)
+						seen := map[string]bool{}
+						for scanner.Scan() {
+							if ctx.Err() != nil {
+								break
+							}
+							if e, ok := parseEndpoint(scanner.Text(), src.Type, src.Name); ok && !seen[e.key()] {
+								seen[e.key()] = true
+								e.Country = country(e.Host)
+								groups[i] = append(groups[i], e)
+							}
 						}
+					}
+					r.Body.Close()
+					if len(groups[i]) > 0 {
+						break
 					}
 				}
 				reports[i] = fmt.Sprintf("%s: %d", src.Name, len(groups[i]))
@@ -279,6 +359,10 @@ func (a *App) fetch() error {
 		a.disk.Raw = raw
 		a.sourceReport = reports
 		a.message = fmt.Sprintf("%d پروکسی یکتا دریافت شد؛ اسکن را شروع کن", len(raw))
+		if ctx.Err() != nil {
+			a.message = "دریافت متوقف شد؛ نتیجه‌های دریافت‌شده ذخیره شدند"
+		}
+		a.recordLocked(a.message)
 		a.mu.Unlock()
 		a.saveChecked()
 	}()
@@ -299,16 +383,21 @@ func (a *App) startScan(mode string) error {
 		if cp == nil {
 			return errors.New("اسکن ناتمامی وجود ندارد")
 		}
+		if cp.Settings.CustomTargets != s.CustomTargets || cp.Settings.TLSOnly != s.TLSOnly {
+			return errors.New("تنظیمات تست تغییر کرده؛ اسکن را از ابتدا شروع کن")
+		}
 		s = cp.Settings
 	} else {
 		inputs := []Endpoint{}
 		if mode == "healthy" {
 			for _, e := range a.disk.Results {
-				inputs = append(inputs, e)
+				if scanAccepts(e, s) {
+					inputs = append(inputs, e)
+				}
 			}
 		} else {
 			for _, e := range a.disk.Raw {
-				if !s.TLSOnly || e.Type == "HTTPS" {
+				if scanAccepts(e, s) {
 					inputs = append(inputs, e)
 				}
 			}
@@ -323,11 +412,15 @@ func (a *App) startScan(mode string) error {
 		if err != nil {
 			return err
 		}
+		if s.Slow && s.Timeout < 20 {
+			s.Timeout = 20
+		}
 		a.disk.Checkpoint = &Checkpoint{Input: inputs, Done: make([]bool, len(inputs)), Settings: s, Targets: ts}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.scanCancel = cancel
 	a.scanRunning = true
+	a.fastScan = false
 	a.err = ""
 	a.scanError = ""
 	a.message = "اسکن روی اینترنت مستقیم"
@@ -403,105 +496,37 @@ func (a *App) startScan(mode string) error {
 			a.disk.Checkpoint = nil
 			a.message = "اسکن تمام شد"
 		}
+		a.recordLocked(a.message)
+		auto := a.autoConnect && ctx.Err() == nil && all
+		a.autoConnect = false
 		a.mu.Unlock()
 		a.saveChecked()
-	}()
-	return nil
-}
-func (a *App) testOne(key, kind string) error {
-	a.mu.Lock()
-	e, ok := a.disk.Results[key]
-	if !ok {
-		a.mu.Unlock()
-		return errors.New("پروکسی در فهرست سالم‌ها نیست")
-	}
-	if a.test[key] {
-		a.mu.Unlock()
-		return errors.New("تست این پروکسی در حال اجراست")
-	}
-	a.test[key] = true
-	claim := uint64(0)
-	if kind != "speed" {
-		a.sequence++
-		claim = a.sequence
-		a.attemptVersion[key] = claim
-	}
-	p, s := a.physical, a.disk.Settings
-	a.mu.Unlock()
-	go func() {
-		defer func() { a.mu.Lock(); delete(a.test, key); a.mu.Unlock(); a.saveChecked() }()
-		if kind == "speed" {
-			speed, _, err := (Probe{Physical: p}).speed(context.Background(), e)
-			a.mu.Lock()
-			if current, ok := a.disk.Results[key]; ok {
-				if err != nil {
-					current.Note = "تست سرعت ناموفق: " + err.Error()
-				} else {
-					current.Speed = speed
-					current.Note = ""
-				}
-				a.disk.Results[key] = current
-			}
-			a.mu.Unlock()
-			return
-		}
-		ts, _ := customTargets(s.CustomTargets)
-		fresh, err := (Probe{Physical: p}).inspect(context.Background(), e, s.Timeout, ts)
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		if a.attemptVersion[key] != claim {
-			return
-		}
-		if err != nil {
-			delete(a.disk.Results, key)
-			a.err = "پروکسی نامعتبر از سالم‌ها حذف شد: " + err.Error()
-		} else {
-			if current, ok := a.disk.Results[key]; ok {
-				fresh.Speed = current.Speed
-			}
-			a.disk.Results[key] = fresh
+		if auto {
+			a.connectBest()
 		}
 	}()
 	return nil
 }
+func (a *App) testOne(key, kind string) error { return a.runSingle(key, kind) }
 func (a *App) snapshot(r *http.Request) any {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.lastSeen = time.Now()
-	rows := []Endpoint{}
 	q := r.URL.Query()
-	typ, service := q.Get("type"), q.Get("service")
-	max := 0
-	fmt.Sscanf(q.Get("ping"), "%d", &max)
-	for _, e := range a.disk.Results {
-		if typ != "" && e.Type != typ {
-			continue
-		}
-		if max > 0 && (e.Ping <= 0 || e.Ping >= int64(max)) {
-			continue
-		}
-		if service != "" {
-			found := false
-			for _, s := range e.Services {
-				if s == service {
-					found = true
-				}
-			}
-			if !found {
-				continue
-			}
-		}
-		rows = append(rows, e)
+	f := a.disk.Filter
+	if q.Has("type") {
+		f.Type = q.Get("type")
 	}
-	sort.Slice(rows, func(i, j int) bool {
-		if q.Get("sort") == "speed" && rows[i].Speed != rows[j].Speed {
-			return rows[i].Speed > rows[j].Speed
-		}
-		if rows[i].Ping != rows[j].Ping {
-			return rows[i].Ping < rows[j].Ping
-		}
-		return rows[i].key() < rows[j].key()
-	})
+	if q.Has("service") {
+		f.Service = q.Get("service")
+	}
+	if q.Has("sort") {
+		f.Sort = q.Get("sort")
+	}
+	if q.Has("ping") {
+		fmt.Sscanf(q.Get("ping"), "%d", &f.Ping)
+	}
+	rows := filteredRows(a.disk.Results, f, a.disk.Settings.TLSOnly)
 	count := len(rows)
 	page := 0
 	fmt.Sscanf(q.Get("page"), "%d", &page)
@@ -518,7 +543,8 @@ func (a *App) snapshot(r *http.Request) any {
 	}
 	rows = rows[start:end]
 	done, total := a.lastDone, a.lastTotal
-	if cp := a.disk.Checkpoint; cp != nil {
+	cp := a.disk.Checkpoint
+	if cp != nil && !a.fastScan {
 		done = 0
 		total = len(cp.Input)
 		for _, b := range cp.Done {
@@ -527,18 +553,31 @@ func (a *App) snapshot(r *http.Request) any {
 			}
 		}
 	}
-	cp := a.disk.Checkpoint
-	var ts []Target
-	ts, _ = customTargets(a.disk.Settings.CustomTargets)
+	key := a.disk.Selected
+	if q.Has("selected") {
+		key = q.Get("selected")
+	}
 	var selected *Endpoint
-	if e, ok := a.disk.Results[q.Get("selected")]; ok {
+	if e, ok := a.disk.Results[key]; ok {
 		selected = &e
 	}
-	testing := make(map[string]bool, len(a.test))
-	for key, value := range a.test {
-		testing[key] = value
+	ts, _ := customTargets(a.disk.Settings.CustomTargets)
+	tasks := map[string]TestTask{}
+	testing := map[string]bool{}
+	for key, task := range a.tasks {
+		tasks[key] = *task
+		testing[key] = true
 	}
-	return map[string]any{"version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "vpn": a.vpnState, "connected": a.connected, "selectedResult": selected, "testing": testing, "physical": a.physical, "sources": a.sourceReport, "targets": ts}
+	measurements := map[string]TestResult{}
+	for _, e := range rows {
+		if result, ok := a.disk.Tests[e.key()]; ok {
+			measurements[e.key()] = result
+		}
+	}
+	if result, ok := a.disk.Tests[key]; ok {
+		measurements[key] = result
+	}
+	return map[string]any{"version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
 }
 
 type Action struct {
@@ -547,6 +586,7 @@ type Action struct {
 	Text     string   `json:"text"`
 	Type     string   `json:"type"`
 	Settings Settings `json:"settings"`
+	Filter   Filter   `json:"filter"`
 }
 
 func (a *App) act(v Action) error {
@@ -557,29 +597,72 @@ func (a *App) act(v Action) error {
 		return a.startScan(v.Action)
 	case "stop":
 		a.mu.Lock()
+		a.autoConnect = false
 		if a.scanCancel != nil {
 			a.scanCancel()
 		}
 		a.mu.Unlock()
-	case "test", "speed":
+	case "test", "speed", "ping":
 		return a.testOne(v.Key, v.Action)
 	case "connect":
 		return a.connect(v.Key)
 	case "disconnect":
 		a.mu.Lock()
+		a.controlGeneration++
+		a.userDisconnect = true
+		a.autoConnect = false
+		for _, t := range a.tasks {
+			t.cancel()
+		}
 		if a.connectCancel != nil {
 			a.connectCancel()
 		}
 		a.mu.Unlock()
 		go a.disconnect()
 	case "settings":
-		if err := validateSettings(v.Settings); err != nil {
+		return a.applySettings(v.Settings)
+	case "filter":
+		a.mu.Lock()
+		settings := a.disk.Settings
+		a.mu.Unlock()
+		if err := validateFilter(v.Filter, settings); err != nil {
 			return err
 		}
 		a.mu.Lock()
-		a.disk.Settings = v.Settings
+		a.disk.Filter = v.Filter
 		a.mu.Unlock()
-		a.saveChecked()
+		go a.saveChecked()
+	case "select":
+		a.mu.Lock()
+		if _, ok := a.disk.Results[v.Key]; !ok {
+			a.mu.Unlock()
+			return errors.New("پروکسی موجود نیست")
+		}
+		a.disk.Selected = v.Key
+		a.mu.Unlock()
+		go a.saveChecked()
+	case "stopTest":
+		a.mu.Lock()
+		if t := a.tasks[v.Key]; t != nil {
+			t.cancel()
+		}
+		a.mu.Unlock()
+	case "fastPing":
+		return a.fastPing()
+	case "stopFetch":
+		a.mu.Lock()
+		if a.fetchCancel != nil {
+			a.fetchCancel()
+		}
+		a.mu.Unlock()
+	case "autoConnect":
+		return a.quickToggle(true)
+	case "quickToggle":
+		return a.quickToggle(false)
+	case "apps":
+		a.loadApps()
+	case "widget":
+		return showQuickWidget()
 	case "refreshNetwork":
 		a.mu.Lock()
 		busy := a.scanRunning || a.fetching || a.vpnState != "off"
@@ -630,6 +713,21 @@ func (a *App) handler() http.Handler {
 			http.Error(w, "Invalid Origin", 403)
 			return
 		}
+		if strings.HasPrefix(r.URL.Path, "/flags/") {
+			code := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/flags/"), ".svg")
+			if len(code) != 2 || code[0] < 'a' || code[0] > 'z' || code[1] < 'a' || code[1] > 'z' {
+				http.NotFound(w, r)
+				return
+			}
+			b, err := bundle.ReadFile("assets/flags/" + code + ".svg")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "image/svg+xml")
+			w.Write(b)
+			return
+		}
 		if r.URL.Path == "/" {
 			if r.Method != "GET" {
 				http.Error(w, "Method", 405)
@@ -670,6 +768,33 @@ func (a *App) handler() http.Handler {
 			} else {
 				w.Write([]byte("{}"))
 			}
+		case "/api/catalog":
+			b, _ := bundle.ReadFile("assets/sources.json")
+			w.Write(b)
+		case "/api/apps":
+			if r.Method != "GET" {
+				http.Error(w, "Method", 405)
+				return
+			}
+			a.mu.Lock()
+			json.NewEncoder(w).Encode(map[string]any{"apps": a.apps, "loading": a.appsLoading, "loaded": a.appsLoaded, "error": a.appsError})
+			a.mu.Unlock()
+		case "/api/report":
+			json.NewEncoder(w).Encode(map[string]string{"text": a.reportText()})
+		case "/api/crash":
+			b, _ := os.ReadFile(filepath.Join(a.dir, "crash.txt"))
+			json.NewEncoder(w).Encode(map[string]string{"text": string(b)})
+		case "/api/browse":
+			if r.Method != "POST" {
+				http.Error(w, "Method", 405)
+				return
+			}
+			path, err := chooseExecutable()
+			msg := ""
+			if err != nil {
+				msg = err.Error()
+			}
+			json.NewEncoder(w).Encode(map[string]string{"path": path, "error": msg})
 		case "/api/export":
 			a.mu.Lock()
 			rows := []Endpoint{}
@@ -725,6 +850,14 @@ func main() {
 	a.shutdown = func() {
 		once.Do(func() {
 			a.mu.Lock()
+			if a.fetchCancel != nil {
+				a.fetchCancel()
+			}
+			for _, task := range a.tasks {
+				task.cancel()
+			}
+			a.userDisconnect = true
+			a.controlGeneration++
 			if a.scanCancel != nil {
 				a.scanCancel()
 			}
@@ -741,6 +874,17 @@ func main() {
 	}
 	go server.Serve(listener)
 	go a.monitor(done)
+	go a.pollTraffic(done)
+	startQuickControls(a, done)
+	go func() {
+		p, err := physicalNetwork()
+		a.mu.Lock()
+		a.physical = p
+		if err != nil {
+			a.err = err.Error()
+		}
+		a.mu.Unlock()
+	}()
 	if os.Getenv("PERSIANSOCKS_NO_BROWSER") == "" {
 		openUI(a.origin + "/#" + a.token)
 	} else {
@@ -763,8 +907,8 @@ func main() {
 			return
 		case <-ticker.C:
 			a.mu.Lock()
-			running := a.scanRunning
-			expired := time.Since(a.lastSeen) > 10*time.Minute
+			running := a.scanRunning || a.vpnState == "on"
+			expired := false // tray and widget remain available after the UI is closed
 			a.mu.Unlock()
 			if running {
 				a.saveChecked()

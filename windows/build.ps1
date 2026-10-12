@@ -18,6 +18,17 @@ Copy-Item "$release\core\sing-box-1.14.3-windows-amd64\libcronet.dll" $bin
 Copy-Item "$release\core\sing-box-1.14.3-windows-amd64\LICENSE" "$bin\LICENSE-sing-box.txt"
 Copy-Item "$release\wintun\wintun\bin\amd64\wintun.dll" $bin
 Copy-Item "$release\wintun\wintun\LICENSE.txt" "$bin\LICENSE-wintun.txt"
+# Preserve notices and offer the corresponding upstream core source inside the EXE.
+Get-Verified 'https://github.com/SagerNet/sing-box/archive/refs/tags/v1.14.3.tar.gz' "$bin\sing-box-1.14.3-source.tar.gz" '9a8e3712a5f611ad95f1d16874bbdcdffbd3b8eed16dae2d71ce7042a33c3386'
+Copy-Item "$PSScriptRoot\LICENSE" "$bin\LICENSE-PersianSocks.txt"
+Copy-Item "$(go env GOROOT)\LICENSE" "$bin\LICENSE-Go.txt"
+Get-Verified 'https://github.com/lipis/flag-icons/archive/refs/tags/v7.5.0.zip' "$release\flags.zip" '7eafedfc07e16ce640dd53309fbe147be0dcfd36d027646cf3798aea79a18913'
+Expand-Archive "$release\flags.zip" "$release\flags" -Force
+New-Item -ItemType Directory -Force "$PSScriptRoot\assets\flags" | Out-Null
+Copy-Item "$release\flags\flag-icons-7.5.0\flags\4x3\*.svg" "$PSScriptRoot\assets\flags"
+Copy-Item "$release\flags\flag-icons-7.5.0\LICENSE" "$PSScriptRoot\assets\FLAGS-LICENSE.txt"
+Copy-Item "$PSScriptRoot\assets\*-NOTICE.txt" $bin
+Copy-Item "$PSScriptRoot\assets\FLAGS-LICENSE.txt" $bin
 $manifest = @{}
 Get-ChildItem $bin -File | ForEach-Object { $manifest[$_.Name] = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant() }
 $manifest | ConvertTo-Json | Set-Content -Encoding ASCII "$bin\manifest.json"
