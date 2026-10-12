@@ -1,8 +1,6 @@
 name: Build PersianSocks APK
 on:
   workflow_dispatch:
-  push:
-    branches: [main, master]
 jobs:
   android:
     runs-on: ubuntu-latest
