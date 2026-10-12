@@ -1,50 +1,17 @@
-PersianSocks 0.3.0 — 2026-10-12
+{
+  "version": "0.18.0",
+  "versionCode": 19,
+  "buildPassed": true,
+  "dialogCreationSitesThemed": 16,
+  "sameSigningCertificate": true,
+  "signatureVerified": true,
+  "aligned16KB": true,
+  "nativeABIs": 4,
+  "deviceUITested": false,
+  "regressionTestsRerun": false,
+  "priorVersionRegressionChecksPassed": 377,
+  "apkBytes": 3794953,
+  "apkSha256": "1f43b01b79f4b4011f31a0e019ec7fd29253de6e9b435566f7b6a9ec473f23ec"
+}
 
-PASS: Android Java, resources and DEX compilation, SDK 35 / JDK 17.
-PASS: release APK v3 signature; same certificate as previous versions.
-PASS: package ir.persiansocks.app, versionCode 4, min API 29, target API 35; not debuggable.
-PASS: official zipalign -c -P 16 4; four native ABIs; archive integrity.
-PASS: 20,000 embedded candidate lines; no signing key or test certificate in APK.
-
-Local protocol/transport fixture results (not actual Android VPN tests):
-PASS: parse formats, reject invalid/private, deduplicate
-PASS: balanced 500 candidate selection, no old 80-item cutoff
-PASS: different source endpoints preserved
-PASS: deduplicate manual, live and embedded addresses
-PASS: enforce configurable 20,000 candidate bound
-PASS: 17 source definitions
-PASS: authenticated TLS + HTTP proxy accepted
-PASS: SOCKS ACK without HTTPS rejected
-PASS: destination rejection diagnosis
-PASS: authentication requirement diagnosis
-PASS: 503 on all destinations not counted healthy
-PASS: 403 on every service is never healthy
-PASS: YouTube and Instagram still tested when Telegram is rejected
-PASS: at least one service sufficient: only-telegram
-PASS: service labels survive save/load: only-telegram
-PASS: at least one service sufficient: only-youtube
-PASS: service labels survive save/load: only-youtube
-PASS: at least one service sufficient: only-instagram
-PASS: service labels survive save/load: only-instagram
-PASS: legacy entries not silently promoted to service-verified results
-PASS: all three services tested after first success
-PASS: TLS/HTTPS for all services through protected SOCKS gateway
-PASS: every upstream TCP socket goes through protection hook
-PASS: gateway rewrites UDP association to loopback
-PASS: two-way UDP relay preserves SOCKS datagram and payload
-PASS: physical UDP socket uses protection hook
-PASS: failed protection cannot yield a healthy proxy
-PASS: large valid service headers accepted within bounded limits
-PASS: untrusted TLS certificate rejected for all targets
-PASS: stalled probe actually connects
-PASS: cancellation closes a stalled socket promptly
-PASS: source downloader reaches test stage
-PASS: failed primary uses mirror and reports deduplicated source count
-PASS: restart uses embedded fallback when live sources are absent
-PASS: VPN-bound transport tests every service and enforces status: tunnel-valid
-PASS: VPN-bound transport tests every service and enforces status: tunnel-youtube
-PASS: VPN-bound transport tests every service and enforces status: tunnel-denied
-PASS: VPN DNS failure cannot silently fall back to physical routing
-RESULT: 38 checks passed
-
-NOT TESTED: Android device/emulator execution; system protect calls; native TUN routing; actual phone/ISP connectivity; DNS/IPv6 leaks; video playback or account login.
+UI-only change. Compiled all Java and resources. Verified in-app dialog theme coverage. No device or emulator UI verification available.

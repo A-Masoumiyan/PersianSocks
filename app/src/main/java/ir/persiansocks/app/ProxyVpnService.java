@@ -319,6 +319,7 @@ public final class ProxyVpnService extends VpnService {
                 .addAddress("fd00:1:fd00:1::2", 64)
                 .addRoute("::", 0)
                 .addDnsServer("198.18.0.2");
+            SplitTunnelSettings.apply(this, b);
             tun = b.establish();
             if (tun == null) throw new IllegalStateException("ایجاد رابط VPN توسط اندروید رد شد");
             String yaml = "tunnel:\n" +

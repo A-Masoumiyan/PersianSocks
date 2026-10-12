@@ -79,7 +79,7 @@ public final class QuickControls {
                 return;
             }catch(Exception error){android.util.Log.w("PersianSocks","Add tile",error);}
         }
-        new AlertDialog.Builder(activity).setTitle("افزودن به پنل سریع")
+        new AlertDialog.Builder(activity, R.style.AppDialogTheme).setTitle("افزودن به پنل سریع")
             .setMessage("پنل بالای گوشی را کامل باز کن، ویرایش دکمه‌ها را بزن و PersianSocks را به دکمه‌های فعال بکش.")
             .setPositiveButton("باشه",null).show();
     }
@@ -89,7 +89,7 @@ public final class QuickControls {
             if(manager.isRequestPinAppWidgetSupported()&&manager.requestPinAppWidget(
                 new ComponentName(activity,VpnWidgetProvider.class),null,null))return;
         }catch(Exception error){android.util.Log.w("PersianSocks","Pin widget",error);}
-        new AlertDialog.Builder(activity).setTitle("افزودن ویجت")
+        new AlertDialog.Builder(activity, R.style.AppDialogTheme).setTitle("افزودن ویجت")
             .setMessage("روی جای خالی صفحهٔ اصلی نگه دار، ویجت‌ها را باز کن و ویجت PersianSocks را انتخاب کن.")
             .setPositiveButton("باشه",null).show();
     }

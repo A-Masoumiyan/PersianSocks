@@ -18,6 +18,10 @@ Copy-Item "$release\core\sing-box-1.14.3-windows-amd64\libcronet.dll" $bin
 Copy-Item "$release\core\sing-box-1.14.3-windows-amd64\LICENSE" "$bin\LICENSE-sing-box.txt"
 Copy-Item "$release\wintun\wintun\bin\amd64\wintun.dll" $bin
 Copy-Item "$release\wintun\wintun\LICENSE.txt" "$bin\LICENSE-wintun.txt"
+$manifest = @{}
+Get-ChildItem $bin -File | ForEach-Object { $manifest[$_.Name] = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant() }
+$manifest | ConvertTo-Json | Set-Content -Encoding ASCII "$bin\manifest.json"
+Compress-Archive -Path "$bin\*" -DestinationPath "$PSScriptRoot\assets\windows-runtime.zip" -Force
 $env:GOOS='windows'
 $env:GOARCH='amd64'
 $env:CGO_ENABLED='0'

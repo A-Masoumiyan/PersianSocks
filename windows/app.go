@@ -25,7 +25,7 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.1.0"
+const version = "0.1.2"
 
 type Source struct {
 	Name     string `json:"name"`

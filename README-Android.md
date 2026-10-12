@@ -1,4 +1,4 @@
-# PersianSocks 0.16.0
+# PersianSocks 0.18.0
 
 نسخهٔ release با package `ir.persiansocks.app`، versionCode 17، حداقل Android 10 / API 29 و target/compile SDK 36 ساخته و با امضای نسخه‌های قبلی امضا شده است.
 
@@ -201,13 +201,13 @@ https://developer.android.com/reference/android/app/ActivityOptions
 
 ## ساخت
 
-با JDK 17 و Android SDK شامل platforms;android-36 و build-tools;35.0.0:
+با JDK 17 و Android SDK شامل platforms;android-35 و build-tools;35.0.0:
 
 ```bash
 python3 scripts/build-apk-offline.py --sdk /path/to/android-sdk --jdk /path/to/jdk-17
 ```
 
-فایل AAR تأییدشده داخل app/libs است. مخزن عمومی کلید خصوصی امضا یا رمز آن را ندارد. اسکریپت ساخت آفلاین، اگر کلید شخصی موجود نباشد، یک کلید محلی تازه ایجاد می‌کند؛ خروجی با کلید تازه نمی‌تواند نسخه‌های قبلی با امضای اصلی را به‌روزرسانی کند. کلید اصلی را فقط در محل خصوصی نگه دار؛ فایل‌های کلید و رمز از Git مستثنا هستند.
+فایل AAR تأییدشده داخل app/libs است. کلید امضا داخل signing برای امکان به‌روزرسانی بعدی نگهداری شده است؛ آن پوشه را خصوصی نگه دار.
 
 ## اعتبارسنجی و محدودیت
 
@@ -216,8 +216,32 @@ python3 scripts/build-apk-offline.py --sdk /path/to/android-sdk --jdk /path/to/j
 SOCKS5 به خودی خود رمزنگاری اضافه نمی‌کند؛ HTTPS گواهی خود را اعتبارسنجی می‌کند.
 مجوز MIT موتور بومی داخل assets برنامه است.
 
-## ساخت در GitHub Actions
 
-Workflow «Build PersianSocks APK» با push روی main یا master، یا اجرای دستی، نسخهٔ personal debug را می‌سازد. فایل APK از بخش Artifacts همان اجرا قابل دریافت است. این خروجی کلید امضای نسخهٔ انتشار را ندارد و برای نصب روی نسخهٔ قبلی با امضای اصلی مناسب نیست.
+## Version 0.17.0: per-app split tunnelling
 
-کلید عمومی `signing/PersianSocks-public.pem` برای شناسایی گواهی باقی مانده است؛ کلید خصوصی، رمز امضا و گواهی موقت تست داخل مخزن عمومی قرار نمی‌گیرند. تست‌ها گواهی آزمایشی تازه را در پوشهٔ موقت تولید می‌کنند.
+Open Settings > اسپلیت تونل • انتخاب برنامه‌ها. All-app routing remains the default.
+Use ONLY_SELECTED to tunnel selected apps, or EXCEPT_SELECTED to bypass selected apps.
+Save changes, then disconnect and reconnect to apply them. The picker defaults to
+user-installed apps; Show all reveals system apps. It supports search, clear selections,
+and keeps hidden selections when changing visibility or the search query.
+Package enumeration runs off the UI thread and the app list recycles rows.
+
+The personal APK declares QUERY_ALL_PACKAGES to enumerate installed applications.
+Package selection is stored locally in SharedPreferences and never uploaded.
+Removed/disabled packages are skipped on connection. ONLY_SELECTED refuses to connect
+if no selected installed app remains, including an uninstall during VPN builder setup.
+PersianSocks itself remains in the tunnel for connection verification; its scanner and
+proxy transport continue using protected physical-network sockets. Android applies
+app routing by UID, so packages sharing a UID may share routing behavior.
+
+Local policy and regression tests do not constitute real-device routing verification.
+
+
+## Version 0.18.0: consistent in-app dialogs
+
+All in-app AlertDialogs explicitly use the app's dark rounded dialog theme,
+including test-domain lists and forms, scan settings, source management, reports,
+privacy disclosures and quick-control help. Dialog forms use transparent content
+with padding instead of a second bordered card. Title, body and actions share one
+background. Android-owned VPN permission and system prompts remain OS-managed.
+Split tunnelling from 0.17.0 remains available.

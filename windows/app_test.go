@@ -21,7 +21,12 @@ import (
 	"time"
 )
 
-func proxyServer(t *testing.T, typ string, cert tls.Certificate, delay time.Duration) (Endpoint, func()) {
+type fixtureOptions struct {
+	Target      string
+	Connections *atomic.Int32
+}
+
+func proxyServer(t *testing.T, typ string, cert tls.Certificate, delay time.Duration, options ...fixtureOptions) (Endpoint, func()) {
 	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -38,6 +43,9 @@ func proxyServer(t *testing.T, typ string, cert tls.Certificate, delay time.Dura
 				return
 			}
 			active.Add(1)
+			if len(options) > 0 && options[0].Connections != nil {
+				options[0].Connections.Add(1)
+			}
 			go func() {
 				defer active.Add(-1)
 				defer c.Close()
@@ -50,25 +58,51 @@ func proxyServer(t *testing.T, typ string, cert tls.Certificate, delay time.Dura
 						return
 					}
 					c.Write([]byte{5, 0})
-					b, err = exact(c, 5)
-					if err != nil || b[1] != 1 || b[3] != 3 {
+					b, err = exact(c, 4)
+					if err != nil || b[1] != 1 {
 						return
 					}
-					name, err := exact(c, int(b[4]))
-					if err != nil {
+					var host string
+					switch b[3] {
+					case 1:
+						ip, er := exact(c, 4)
+						if er != nil {
+							return
+						}
+						host = net.IP(ip).String()
+					case 4:
+						ip, er := exact(c, 16)
+						if er != nil {
+							return
+						}
+						host = net.IP(ip).String()
+					case 3:
+						n, er := exact(c, 1)
+						if er != nil {
+							return
+						}
+						name, er := exact(c, int(n[0]))
+						if er != nil {
+							return
+						}
+						host = string(name)
+					default:
 						return
 					}
 					port, err := exact(c, 2)
 					if err != nil {
 						return
 					}
-					target = net.JoinHostPort(string(name), fmt.Sprint(int(port[0])*256+int(port[1])))
+					target = net.JoinHostPort(host, fmt.Sprint(int(port[0])*256+int(port[1])))
 				} else {
 					r, err := http.ReadRequest(bufio.NewReader(c))
 					if err != nil || r.Method != "CONNECT" {
 						return
 					}
 					target = r.Host
+				}
+				if len(options) > 0 && options[0].Target != "" {
+					target = options[0].Target
 				}
 				upstream, err := net.DialTimeout("tcp", target, time.Second)
 				if err != nil {

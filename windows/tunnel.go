@@ -18,8 +18,8 @@ import (
 	"time"
 )
 
-var coreSHA string
-var wintunSHA string
+var coreSHA = "5c19bb3f8c12d4e85b3d47fe63123a7624b314b58dd7a8e32f51004f1c4d2faf"
+var wintunSHA = "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce"
 
 type logTail struct {
 	mu sync.Mutex
@@ -53,7 +53,7 @@ func tunnelConfig(e Endpoint, p Physical, proxyPort int) map[string]any {
 		"dns":       map[string]any{"servers": []any{map[string]any{"type": "https", "tag": "remote-dns", "server": "1.1.1.1", "tls": map[string]any{"enabled": true, "server_name": "cloudflare-dns.com"}, "detour": "proxy"}}, "final": "remote-dns", "strategy": "ipv4_only"},
 		"inbounds":  []any{map[string]any{"type": "tun", "tag": "tun", "interface_name": "PersianSocks-TUN", "address": []string{"172.29.251.1/30", "fdfe:dcba:9876::1/126"}, "mtu": 1500, "auto_route": true, "strict_route": false, "dns_mode": "hijack", "stack": "mixed"}, map[string]any{"type": "mixed", "tag": "local-proxy", "listen": "127.0.0.1", "listen_port": proxyPort}},
 		"outbounds": []any{out, map[string]any{"type": "direct", "tag": "direct", "bind_interface": p.Name}},
-		"route":     map[string]any{"default_interface": p.Name, "final": "proxy", "rules": []any{map[string]any{"process_path": exe, "action": "route", "outbound": "direct"}, map[string]any{"protocol": "dns", "action": "hijack-dns"}, map[string]any{"ip_is_private": true, "action": "route", "outbound": "direct"}}},
+		"route":     map[string]any{"default_interface": p.Name, "final": "proxy", "rules": []any{map[string]any{"inbound": "tun", "process_path": exe, "action": "route", "outbound": "direct"}, map[string]any{"protocol": "dns", "action": "hijack-dns"}, map[string]any{"inbound": "tun", "ip_is_private": true, "action": "route", "outbound": "direct"}}},
 	}
 }
 func verifyFile(path, expected string) error {
@@ -116,10 +116,9 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	}
 	bin := filepath.Join(filepath.Dir(exe), "bin", name)
 	if runtime.GOOS == "windows" {
-		if err := verifyFile(bin, coreSHA); err != nil {
-			return err
-		}
-		if err := verifyFile(filepath.Join(filepath.Dir(bin), "wintun.dll"), wintunSHA); err != nil {
+		var err error
+		bin, err = prepareBundledRuntime(filepath.Join(a.dir, "runtime", "1.14.3"))
+		if err != nil {
 			return err
 		}
 	}

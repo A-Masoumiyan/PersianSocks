@@ -246,7 +246,7 @@ public final class MainActivity extends Activity {
         TextView brand = text("PersianSocks", 22, Color.WHITE, true);
         brand.setTextDirection(View.TEXT_DIRECTION_LTR);
         title.addView(brand);
-        title.addView(text(DistributionPolicy.play() ? "v0.16.0 • TLS" : "v0.16.0", 11, SECONDARY, false));
+        title.addView(text(DistributionPolicy.play() ? "v0.18.0 • TLS" : "v0.18.0", 11, SECONDARY, false));
         LinearLayout.LayoutParams titleCell = new LinearLayout.LayoutParams(0, -2, 1);
         titleCell.setMarginStart(dp(10)); top.addView(title, titleCell);
         root.addView(top);
@@ -272,7 +272,7 @@ public final class MainActivity extends Activity {
         hero.addView(selection, margin(dp(5), 0));
         vpnStatus = text("یک پروکسی انتخاب کن و متصل شو", 12, SECONDARY, false);
         vpnStatus.setMaxLines(2); vpnStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        vpnStatus.setOnClickListener(v -> new AlertDialog.Builder(this).setTitle("وضعیت اتصال")
+        vpnStatus.setOnClickListener(v -> new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("وضعیت اتصال")
             .setMessage(vpnStatus.getText()).setPositiveButton("بستن", null).show());
         vpnStatus.setTooltipText("برای دیدن پیام کامل بزنید");
         hero.addView(vpnStatus, margin(dp(4), 0));
@@ -438,6 +438,7 @@ public final class MainActivity extends Activity {
         sidebarTls.setOnCheckedChangeListener((b,on)->{if(on!=DistributionPolicy.encryptedOnly())changeTlsMode(on);});content.addView(sidebarTls,sized(dp(48),dp(4)));
         sidebarAuto=sidebarCheck("تعویض خودکار هنگام قطع",getSharedPreferences("persiansocks",MODE_PRIVATE).getBoolean("auto-switch",true));
         sidebarAuto.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("auto-switch",on).apply());content.addView(sidebarAuto,sized(dp(48),0));
+        sidebarAction(content,"اسپلیت تونل • انتخاب برنامه‌ها",() -> startActivity(new Intent(this,SplitTunnelActivity.class)));
         content.addView(text("اسکن",14,PRIMARY,true),margin(dp(12),0));
         sidebarScan=sidebarAction(content,"تعداد، نوع و مهلت اسکن",this::scanSettings);
         sidebarAction(content,"بازسنجی ۲۰ سریع‌ترین",this::fastPing);
@@ -469,7 +470,7 @@ public final class MainActivity extends Activity {
                 if(file.exists())report=new String(java.nio.file.Files.readAllBytes(file.toPath()),java.nio.charset.StandardCharsets.UTF_8);}
             catch(Exception ex){report="خواندن گزارش ناموفق بود";}
             final String message=report;
-            ui.post(()->{if(isDestroyed())return;new AlertDialog.Builder(this).setTitle("گزارش خطای برنامه").setMessage(message)
+            ui.post(()->{if(isDestroyed())return;new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("گزارش خطای برنامه").setMessage(message)
                 .setPositiveButton("کپی گزارش",(d,w)->{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);clipboard.setPrimaryClip(android.content.ClipData.newPlainText("PersianSocks",message));})
                 .setNegativeButton("بستن",null).show();});
         });
@@ -553,7 +554,7 @@ public final class MainActivity extends Activity {
         popup.show();
     }
     private void connectionSettings() {
-        LinearLayout inputs = panel(); inputs.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        LinearLayout inputs = dialogContent(); inputs.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         CheckBox tls = new CheckBox(this); tls.setText("فقط پروکسی‌های TLS");
         tls.setTextColor(Color.WHITE); tls.setTextSize(14); tls.setButtonTintList(ColorStateList.valueOf(PRIMARY));
         tls.setChecked(DistributionPolicy.encryptedOnly()); tls.setEnabled(!DistributionPolicy.play());
@@ -567,7 +568,7 @@ public final class MainActivity extends Activity {
         inputs.addView(auto, margin(dp(12), 0));
         inputs.addView(text("در صورت قطع اتصال، جایگزین طبق فیلتر فعلی انتخاب می‌شود.", 12, SECONDARY, false));
         ScrollView scroll = new ScrollView(this); scroll.addView(inputs);
-        new AlertDialog.Builder(this).setTitle("تنظیمات اتصال").setView(scroll)
+        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("تنظیمات اتصال").setView(scroll)
             .setPositiveButton("ذخیره", (d, which) -> {
                 getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putBoolean("auto-switch", auto.isChecked()).apply();
                 if (!DistributionPolicy.play() && tls.isChecked() != DistributionPolicy.encryptedOnly()) changeTlsMode(tls.isChecked());
@@ -584,11 +585,11 @@ public final class MainActivity extends Activity {
     private void targetsDialog() {
         List<String> items = new ArrayList<>(); items.add("+ افزودن دامنهٔ جدید");
         for (ServiceTargets.Target t : customTargets) items.add(t.name + "  •  " + t.host);
-        new AlertDialog.Builder(this).setTitle("دامنه‌های تست")
+        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("دامنه‌های تست")
             .setItems(items.toArray(new String[0]), (d, index) -> {
                 if (index == 0) { addTargetDialog(); return; }
                 ServiceTargets.Target target = customTargets.get(index - 1);
-                new AlertDialog.Builder(this).setTitle(target.name).setMessage(target.url())
+                new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle(target.name).setMessage(target.url())
                     .setPositiveButton("حذف دامنه", (dialog, which) -> {
                         if (scanning||ProxyVpnService.autoScanning()) stopScan();
                         customTargets.remove(target);
@@ -603,7 +604,7 @@ public final class MainActivity extends Activity {
         if (customTargets.size() >= ServiceTargets.MAX_CUSTOM) {
             Toast.makeText(this, "حداکثر ۸ دامنهٔ دلخواه؛ برای افزودن، یکی را حذف کن", Toast.LENGTH_LONG).show(); return;
         }
-        LinearLayout inputs = panel();
+        LinearLayout inputs = dialogContent();
         EditText name = new EditText(this); name.setHint("نام سرویس، مثلاً فیسبوک"); name.setSingleLine(true);
         EditText url = new EditText(this); url.setHint("facebook.com یا https://www.facebook.com/");
         url.setSingleLine(true); url.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
@@ -611,7 +612,7 @@ public final class MainActivity extends Activity {
         inputs.addView(name); inputs.addView(url);
         inputs.addView(text("HTTPS با گواهی معتبر و پاسخ ۲۰۰ تا ۳۹۹ بررسی می‌شود. پس از ثبت، نتایج موجود دوباره تست می‌شوند.",
             12, SECONDARY, false), margin(dp(10), 0));
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("افزودن دامنهٔ تست")
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("افزودن دامنهٔ تست")
             .setView(inputs).setPositiveButton("ثبت و تست", null).setNegativeButton("لغو", null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             ServiceTargets.Target target;
@@ -627,7 +628,7 @@ public final class MainActivity extends Activity {
         dialog.show();
     }
     private void aboutDialog() {
-        TextView info = text("PersianSocks 0.16.0\n\nکشور، موقعیت تقریبی سرور پروکسی است.\n" +
+        TextView info = text("PersianSocks 0.18.0\n\nکشور، موقعیت تقریبی سرور پروکسی است.\n" +
             "IP Geolocation by DB-IP\nhttps://db-ip.com\n" +
             "DB-IP Country Lite، اکتبر ۲۰۲۶\nمجوز CC BY 4.0\nhttps://creativecommons.org/licenses/by/4.0/\n" +
             "دادهٔ CSV به جدول IPv4 فشرده تبدیل شده است.\n\nموتور تونل: hev-socks5-tunnel، مجوز MIT",
@@ -635,7 +636,7 @@ public final class MainActivity extends Activity {
         info.setPadding(dp(20), dp(16), dp(20), dp(16)); info.setTextIsSelectable(true);
         android.text.util.Linkify.addLinks(info, android.text.util.Linkify.WEB_URLS);
         info.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
-        new AlertDialog.Builder(this).setTitle("دربارهٔ برنامه").setView(info).setPositiveButton("بستن", null).show();
+        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("دربارهٔ برنامه").setView(info).setPositiveButton("بستن", null).show();
     }
     private void sortMenu() {
         PopupMenu popup = new PopupMenu(this, sortButton);
@@ -1006,7 +1007,7 @@ public final class MainActivity extends Activity {
         TextView info = text(details.toString(), 14, Color.WHITE, false);
         info.setPadding(dp(18), dp(12), dp(18), dp(12)); info.setTextIsSelectable(true);
         ScrollView scroll = new ScrollView(this); scroll.addView(info);
-        new AlertDialog.Builder(this).setTitle("جزئیات پروکسی").setView(scroll)
+        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("جزئیات پروکسی").setView(scroll)
             .setPositiveButton("انتخاب", (d, which) -> { userSelected = true; selected = p; render(); })
             .setNegativeButton("بستن", null).show();
     }
@@ -1021,7 +1022,7 @@ public final class MainActivity extends Activity {
         type.setAdapter(new android.widget.ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"SOCKS5","HTTP","HTTPS (TLS به پروکسی)"}));
         if(DistributionPolicy.play()){type.setSelection(2);}else inputs.addView(type);
         inputs.addView(text("برای HTTPS می‌توانی نام میزبان بدهی؛ گواهی باید معتبر باشد. پروکسی‌های نیازمند رمز فعلاً پشتیبانی نمی‌شوند.",12,SECONDARY,false),margin(dp(8),0));
-        new AlertDialog.Builder(this).setTitle("افزودن پروکسی دستی").setView(inputs)
+        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("افزودن پروکسی دستی").setView(inputs)
             .setPositiveButton("ثبت و تست", (d, which) -> {
                 String raw=field.getText().toString().trim();
                 if(!raw.contains("://"))raw=(type.getSelectedItemPosition()==1?"http://":type.getSelectedItemPosition()==2?"https://":"")+raw;
@@ -1084,7 +1085,7 @@ public final class MainActivity extends Activity {
         text.setText(allReports); text.setTextSize(14);
         text.setTextIsSelectable(true); text.setPadding(dp(16), dp(12), dp(16), dp(12));
         ScrollView scroll = new ScrollView(this); scroll.addView(text);
-        new AlertDialog.Builder(this).setTitle("گزارش آخرین اسکن").setView(scroll)
+        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("گزارش آخرین اسکن").setView(scroll)
             .setPositiveButton("بستن", null).setNeutralButton("کپی گزارش", (d, w) -> {
                 android.content.ClipboardManager clipboard = getSystemService(android.content.ClipboardManager.class);
                 clipboard.setPrimaryClip(android.content.ClipData.newPlainText("PersianSocks scan report", allReports));
@@ -1092,7 +1093,7 @@ public final class MainActivity extends Activity {
             }).show();
     }
     private void scanSettings() {
-        LinearLayout panel = panel();
+        LinearLayout panel = dialogContent();
         panel.addView(text("تعداد تست: ۱۰۰ تا ۲۰٬۰۰۰، یا Max برای همهٔ پروکسی‌های دریافت‌شده پس از حذف تکراری‌ها.", 14, Color.WHITE, false));
         EditText count = new EditText(this); count.setText(String.valueOf(maxTests));
         count.setInputType(android.text.InputType.TYPE_CLASS_NUMBER); panel.addView(count);
@@ -1111,7 +1112,7 @@ public final class MainActivity extends Activity {
         panel.addView(text("۲۴ تست همزمان. در حالت معمولی مهلت TCP برابر ۲.۵ ثانیه است؛ در حالت کند ۶ ثانیه. همهٔ سرویس‌های ثبت‌شده با HTTPS امتحان می‌شوند.", 12, SECONDARY, false));
         panel.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         ScrollView scroll = new ScrollView(this); scroll.addView(panel);
-        new AlertDialog.Builder(this).setTitle("تنظیمات اسکن").setView(scroll)
+        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("تنظیمات اسکن").setView(scroll)
             .setPositiveButton("ذخیره", (d, w) -> {
                 scanAll=all.isChecked();
                 if(!scanAll){
@@ -1129,7 +1130,7 @@ public final class MainActivity extends Activity {
             }).setNegativeButton("لغو", null).show();
     }
     private void sourceDialog() {
-        LinearLayout panel = panel();
+        LinearLayout panel = dialogContent();
         StringBuilder names = new StringBuilder("منابع داخلی:\n");
         if(!DistributionPolicy.play())for (ProxyScanner.Source source : SourceCatalog.DEFAULT) names.append(source.name).append(" • ");
         names.append(DistributionPolicy.play()?"\nHTTPS با TLS:\n":"\nHTTP / HTTPS:\n");
@@ -1141,7 +1142,7 @@ public final class MainActivity extends Activity {
         urls.setText(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("extra-sources", ""));
         panel.addView(urls);
         ScrollView scroll = new ScrollView(this); scroll.addView(panel);
-        new AlertDialog.Builder(this).setTitle("منابع پروکسی").setView(scroll)
+        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("منابع پروکسی").setView(scroll)
             .setPositiveButton("ذخیره", (d, w) -> {
                 StringBuilder valid = new StringBuilder(); int added = 0;
                 for (String row : urls.getText().toString().split("\\n")) {
@@ -1376,6 +1377,13 @@ public final class MainActivity extends Activity {
     private GradientDrawable background(int fill, int radius, int stroke) {
         GradientDrawable d = new GradientDrawable(); d.setColor(fill); d.setCornerRadius(radius);
         d.setStroke(dp(1), stroke); return d;
+    }
+    private LinearLayout dialogContent() {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        content.setPadding(dp(20), dp(8), dp(20), dp(8));
+        return content;
     }
     private LinearLayout panel() {
         LinearLayout c = new LinearLayout(this);

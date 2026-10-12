@@ -7,8 +7,24 @@
         <item name="android:textColorSecondary">#97A9BD</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:popupMenuStyle">@style/CompactPopupMenu</item>
+        <item name="android:alertDialogTheme">@style/AppDialogTheme</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
+    </style>
+    <style name="AppDialogTheme" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dialog_panel</item>
+        <item name="android:windowClipToOutline">true</item>
+        <item name="android:windowMinWidthMajor">88%</item>
+        <item name="android:windowMinWidthMinor">88%</item>
+        <item name="android:colorBackground">#162030</item>
+        <item name="android:colorBackgroundFloating">#162030</item>
+        <item name="android:colorAccent">#46E2B8</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#97A9BD</item>
+        <item name="android:textColorHint">#97A9BD</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.55</item>
     </style>
     <style name="CompactPopupMenu" parent="@android:style/Widget.Material.PopupMenu">
         <item name="android:popupBackground">@drawable/menu_panel</item>
