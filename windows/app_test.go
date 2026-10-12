@@ -404,7 +404,7 @@ func newTestApp(t *testing.T) *App {
 	t.Helper()
 	a := newApp(t.TempDir())
 	if runtime.GOOS == "windows" {
-		a.physical = Physical{Index: 1, Name: "Loopback Pseudo-Interface 1", IP: "127.0.0.1"}
+		a.physical = Physical{Index: 1, Name: "Loopback Pseudo-Interface 1", IP: "127.0.0.1", DNS: []string{"127.0.0.1"}}
 	}
 	return a
 }

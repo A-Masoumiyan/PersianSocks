@@ -48,6 +48,10 @@ func TestRealCoreForwardsThroughSelectedProxy(t *testing.T) {
 			dir := t.TempDir()
 			ca := filepath.Join(dir, "ca.pem")
 			os.WriteFile(ca, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: origin.Certificate().Raw}), 0600)
+			// Windows does not use SSL_CERT_FILE for system roots. Trust only the local test CA explicitly.
+			if typ == "HTTPS" {
+				cfg["outbounds"].([]any)[0].(map[string]any)["tls"].(map[string]any)["certificate_path"] = ca
+			}
 			config := filepath.Join(dir, "config.json")
 			data, _ := json.Marshal(cfg)
 			os.WriteFile(config, data, 0600)
