@@ -25,8 +25,10 @@ Validation: local Go tests with race detection, real TLS fixtures, engine config
 for all three proxy types and all three split modes, runtime extraction/repair,
 50,000-result persistence, browser UI interactions and 800/1366/1920px layout passed.
 The three native engine-forwarding cases are explicitly skipped in this Linux sandbox
-because creating its netlink socket is denied. Actual Windows TUN routing, native tray,
-app inventory and per-application routing still require a Windows runtime test.
+because creating its netlink socket is denied. A separate Windows Server 2025 CI run passed all 20 tests, including native quick-window
+creation and real engine forwarding through SOCKS5/HTTP/HTTPS. System-wide Wintun and
+actual per-application routing remain unverified.
+https://github.com/A-Masoumiyan/PersianSocks/actions/runs/38317551801
 UDP marks SOCKS5 UDP ASSOCIATE acceptance, not guaranteed end-to-end UDP forwarding.
 Traffic counts flows recorded by the engine, including captured direct routes.
 
