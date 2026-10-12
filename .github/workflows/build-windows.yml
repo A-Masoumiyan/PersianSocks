@@ -46,12 +46,15 @@ jobs:
             gh release upload $tag $name $apk --clobber
           }
           if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }
-          $release = gh api "repos/$env:GH_REPO/releases/tags/$tag" | ConvertFrom-Json
+          $releases = gh api "repos/$env:GH_REPO/releases" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read releases' }
+          $release = @($releases | Where-Object tag_name -eq $tag)[0]
+          if (!$release) { throw 'Uploaded draft not found' }
           foreach ($file in @($name, $apk)) {
             $asset = $release.assets | Where-Object name -eq (Split-Path $file -Leaf)
             if (!$asset -or $asset.size -ne (Get-Item $file).Length) { throw 'Uploaded size mismatch' }
           }
-          gh release edit $tag --draft=false --latest --notes-file .github/release-0.19.0.md --title 'ورژن جدید — PersianSocks | Android 0.19.0 · Windows 0.4.0'
+          gh api --method PATCH "repos/$env:GH_REPO/releases/$($release.id)" -F draft=false -f make_latest=true | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
       - uses: actions/upload-artifact@v4
         with:
