@@ -34,26 +34,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          $release = gh api repos/$env:GH_REPO/releases/latest | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve current release' }
-          $name = 'PersianSocks-Windows-0.2.0-x64.exe'
+          $tag = 'windows-v0.3.0'
+          $name = 'PersianSocks-Windows-0.3.0-x64.exe'
           Copy-Item windows/release/PersianSocks.exe $name
-          gh release upload $release.tag_name $name --clobber
-          if ($LASTEXITCODE -ne 0) { throw 'EXE upload failed' }
-          $updated = gh api "repos/$env:GH_REPO/releases/$($release.id)" | ConvertFrom-Json
-          $asset = $updated.assets | Where-Object name -eq $name
-          if (!$asset -or $asset.size -ne (Get-Item $name).Length) { throw 'Uploaded size mismatch' }
-          foreach ($old in $updated.assets) {
-            if ($old.name -match '^PersianSocks-Windows.*\.(exe|zip)$' -and $old.name -ne $name) {
-              gh release delete-asset $updated.tag_name $old.name --yes
-              if ($LASTEXITCODE -ne 0) { throw 'Old Windows asset removal failed' }
-            }
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --target $env:GITHUB_SHA --title 'PersianSocks Windows 0.3.0' --notes-file .github/windows-0.3.0-notes.md $name
+          } else {
+            gh release upload $tag $name --clobber
           }
-          $body = $updated.body -replace 'PersianSocks-Windows-0\.1\.2-x64\.exe',$name -replace 'Windows 0\.1\.2','Windows 0.2.0'
-          $body | Set-Content release-notes.txt -Encoding utf8
-          gh release edit $updated.tag_name --notes-file release-notes.txt
-          if ($LASTEXITCODE -ne 0) { throw 'Notes update failed' }
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
+          $release = gh api "repos/$env:GH_REPO/releases/tags/$tag" | ConvertFrom-Json
+          $asset = $release.assets | Where-Object name -eq $name
+          if (!$asset -or $asset.size -ne (Get-Item $name).Length) { throw 'Uploaded size mismatch' }
       - uses: actions/upload-artifact@v4
         with:
-          name: PersianSocks-Windows-0.2.0-x64
+          name: PersianSocks-Windows-0.3.0-x64
           path: windows/release/PersianSocks.exe

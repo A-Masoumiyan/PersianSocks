@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"runtime"
@@ -49,6 +50,27 @@ type notifyData struct {
 	GUID               [16]byte
 	BalloonIcon        uintptr
 }
+type measureItem struct {
+	CtlType, CtlID, ItemID, Width, Height uint32
+	Data                                  uintptr
+}
+
+var trayLabels = map[uintptr]string{1: "بازکردن برنامه", 2: "اتصال / قطع اتصال", 3: "اسکن و اتصال خودکار", 4: "ویجت دسکتاپ", 5: "توقف کامل و خروج"}
+
+func appIcon() uintptr {
+	b, err := bundle.ReadFile("assets/app.ico")
+	if err != nil || len(b) < 22 {
+		return 0
+	}
+	n := binary.LittleEndian.Uint32(b[14:18])
+	off := binary.LittleEndian.Uint32(b[18:22])
+	if int(off+n) > len(b) {
+		return 0
+	}
+	h, _, _ := user32.NewProc("CreateIconFromResourceEx").Call(uintptr(unsafe.Pointer(&b[off])), uintptr(n), 1, 0x30000, 32, 32, 0)
+	return h
+}
+
 type drawItem struct {
 	CtlType, CtlID, ItemID, ItemAction, ItemState uint32
 	Window, DC                                    uintptr
@@ -70,7 +92,11 @@ func startQuickControls(a *App, done <-chan struct{}) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 		instance, _, _ := kernel32.NewProc("GetModuleHandleW").Call(0)
-		icon, _, _ := user32.NewProc("LoadIconW").Call(0, 32512)
+		icon := appIcon()
+		if icon == 0 {
+			icon, _, _ = user32.NewProc("LoadIconW").Call(0, 32512)
+		}
+		defer user32.NewProc("DestroyIcon").Call(icon)
 		cursor, _, _ := user32.NewProc("LoadCursorW").Call(0, 32512)
 		brush, _, _ := gdi32.NewProc("CreateSolidBrush").Call(0x1d110b)
 		defer gdi32.NewProc("DeleteObject").Call(brush)
@@ -157,7 +183,7 @@ func startQuickControls(a *App, done <-chan struct{}) {
 						id   uintptr
 						text string
 					}{{1, "بازکردن برنامه"}, {2, "اتصال / قطع اتصال"}, {3, "اسکن و اتصال خودکار"}, {4, "ویجت دسکتاپ"}, {5, "قطع اتصال و خروج"}} {
-						user32.NewProc("AppendMenuW").Call(menu, 0, item.id, uintptr(unsafe.Pointer(wide(item.text))))
+						user32.NewProc("AppendMenuW").Call(menu, 0x100, item.id, item.id)
 					}
 					var point winPoint
 					user32.NewProc("GetCursorPos").Call(uintptr(unsafe.Pointer(&point)))
@@ -190,6 +216,13 @@ func startQuickControls(a *App, done <-chan struct{}) {
 					user32.NewProc("ShowWindow").Call(window, 0)
 				}
 				return 0
+			case 0x2c:
+				mi := (*measureItem)(unsafe.Pointer(l))
+				if mi.CtlType == 1 {
+					mi.Width = 260
+					mi.Height = 38
+					return 1
+				}
 			case 0x2b:
 				di := (*drawItem)(unsafe.Pointer(l))
 				color := uintptr(0x302016)
@@ -203,7 +236,11 @@ func startQuickControls(a *App, done <-chan struct{}) {
 				gdi32.NewProc("SetBkMode").Call(di.DC, 1)
 				gdi32.NewProc("SetTextColor").Call(di.DC, 0xb8e246)
 				var text [128]uint16
-				user32.NewProc("GetWindowTextW").Call(di.Window, uintptr(unsafe.Pointer(&text[0])), 128)
+				if di.CtlType == 1 {
+					textWide(text[:], trayLabels[uintptr(di.ItemID)])
+				} else {
+					user32.NewProc("GetWindowTextW").Call(di.Window, uintptr(unsafe.Pointer(&text[0])), 128)
+				}
 				user32.NewProc("DrawTextW").Call(di.DC, uintptr(unsafe.Pointer(&text[0])), uintptr(^uint32(0)), uintptr(unsafe.Pointer(&di.Rect)), 1|4|0x20|0x20000)
 				return 1
 			case 0x138:

@@ -33,6 +33,8 @@ $manifest = @{}
 Get-ChildItem $bin -File | ForEach-Object { $manifest[$_.Name] = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant() }
 $manifest | ConvertTo-Json | Set-Content -Encoding ASCII "$bin\manifest.json"
 Compress-Archive -Path "$bin\*" -DestinationPath "$PSScriptRoot\assets\windows-runtime.zip" -Force
+go run github.com/akavel/rsrc@v0.10.2 -ico assets/app.ico -arch amd64 -o app_windows_amd64.syso
+if ($LASTEXITCODE -ne 0) { throw 'Icon resource failed' }
 $env:GOOS='windows'
 $env:GOARCH='amd64'
 $env:CGO_ENABLED='0'

@@ -25,7 +25,7 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 type Source struct {
 	Name     string `json:"name"`
@@ -34,6 +34,7 @@ type Source struct {
 	Type     string `json:"type"`
 }
 type Settings struct {
+	ExitOnClose   bool     `json:"exitOnClose"`
 	Workers       int      `json:"workers"`
 	Timeout       int      `json:"timeout"`
 	Max           int      `json:"max"`
@@ -87,6 +88,9 @@ type App struct {
 	token             string
 	origin            string
 	lastSeen          time.Time
+	speedBatchCancel  context.CancelFunc
+	speedBatchDone    int
+	speedBatchTotal   int
 	shutdown          func()
 	connectMu         sync.Mutex
 	attemptVersion    map[string]uint64
@@ -577,7 +581,7 @@ func (a *App) snapshot(r *http.Request) any {
 	if result, ok := a.disk.Tests[key]; ok {
 		measurements[key] = result
 	}
-	return map[string]any{"version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
+	return map[string]any{"speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": a.speedBatchDone, "total": a.speedBatchTotal}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
 }
 
 type Action struct {
@@ -602,6 +606,35 @@ func (a *App) act(v Action) error {
 			a.scanCancel()
 		}
 		a.mu.Unlock()
+	case "speedFiltered":
+		return a.startFilteredSpeed()
+	case "stopSpeedFiltered":
+		a.mu.Lock()
+		if a.speedBatchCancel != nil {
+			a.speedBatchCancel()
+		}
+		for _, t := range a.tasks {
+			if t.Kind == "speed" {
+				t.cancel()
+			}
+		}
+		a.mu.Unlock()
+	case "uiClosed":
+		a.mu.Lock()
+		seen := a.lastSeen
+		exit := a.disk.Settings.ExitOnClose
+		a.mu.Unlock()
+		if exit {
+			go func() {
+				time.Sleep(2 * time.Second)
+				a.mu.Lock()
+				shouldExit := a.disk.Settings.ExitOnClose && !a.lastSeen.After(seen)
+				a.mu.Unlock()
+				if shouldExit && a.shutdown != nil {
+					a.shutdown()
+				}
+			}()
+		}
 	case "test", "speed", "ping":
 		return a.testOne(v.Key, v.Action)
 	case "connect":
@@ -728,6 +761,12 @@ func (a *App) handler() http.Handler {
 			w.Write(b)
 			return
 		}
+		if r.URL.Path == "/icon.svg" {
+			b, _ := bundle.ReadFile("assets/icon.svg")
+			w.Header().Set("Content-Type", "image/svg+xml")
+			w.Write(b)
+			return
+		}
 		if r.URL.Path == "/" {
 			if r.Method != "GET" {
 				http.Error(w, "Method", 405)
@@ -850,6 +889,9 @@ func main() {
 	a.shutdown = func() {
 		once.Do(func() {
 			a.mu.Lock()
+			if a.speedBatchCancel != nil {
+				a.speedBatchCancel()
+			}
 			if a.fetchCancel != nil {
 				a.fetchCancel()
 			}

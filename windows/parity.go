@@ -637,3 +637,69 @@ func (a *App) pollTraffic(done <-chan struct{}) {
 		}
 	}
 }
+
+// Freeze the complete filtered result set, across all UI pages. Serial tests
+// avoid bandwidth contention and leave one task slot for user actions.
+func (a *App) startFilteredSpeed() error {
+	a.mu.Lock()
+	if a.speedBatchCancel != nil {
+		a.mu.Unlock()
+		return errors.New("تست گروهی در حال اجراست")
+	}
+	rows := filteredRows(a.disk.Results, a.disk.Filter, a.disk.Settings.TLSOnly)
+	if len(rows) == 0 {
+		a.mu.Unlock()
+		return errors.New("نتیجه‌ای مطابق فیلتر وجود ندارد")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	a.speedBatchCancel = cancel
+	a.speedBatchDone = 0
+	a.speedBatchTotal = len(rows)
+	a.mu.Unlock()
+	go func() {
+		defer func() { cancel(); a.mu.Lock(); a.speedBatchCancel = nil; a.mu.Unlock() }()
+		for _, e := range rows {
+			if ctx.Err() != nil {
+				return
+			}
+			k := e.key()
+			for {
+				a.mu.Lock()
+				busy := a.tasks[k] != nil || len(a.tasks) >= 2
+				a.mu.Unlock()
+				if !busy {
+					break
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(100 * time.Millisecond):
+				}
+			}
+			if err := a.runSingle(k, "speed"); err == nil {
+				for {
+					a.mu.Lock()
+					t := a.tasks[k]
+					a.mu.Unlock()
+					if t == nil {
+						break
+					}
+					select {
+					case <-ctx.Done():
+						a.mu.Lock()
+						if t := a.tasks[k]; t != nil {
+							t.cancel()
+						}
+						a.mu.Unlock()
+						return
+					case <-time.After(100 * time.Millisecond):
+					}
+				}
+			}
+			a.mu.Lock()
+			a.speedBatchDone++
+			a.mu.Unlock()
+		}
+	}()
+	return nil
+}
