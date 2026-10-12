@@ -25,7 +25,7 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.3.0"
+const version = "0.4.0"
 
 type Source struct {
 	Name     string `json:"name"`
@@ -91,6 +91,8 @@ type App struct {
 	speedBatchCancel  context.CancelFunc
 	speedBatchDone    int
 	speedBatchTotal   int
+	speedBatch        SpeedBatch
+	speedRunner       speedProbe
 	shutdown          func()
 	connectMu         sync.Mutex
 	attemptVersion    map[string]uint64
@@ -581,7 +583,10 @@ func (a *App) snapshot(r *http.Request) any {
 	if result, ok := a.disk.Tests[key]; ok {
 		measurements[key] = result
 	}
-	return map[string]any{"speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": a.speedBatchDone, "total": a.speedBatchTotal}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
+	batch := a.speedBatch
+	batch.Done = a.speedBatchDone
+	batch.Total = a.speedBatchTotal
+	return map[string]any{"desktop": desktopState(), "speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": batch.Done, "total": batch.Total, "bytes": batch.Bytes, "failed": batch.Failed, "skipped": batch.Skipped, "current": batch.Current, "filter": batch.Filter, "canceled": batch.Canceled}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
 }
 
 type Action struct {
@@ -609,32 +614,11 @@ func (a *App) act(v Action) error {
 	case "speedFiltered":
 		return a.startFilteredSpeed()
 	case "stopSpeedFiltered":
-		a.mu.Lock()
-		if a.speedBatchCancel != nil {
-			a.speedBatchCancel()
-		}
-		for _, t := range a.tasks {
-			if t.Kind == "speed" {
-				t.cancel()
-			}
-		}
-		a.mu.Unlock()
+		a.stopFilteredSpeed()
+	case "stopOperations":
+		a.stopOperations()
 	case "uiClosed":
-		a.mu.Lock()
-		seen := a.lastSeen
-		exit := a.disk.Settings.ExitOnClose
-		a.mu.Unlock()
-		if exit {
-			go func() {
-				time.Sleep(2 * time.Second)
-				a.mu.Lock()
-				shouldExit := a.disk.Settings.ExitOnClose && !a.lastSeen.After(seen)
-				a.mu.Unlock()
-				if shouldExit && a.shutdown != nil {
-					a.shutdown()
-				}
-			}()
-		}
+		a.windowClosed()
 	case "test", "speed", "ping":
 		return a.testOne(v.Key, v.Action)
 	case "connect":
@@ -911,6 +895,7 @@ func main() {
 			a.saveChecked()
 			os.Remove(filepath.Join(a.dir, "UI.url"))
 			server.Close()
+			stopDesktopUI()
 			close(done)
 		})
 	}
@@ -928,7 +913,7 @@ func main() {
 		a.mu.Unlock()
 	}()
 	if os.Getenv("PERSIANSOCKS_NO_BROWSER") == "" {
-		openUI(a.origin + "/#" + a.token)
+		startDesktopUI(a, done)
 	} else {
 		fmt.Println(a.origin + "/#" + a.token)
 	}

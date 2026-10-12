@@ -2,7 +2,7 @@ name: Build and publish Windows
 on:
   push:
     branches: [main]
-    paths: ['windows/**', '.github/workflows/build-windows.yml']
+    paths: ['windows/**', '.github/workflows/build-windows.yml', '.github/desktop-smoke.ps1']
   workflow_dispatch:
 permissions:
   contents: write
@@ -21,6 +21,18 @@ jobs:
       - name: Build verified self-contained EXE
         shell: pwsh
         run: ./windows/build.ps1
+      - name: Ensure official WebView2 runtime
+        shell: pwsh
+        run: |
+          $existing = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft\EdgeWebView\Application" -Filter msedgewebview2.exe -Recurse -ErrorAction SilentlyContinue
+          if (!$existing) {
+            $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup
+            $signature = Get-AuthenticodeSignature $setup
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft Corporation') { throw 'Runtime signature invalid' }
+            $p = Start-Process $setup -ArgumentList '/silent','/install' -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw 'Runtime installation failed' }
+          }
       - name: Validate on Windows
         shell: pwsh
         run: |
@@ -28,26 +40,26 @@ jobs:
           Set-Location windows
           go test -race -buildvcs=false -v .
           if ($LASTEXITCODE -ne 0) { throw 'Windows tests failed' }
+      - name: Validate actual EXE close and restore
+        shell: pwsh
+        run: ./.github/desktop-smoke.ps1
       - name: Publish current Windows EXE
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          $tag = 'windows-v0.3.0'
-          $name = 'PersianSocks-Windows-0.3.0-x64.exe'
+          $tag = 'v0.19.0'
+          $name = 'PersianSocks-Windows-0.4.0-x64.exe'
           Copy-Item windows/release/PersianSocks.exe $name
           gh release view $tag *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --target $env:GITHUB_SHA --title 'PersianSocks Windows 0.3.0' --notes-file .github/windows-0.3.0-notes.md $name
-          } else {
-            gh release upload $tag $name --clobber
-          }
+          if ($LASTEXITCODE -ne 0) { throw 'Existing Android/Windows release is missing' }
+          gh release upload $tag $name --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
           $release = gh api "repos/$env:GH_REPO/releases/tags/$tag" | ConvertFrom-Json
           $asset = $release.assets | Where-Object name -eq $name
           if (!$asset -or $asset.size -ne (Get-Item $name).Length) { throw 'Uploaded size mismatch' }
       - uses: actions/upload-artifact@v4
         with:
-          name: PersianSocks-Windows-0.3.0-x64
+          name: PersianSocks-Windows-0.4.0-x64
           path: windows/release/PersianSocks.exe

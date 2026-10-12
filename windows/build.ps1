@@ -29,6 +29,7 @@ Copy-Item "$release\flags\flag-icons-7.5.0\flags\4x3\*.svg" "$PSScriptRoot\asset
 Copy-Item "$release\flags\flag-icons-7.5.0\LICENSE" "$PSScriptRoot\assets\FLAGS-LICENSE.txt"
 Copy-Item "$PSScriptRoot\assets\*-NOTICE.txt" $bin
 Copy-Item "$PSScriptRoot\assets\FLAGS-LICENSE.txt" $bin
+Copy-Item "$PSScriptRoot\assets\LICENSE-*.txt" $bin
 $manifest = @{}
 Get-ChildItem $bin -File | ForEach-Object { $manifest[$_.Name] = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant() }
 $manifest | ConvertTo-Json | Set-Content -Encoding ASCII "$bin\manifest.json"

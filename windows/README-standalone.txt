@@ -1,4 +1,4 @@
-PersianSocks Windows 0.2.0 — self-contained EXE (Windows x64).
+PersianSocks Windows 0.4.0 — self-contained EXE (Windows x64).
 
 Run PersianSocks.exe. Approve the Windows Administrator prompt needed for TUN routing.
 The embedded sing-box/Wintun runtime is verified and extracted on first connection.
@@ -16,7 +16,8 @@ Android 0.18 feature parity:
   installed/active app search, system-app toggle, retained hidden selections, file picker.
   Changes apply next connection. Uninstalled files are skipped; empty only mode fails.
 - Live engine traffic rates and totals; tray quick controls and floating desktop widget.
-  Closing the web UI leaves the app running. Exit from the tray/sidebar to stop it.
+  Closing the native main window hides it to the tray by default. The persistent
+  Exit-on-close setting performs full shutdown. Tray open restores the same HWND.
 - Failover checks the actual core proxy path twice, chooses up to eight filtered
   candidates with a five-minute cooldown, and waits for a physical adapter when offline.
 - Scan remains bound to physical NIC/DNS while VPN is active.
@@ -38,3 +39,15 @@ binary runtime.zip; build.ps1 recreates it. Controller MIT; sing-box GPL-3.0-or-
 Wintun and flag-icons licenses and notices are bundled.
 https://github.com/SagerNet/sing-box/tree/v1.14.3
 https://github.com/lipis/flag-icons/tree/v7.5.0
+
+Windows 0.4.0:
+Native Win32/WebView2 main window, dark title bar and tray popup. Requires Microsoft
+WebView2 Runtime (normally present on Windows 11); install the Microsoft runtime if
+missing. The connection engine and Wintun are still embedded in the standalone EXE.
+Batch speed tests freeze ALL filtered results across pages, show bytes/failures and
+completed counts, preserve healthy proxies on errors, and use one sequential worker.
+Stop batch cancels its own task; independent proxy tests continue. Each downloads at
+most 20 MB. Proxy context menus support keyboard access and connect/select together.
+Additional native Windows tests exercise hide/restore/exit. The built EXE smoke test
+checks the local controller, single-instance restoration and persisted close policy.
+Auto Android builds are disabled; its workflow remains manually available.

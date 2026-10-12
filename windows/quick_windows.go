@@ -55,7 +55,14 @@ type measureItem struct {
 	Data                                  uintptr
 }
 
-var trayLabels = map[uintptr]string{1: "بازکردن برنامه", 2: "اتصال / قطع اتصال", 3: "اسکن و اتصال خودکار", 4: "ویجت دسکتاپ", 5: "توقف کامل و خروج"}
+type menuInfo struct {
+	Size, Mask, Style, MaxHeight uint32
+	Background                   uintptr
+	ContextHelp                  uint32
+	Data                         uintptr
+}
+
+var trayLabels = map[uintptr]string{1: "بازکردن برنامه", 2: "اتصال / قطع اتصال", 3: "اسکن و اتصال خودکار", 4: "ویجت دسکتاپ", 5: "توقف کامل و خروج", 6: "توقف عملیات جاری"}
 
 func appIcon() uintptr {
 	b, err := bundle.ReadFile("assets/app.ico")
@@ -125,6 +132,9 @@ func startQuickControls(a *App, done <-chan struct{}) {
 			if fetching {
 				label = "دریافت لیست"
 			}
+			if a.speedBatchCancel != nil {
+				label = fmt.Sprintf("تست سرعت %d/%d", a.speedBatchDone, a.speedBatchTotal)
+			}
 			caption := fmt.Sprintf("%s • %d سالم", label, len(a.disk.Results))
 			if scanning {
 				caption = fmt.Sprintf("%s • %d از %d", label, a.lastDone, a.lastTotal)
@@ -182,9 +192,11 @@ func startQuickControls(a *App, done <-chan struct{}) {
 					for _, item := range []struct {
 						id   uintptr
 						text string
-					}{{1, "بازکردن برنامه"}, {2, "اتصال / قطع اتصال"}, {3, "اسکن و اتصال خودکار"}, {4, "ویجت دسکتاپ"}, {5, "قطع اتصال و خروج"}} {
+					}{{1, "بازکردن برنامه"}, {2, "اتصال / قطع اتصال"}, {3, "اسکن و اتصال خودکار"}, {4, "ویجت دسکتاپ"}, {6, "توقف عملیات جاری"}, {5, "قطع اتصال و خروج"}} {
 						user32.NewProc("AppendMenuW").Call(menu, 0x100, item.id, item.id)
 					}
+					mi := menuInfo{Size: uint32(unsafe.Sizeof(menuInfo{})), Mask: 2, Background: brush}
+					user32.NewProc("SetMenuInfo").Call(menu, uintptr(unsafe.Pointer(&mi)))
 					var point winPoint
 					user32.NewProc("GetCursorPos").Call(uintptr(unsafe.Pointer(&point)))
 					user32.NewProc("SetForegroundWindow").Call(window)
@@ -199,6 +211,8 @@ func startQuickControls(a *App, done <-chan struct{}) {
 						run("autoConnect")
 					case 4:
 						showQuickWidget()
+					case 6:
+						run("stopOperations")
 					case 5:
 						run("exit")
 					}

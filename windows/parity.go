@@ -34,11 +34,13 @@ type TestResult struct {
 	SpeedError string  `json:"speedError"`
 }
 type TestTask struct {
-	Kind    string  `json:"kind"`
-	Speed   float64 `json:"speed"`
-	Bytes   int64   `json:"bytes"`
-	Started int64   `json:"started"`
-	cancel  context.CancelFunc
+	Kind     string  `json:"kind"`
+	Speed    float64 `json:"speed"`
+	Bytes    int64   `json:"bytes"`
+	Started  int64   `json:"started"`
+	cancel   context.CancelFunc
+	Batch    bool `json:"batch"`
+	finished chan struct{}
 }
 type Traffic struct {
 	Down     int64   `json:"down"`
@@ -331,22 +333,30 @@ func (a *App) applySettings(s Settings) error {
 	return nil
 }
 func (a *App) runSingle(key, kind string) error {
+	_, err := a.runSingleTask(key, kind, context.Background(), false)
+	return err
+}
+func (a *App) runSingleTask(key, kind string, parent context.Context, batch bool) (*TestTask, error) {
 	a.mu.Lock()
 	e, ok := a.disk.Results[key]
 	if !ok {
 		a.mu.Unlock()
-		return errors.New("پروکسی در فهرست سالم‌ها نیست")
+		return nil, errMissingProxy
 	}
 	if !physicalReady(a.physical) {
 		a.mu.Unlock()
-		return errors.New("شبکهٔ اصلی آماده نیست")
+		return nil, errors.New("شبکهٔ اصلی آماده نیست")
 	}
 	if a.tasks[key] != nil || len(a.tasks) >= 2 {
 		a.mu.Unlock()
-		return errors.New("ابتدا تست جاری را تمام یا متوقف کن")
+		return nil, errTestBusy
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	task := &TestTask{Kind: kind, Started: time.Now().UnixMilli(), cancel: cancel}
+	if parent.Err() != nil {
+		a.mu.Unlock()
+		return nil, parent.Err()
+	}
+	ctx, cancel := context.WithCancel(parent)
+	task := &TestTask{Kind: kind, Started: time.Now().UnixMilli(), cancel: cancel, Batch: batch, finished: make(chan struct{})}
 	a.tasks[key] = task
 	a.test[key] = true
 	a.sequence++
@@ -355,15 +365,33 @@ func (a *App) runSingle(key, kind string) error {
 		a.attemptVersion[key] = claim
 	}
 	p, s, f := a.physical, a.disk.Settings, a.disk.Filter
+	runner := a.speedRunner
 	a.mu.Unlock()
 	go func() {
 		defer cancel()
+		defer close(task.finished)
 		var fresh Endpoint
 		var speed float64
 		var n int64
 		var err error
 		if kind == "speed" {
-			speed, n, err = (Probe{Physical: p}).speed(ctx, e, func(rate float64, bytes int64) { a.mu.Lock(); task.Speed = rate; task.Bytes = bytes; a.mu.Unlock() })
+			progress := func(rate float64, n int64) {
+				a.mu.Lock()
+				if task.Batch {
+					delta := n - task.Bytes
+					if delta > 0 {
+						a.speedBatch.Bytes += delta
+					}
+				}
+				task.Speed = rate
+				task.Bytes = n
+				a.mu.Unlock()
+			}
+			if runner != nil {
+				speed, n, err = runner(ctx, p, e, progress)
+			} else {
+				speed, n, err = (Probe{Physical: p}).speed(ctx, e, progress)
+			}
 		} else {
 			ts, _ := customTargets(s.CustomTargets)
 			if kind == "ping" {
@@ -384,9 +412,13 @@ func (a *App) runSingle(key, kind string) error {
 			res.Error = "تست متوقف شد"
 		}
 		if kind == "speed" {
+			if task.Batch && n > task.Bytes {
+				a.speedBatch.Bytes += n - task.Bytes
+			}
+			task.Bytes = n
 			res.Bytes = n
 			res.SpeedError = res.Error
-			if err == nil {
+			if err == nil && !canceled {
 				res.Speed = speed
 				if current, exists := a.disk.Results[key]; exists {
 					current.Speed = speed
@@ -419,7 +451,7 @@ func (a *App) runSingle(key, kind string) error {
 		a.mu.Unlock()
 		a.saveChecked()
 	}()
-	return nil
+	return task, nil
 }
 func (a *App) fastPing() error {
 	a.mu.Lock()
@@ -638,68 +670,18 @@ func (a *App) pollTraffic(done <-chan struct{}) {
 	}
 }
 
-// Freeze the complete filtered result set, across all UI pages. Serial tests
-// avoid bandwidth contention and leave one task slot for user actions.
-func (a *App) startFilteredSpeed() error {
+// Native WM_CLOSE is authoritative. Hiding the UI never owns backend cancellation.
+func (a *App) windowClosed() {
 	a.mu.Lock()
-	if a.speedBatchCancel != nil {
-		a.mu.Unlock()
-		return errors.New("تست گروهی در حال اجراست")
+	exit := a.disk.Settings.ExitOnClose
+	shutdown := a.shutdown
+	message := "پنجره بسته شد؛ برنامه در پس‌زمینه ادامه دارد"
+	if exit {
+		message = "خروج کامل با بستن پنجره"
 	}
-	rows := filteredRows(a.disk.Results, a.disk.Filter, a.disk.Settings.TLSOnly)
-	if len(rows) == 0 {
-		a.mu.Unlock()
-		return errors.New("نتیجه‌ای مطابق فیلتر وجود ندارد")
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	a.speedBatchCancel = cancel
-	a.speedBatchDone = 0
-	a.speedBatchTotal = len(rows)
+	a.recordLocked(message)
 	a.mu.Unlock()
-	go func() {
-		defer func() { cancel(); a.mu.Lock(); a.speedBatchCancel = nil; a.mu.Unlock() }()
-		for _, e := range rows {
-			if ctx.Err() != nil {
-				return
-			}
-			k := e.key()
-			for {
-				a.mu.Lock()
-				busy := a.tasks[k] != nil || len(a.tasks) >= 2
-				a.mu.Unlock()
-				if !busy {
-					break
-				}
-				select {
-				case <-ctx.Done():
-					return
-				case <-time.After(100 * time.Millisecond):
-				}
-			}
-			if err := a.runSingle(k, "speed"); err == nil {
-				for {
-					a.mu.Lock()
-					t := a.tasks[k]
-					a.mu.Unlock()
-					if t == nil {
-						break
-					}
-					select {
-					case <-ctx.Done():
-						a.mu.Lock()
-						if t := a.tasks[k]; t != nil {
-							t.cancel()
-						}
-						a.mu.Unlock()
-						return
-					case <-time.After(100 * time.Millisecond):
-					}
-				}
-			}
-			a.mu.Lock()
-			a.speedBatchDone++
-			a.mu.Unlock()
-		}
-	}()
-	return nil
+	if exit && shutdown != nil {
+		go shutdown()
+	}
 }
