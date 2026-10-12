@@ -1,0 +1,18 @@
+name: Update Windows release notes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/update-windows-notes.yml', '.github/windows-release-notes.md']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update published Windows notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit v0.18.0 --notes-file .github/windows-release-notes.md
