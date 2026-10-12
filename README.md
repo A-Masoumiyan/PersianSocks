@@ -18,7 +18,7 @@
 ## سورس
 
 - سورس اندروید: `app/`، Gradle و `scripts/`؛ جزئیات ساخت و تاریخچه در [README-Android.md](README-Android.md).
-- سورس ویندوز: [windows/](windows/)؛ روش ساخت در `windows/build.ps1` و راهنمای اجرا در `windows/README-fa.txt`.
+- سورس ویندوز: [windows/](windows/)؛ روش ساخت در `windows/build.ps1` و راهنمای اجرا در `windows/README-standalone.txt`.
 - سورس موتور رسمی sing-box و مجوز آن در https://github.com/SagerNet/sing-box/tree/v1.14.3 در دسترس‌اند؛ مجوزهای موتور داخل EXE و زمان استخراج آن نگهداری می‌شوند. مجوز موتور hev و منابع کشور داخل assets اندروید نگهداری شده‌اند.
 
 این نسخه لینک‌های VLESS، VMess، Trojan یا subscriptionهای V2Ray را وارد نمی‌کند.
