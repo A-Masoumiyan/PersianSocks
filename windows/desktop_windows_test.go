@@ -4,6 +4,8 @@ package main
 
 import (
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -23,6 +25,22 @@ func waitDesktop(t *testing.T, condition func() bool) {
 }
 func TestNativeDesktopHideRestoreAndExit(t *testing.T) {
 	a := newTestApp(t)
+	// WebView runtime processes close asynchronously after controller.Close.
+	// Verify profile handles are released before testing.TempDir removes the tree.
+	t.Cleanup(func() {
+		deadline := time.Now().Add(20 * time.Second)
+		for {
+			err := os.RemoveAll(filepath.Join(a.dir, "WebView2"))
+			if err == nil {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Errorf("WebView profile still locked after close: %v", err)
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	})
 	server := httptest.NewServer(a.handler())
 	defer server.Close()
 	a.origin = server.URL

@@ -445,11 +445,13 @@ func (a *App) runSingleTask(key, kind string, parent context.Context, batch bool
 			}
 		}
 		a.disk.Tests[key] = res
-		delete(a.tasks, key)
-		delete(a.test, key)
 		a.recordLocked(fmt.Sprintf("%s • %s • %s", kind, key, res.Error))
 		a.mu.Unlock()
 		a.saveChecked()
+		a.mu.Lock()
+		delete(a.tasks, key)
+		delete(a.test, key)
+		a.mu.Unlock()
 	}()
 	return task, nil
 }

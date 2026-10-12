@@ -50,12 +50,14 @@ func (a *App) startFilteredSpeed() error {
 		defer func() {
 			cancel()
 			a.mu.Lock()
-			a.speedBatchCancel = nil
 			a.speedBatch.Current = ""
 			a.speedBatch.Canceled = ctx.Err() != nil && a.speedBatch.Done < a.speedBatch.Total
 			a.recordLocked(fmt.Sprintf("تست سرعت: %d از %d • ناموفق %d • حجم %d بایت", a.speedBatch.Done, a.speedBatch.Total, a.speedBatch.Failed, a.speedBatch.Bytes))
 			a.mu.Unlock()
 			a.saveChecked()
+			a.mu.Lock()
+			a.speedBatchCancel = nil
+			a.mu.Unlock()
 		}()
 		for _, e := range rows {
 			if ctx.Err() != nil {

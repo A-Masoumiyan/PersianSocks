@@ -118,9 +118,7 @@ func startDesktopUI(a *App, done <-chan struct{}) {
 					return 0
 				}
 				if ready {
-					controller := browser.GetController()
-					vtbl := *(**[26]uintptr)(unsafe.Pointer(controller))
-					syscall.SyscallN(vtbl[24], uintptr(unsafe.Pointer(controller)))
+					closeDesktopBrowser(browser)
 					ready = false
 					desktopReady.Store(false)
 				}
@@ -213,6 +211,7 @@ func startDesktopUI(a *App, done <-chan struct{}) {
 			settings.PutAreDefaultContextMenusEnabled(false)
 			settings.PutAreDevToolsEnabled(false)
 			settings.PutIsStatusBarEnabled(false)
+			releaseDesktopCOM(unsafe.Pointer(settings))
 		}
 		browser.Navigate(a.origin + "/#" + a.token)
 		if stopPending || desktopClosing.Load() {
@@ -258,4 +257,28 @@ func desktopState() DesktopState {
 		visible = r != 0
 	}
 	return DesktopState{Ready: desktopReady.Load(), Visible: visible}
+}
+
+// IUnknown::Release is slot 2; all calls run on the owning STA thread.
+func releaseDesktopCOM(p unsafe.Pointer) {
+	if p != nil {
+		v := *(**[3]uintptr)(p)
+		syscall.SyscallN(v[2], uintptr(p))
+	}
+}
+func closeDesktopBrowser(browser *edge.Chromium) {
+	controller := browser.GetController()
+	v := *(**[26]uintptr)(unsafe.Pointer(controller))
+	var webview unsafe.Pointer
+	hr, _, _ := syscall.SyscallN(v[25], uintptr(unsafe.Pointer(controller)), uintptr(unsafe.Pointer(&webview)))
+	syscall.SyscallN(v[24], uintptr(unsafe.Pointer(controller))) // Close breaks the event-handler cycle.
+	if int32(hr) >= 0 && webview != nil {
+		// The pinned go-webview2 version retains both GetCoreWebView2's reference and
+		// an explicit AddRef in CreateCoreWebView2ControllerCompleted. Our getter adds one.
+		releaseDesktopCOM(webview)
+		releaseDesktopCOM(webview)
+		releaseDesktopCOM(webview)
+	}
+	releaseDesktopCOM(unsafe.Pointer(controller))
+	releaseDesktopCOM(unsafe.Pointer(browser.Environment()))
 }
