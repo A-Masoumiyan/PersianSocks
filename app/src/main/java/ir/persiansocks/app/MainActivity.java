@@ -74,21 +74,21 @@ public final class MainActivity extends Activity {
     private String renderedCriteria="";
     private final java.util.concurrent.atomic.AtomicBoolean redrawQueued=new java.util.concurrent.atomic.AtomicBoolean();
     private TextView status, listStatus, catalogInfo, counter, selection;
-    private TextView vpnStatus, vpnBadge, activeProfile, selectionProtocol, filterSummary, trafficDown, trafficUp, trafficDownTotal, trafficUpTotal, speedResult, testScope;
+    private TextView vpnStatus, vpnBadge, activeProfile, selectionProtocol, filterSummary, trafficDown, trafficUp, trafficDownTotal, trafficUpTotal;
     private Button speedButton, probeButton, filteredSpeedButton;
     private FilteredSpeedBatch speedBatch;
     private boolean preparingSpeedBatch;
     private int speedBatchGeneration;
     private DownloadSpeedTest speedTest;
     private SingleProxyTest singleTest;
-    private ProxyEndpoint testingProxy, resultProxy;
+    private ProxyEndpoint testingProxy;
     private boolean testingLatency;
     private final Map<String, ProxyTestResult> testResults = new LinkedHashMap<>();
     private double liveDownloadMBps = -1;
     private int scanTypes=7;
     private ProxyResults.Protocol protocol=ProxyResults.Protocol.ALL;
     private ProxyResults.PingLimit pingLimit = ProxyResults.PingLimit.NONE;
-    private Button scanToggle, collectButton, sortButton, serviceButton, protocolButton, pingButton, qualityButton;
+    private Button scanToggle, collectButton, sortButton, serviceButton, protocolButton, pingButton;
     private boolean smoothResults;
     private long measurementRevision;
     private PowerToggle vpnToggle;
@@ -318,11 +318,6 @@ public final class MainActivity extends Activity {
         traffic.addView(down, new LinearLayout.LayoutParams(0, -2, 1));
         traffic.addView(up, new LinearLayout.LayoutParams(0, -2, 1));
         hero.addView(traffic, margin(dp(10), 0));
-        testScope = text("تست مستقل پروکسی منتخب • بدون روشن‌کردن VPN", 11, SECONDARY, false);
-        testScope.setVisibility(View.GONE);
-        hero.addView(testScope, margin(dp(4), 0));
-        speedResult = text("", 12, SECONDARY, false); speedResult.setVisibility(View.GONE);
-        hero.addView(speedResult, margin(dp(6), 0));
         root.addView(hero, margin(dp(8), 0));
 
         LinearLayout scanPanel = panel();
@@ -367,20 +362,6 @@ public final class MainActivity extends Activity {
         filterRow.addView(serviceButton,weighted(48,1,6));filterRow.addView(protocolButton,weighted(48,1,0));
         limitRow.addView(pingButton,weighted(48,1,6));limitRow.addView(sortButton,weighted(48,1,0));
         root.addView(filterRow,margin(dp(6),0));root.addView(limitRow,margin(dp(6),0));
-        qualityButton=dropdownButton("کیفیت: همه","فیلتر کیفیت");
-        qualityButton.setOnClickListener(v->{
-            PopupMenu menu=new PopupMenu(this,qualityButton);
-            menu.getMenu().add(1,1,0,"همه").setChecked(!smoothResults);
-            menu.getMenu().add(1,2,1,"سریع و روان").setChecked(smoothResults);
-            menu.getMenu().setGroupCheckable(1,true,true);
-            menu.setOnMenuItemClickListener(item->{
-                smoothResults=item.getItemId()==2;
-                getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("smooth-results",smoothResults).apply();
-                if(!userSelected&&ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED&&!vpnRequestPending)selectBest();
-                render();return true;
-            });menu.show();
-        });
-        root.addView(qualityButton,sized(dp(48),dp(6)));
         filteredSpeedButton=button("تست سرعت همهٔ نتایج فیلترشده",false);
         filteredSpeedButton.setTextSize(12);
         filteredSpeedButton.setOnClickListener(v->{if(speedBatch!=null||preparingSpeedBatch)stopFilteredSpeed();else prepareFilteredSpeed();});
@@ -555,9 +536,17 @@ public final class MainActivity extends Activity {
             popup.getMenu().add(1, i + 1, i, ProxyResults.label(key)).setChecked(key.equals(filter));
         }
         popup.getMenu().setGroupCheckable(1, true, true);
+        popup.getMenu().add(3, 101, filterKeys.size(), "پینگ کم / دانلود سریع")
+            .setCheckable(true).setChecked(smoothResults);
         popup.getMenu().add(2, 100, filterKeys.size(), "+ دامنهٔ تست");
         popup.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == 100) { targetsDialog(); return true; }
+            if (item.getItemId() == 101) {
+                smoothResults=!smoothResults;
+                getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("smooth-results",smoothResults).apply();
+                if(!userSelected&&ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED&&!vpnRequestPending)selectBest();
+                render();return true;
+            }
             filter = filterKeys.get(item.getItemId() - 1);
             getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putString("filter", filter).apply();
             if (ProxyVpnService.phase() == ProxyVpnService.DISCONNECTED && !vpnRequestPending &&
@@ -682,7 +671,7 @@ public final class MainActivity extends Activity {
         popup.show();
     }
     private String sortLabel() {
-        if(smoothResults)return "دانلود سریع";
+        if(smoothResults)return "پینگ کم / دانلود سریع";
         switch (sort) {
             case DOWNLOAD: return "دانلود سریع";
             case MOST_SERVICES: return "بیشترین سرویس";
@@ -740,11 +729,6 @@ public final class MainActivity extends Activity {
             filteredSpeedButton.setEnabled(speedBatch!=null||preparingSpeedBatch||(!busy&&!healthy.isEmpty()));
             filteredSpeedButton.setAlpha(filteredSpeedButton.isEnabled()?1f:.45f);
         }
-        ProxyEndpoint target = busy ? testingProxy : resultProxy != null ? resultProxy : selected;
-        boolean another = target != null && (selected == null || !target.key().equals(selected.key()));
-        testScope.setText(target == null ? "ابتدا پروکسی انتخاب کن" : another ?
-            (busy ? "تست سرور: " : "نتیجهٔ سرور: ") + isolated(target.key()) : "تست مستقل • حداکثر ۲۰ MB مصرف");
-        testScope.setVisibility(busy || another ? View.VISIBLE : View.GONE);
         collectButton.setContentDescription("دریافت لیست؛ " + catalogCount + " پروکسی ذخیره‌شده");
     }
     private void stopScan() {
@@ -907,13 +891,10 @@ public final class MainActivity extends Activity {
         sortButton.setText(sortLabel() + "  ▾");
         sortButton.setContentDescription("مرتب‌سازی: " + sort.label);
         sortButton.setEnabled(!smoothResults);
-        qualityButton.setText("کیفیت: "+(smoothResults?"سریع و روان":"همه")+"  ▾");
-        qualityButton.setTextColor(smoothResults?PRIMARY:Color.WHITE);
-        qualityButton.setContentDescription("فیلتر کیفیت: "+(smoothResults?"دانلود تست‌شده؛ سرعت بیشتر و سپس پینگ کمتر":"همه"));
         serviceButton.setText("سرویس: "+ProxyResults.label(filter) + "  ▾");
-        serviceButton.setContentDescription("فیلتر سرویس: " + ProxyResults.label(filter));
-        serviceButton.setTextColor(filter.equals("ALL") ? Color.WHITE : PRIMARY);
-        serviceButton.setBackground(background(SURFACE, dp(12), filter.equals("ALL") ? STROKE : Color.rgb(44, 100, 91)));
+        serviceButton.setContentDescription("فیلتر سرویس: " + ProxyResults.label(filter)+(smoothResults?"؛ پینگ کم / دانلود سریع":""));
+        serviceButton.setTextColor(filter.equals("ALL") && !smoothResults ? Color.WHITE : PRIMARY);
+        serviceButton.setBackground(background(SURFACE, dp(12), filter.equals("ALL") && !smoothResults ? STROKE : Color.rgb(44, 100, 91)));
         protocolButton.setText("نوع: "+kindLabel + "  ▾");
         protocolButton.setContentDescription("فیلتر نوع پروکسی: " + kindLabel);
         protocolButton.setTextColor(protocol == ProxyResults.Protocol.ALL ? Color.WHITE : PRIMARY);
@@ -941,7 +922,7 @@ public final class MainActivity extends Activity {
                 emptyState.removeAllViews();emptyState.setVisibility(visible.isEmpty()?View.VISIBLE:View.GONE);
                 if(visible.isEmpty()){
                     emptyState.addView(text(!healthy.isEmpty()?"نتیجه‌ای با این فیلترها نیست":loading?"در حال بارگذاری…":scanning?"در حال جستجو…":"هنوز نتیجه‌ای نیست",16,Color.WHITE,true));
-                    emptyState.addView(text(!healthy.isEmpty()?smoothResults?"کیفیت را روی «همه» بگذار و تست سرعت بگیر؛ سپس «سریع و روان» را انتخاب کن.":"از سایدبار فیلترها را تغییر بده.":"لیست را دریافت و اسکن کن؛ پروکسی‌های نامعتبر حذف می‌شوند.",12,SECONDARY,false),margin(dp(8),0));
+                    emptyState.addView(text(!healthy.isEmpty()?smoothResults?"در منوی سرویس، «پینگ کم / دانلود سریع» را خاموش کن و تست سرعت بگیر؛ سپس دوباره روشنش کن.":"از سایدبار فیلترها را تغییر بده.":"لیست را دریافت و اسکن کن؛ پروکسی‌های نامعتبر حذف می‌شوند.",12,SECONDARY,false),margin(dp(8),0));
                 }
                 resultAdapter.notifyDataSetChanged();updateActions();
                 if(revision!=healthy.revision())scheduleRender();
@@ -1266,20 +1247,18 @@ public final class MainActivity extends Activity {
         speedTest = null; singleTest = null; testingProxy = null;
         if (download != null) download.cancel(); if (probe != null) probe.cancel();
         if (previous != null) {
-            resultProxy = previous;
             ProxyTestResult record = resultFor(previous);
             if (download != null) record.speedError = "تست متوقف شد";
             if (probe != null) { record.probeError = "تست متوقف شد"; record.probeInfo = ""; }
-            saveTestResults(); showTestMessage("تست متوقف شد");
+            saveTestResults();
         }
     }
     private void startProxyProbe(ProxyEndpoint proxy, boolean latencyOnly) {
         if (!prepareSingleTest(proxy)) return;
         final SingleProxyTest test = new SingleProxyTest(); singleTest = test; testingProxy = proxy; testingLatency = latencyOnly;
-        resultProxy = proxy;
         final ServiceTargets.Target target = SingleProxyTest.latencyTarget(proxy, filter);
         final boolean slow = slowScan;
-        showTestMessage(latencyOnly ? "بررسی پینگ…" : "تست اتصال…"); render();
+        render();
         new Thread(() -> {
             Socks5Probe.Result result = null; String error = "";
             try {
@@ -1319,7 +1298,7 @@ public final class MainActivity extends Activity {
                         testResults.remove(proxy.key());ProxyStore.save(this,healthy);note="پروکسی پاسخ نداد و از نتایج حذف شد";
                     }
                 }
-                saveTestResults(); showTestMessage(note); render();
+                saveTestResults(); render();
             });
         }, "single-proxy-connection-test").start();
     }
@@ -1329,8 +1308,7 @@ public final class MainActivity extends Activity {
     }
     private void runSpeedTest(ProxyEndpoint proxy) {
         final DownloadSpeedTest test = new DownloadSpeedTest(); speedTest = test; testingProxy = proxy; liveDownloadMBps = -1;
-        resultProxy = proxy;
-        showTestMessage("تست سرعت دانلود…"); render();
+        render();
         new Thread(() -> {
             PhysicalTestNetwork network;
             try { network = PhysicalTestNetwork.capture(this); }
@@ -1351,8 +1329,6 @@ public final class MainActivity extends Activity {
                 public void progress(long bytes, double mbps) { ui.post(() -> {
                     if (!isDestroyed() && speedTest == test) {
                         liveDownloadMBps = ProxyTestResult.fromMbps(mbps);
-                        String value = ProxyTestResult.speed(liveDownloadMBps);
-                        showTestMessage("سرعت دانلود: " + isolated(value));
                         resultAdapter.notifyDataSetChanged();
                     }
                 }); }
@@ -1368,7 +1344,6 @@ public final class MainActivity extends Activity {
         ProxyTestResult record = resultFor(proxy); record.speedError = error; record.downloadedBytes = bytes;
         if (error.isEmpty()) record.downloadMBps = ProxyTestResult.fromMbps(mbps);
         saveTestResults();
-        showTestMessage("سرعت دانلود: " + (error.isEmpty() ? isolated(record.speedValue()) : ProxyTestResult.shortError(error)));
         if(speedBatch!=null){speedBatch.completed();nextFilteredSpeed();}
         render();
     }
@@ -1402,14 +1377,12 @@ public final class MainActivity extends Activity {
             if(current!=null&&DistributionPolicy.allows(current)){runSpeedTest(current);return;}
             speedBatch.completed();
         }
-        int done=speedBatch.done();speedBatch=null;
-        showTestMessage("تست سرعت گروهی تمام شد؛ "+done+" نتیجه بررسی شد");updateActions();
+        speedBatch=null;updateActions();
     }
     private void stopFilteredSpeed() {
         speedBatchGeneration++;preparingSpeedBatch=false;
         if(speedBatch!=null){
             speedBatch.cancel();speedBatch=null;cancelSingleTests();
-            showTestMessage("تست سرعت گروهی متوقف شد؛ نتایج تکمیل‌شده ذخیره شدند");
         }
         updateActions();
     }
@@ -1419,9 +1392,6 @@ public final class MainActivity extends Activity {
         return result;
     }
     private static String isolated(String value) { return "\u2066" + value + "\u2069"; }
-    private void showTestMessage(String value) {
-        if (speedResult != null) { speedResult.setText(value); speedResult.setVisibility(View.VISIBLE); }
-    }
     private LinearLayout resultColumn(String label,TextView value){
         LinearLayout pair=horizontal();pair.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
         pair.addView(text(label,10,SECONDARY,false));LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(-2,-2);cell.setMarginStart(dp(4));pair.addView(value,cell);return pair;
