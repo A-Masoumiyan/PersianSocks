@@ -1,0 +1,6 @@
+HTTP and HTTPS candidate list snapshots retrieved 2026-10-12 from the public proxifly/free-proxy-list repository:
+https://github.com/proxifly/free-proxy-list
+https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/http/data.txt
+https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/https/data.txt
+These are untested candidates, not endorsed or guaranteed secure endpoints. Runtime HTTPS target verification is required for every result. HTTPS-to-proxy requires a valid trusted certificate and hostname/IP match; no plaintext fallback.
+The Roosterkid HTTPS_RAW list is treated as plain HTTP CONNECT to HTTPS destinations. This is separate from TLS-to-proxy candidates.

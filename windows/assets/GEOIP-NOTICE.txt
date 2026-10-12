@@ -1,0 +1,14 @@
+IP Geolocation by DB-IP
+https://db-ip.com
+
+DB-IP Country Lite, October 2026.
+Source: https://download.db-ip.com/free/dbip-country-lite-2026-10.csv.gz
+License: Creative Commons Attribution 4.0 International (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/
+
+Modification: Converted the original CSV into a sorted binary IPv4 range table
+containing start address, end address and two-letter country code. IPv6 rows were
+omitted because PersianSocks proxy endpoints are IPv4 only.
+362,122 IPv4 records. Country data is approximate and may be outdated.
+Original uncompressed CSV MD5: 4c77817b3a3397de2b871257670f9687
+Original uncompressed CSV SHA1: c8ad1dfe98cb29bcacd82a5c3ec361c880e5bb59

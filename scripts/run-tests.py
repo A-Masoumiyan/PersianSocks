@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+"""Host tests, with an isolated TLS fixture that never enters the application APK."""
+import argparse
+from pathlib import Path
+import subprocess
+import tempfile
+
+p=argparse.ArgumentParser()
+p.add_argument('--jdk',required=True)
+p.add_argument('--json',required=True,help='org.json JVM jar, used only by tests')
+a=p.parse_args()
+root=Path(__file__).resolve().parents[1]
+jdk=Path(a.jdk).resolve();json=Path(a.json).resolve()
+names=['ProxyEndpoint','ProxyTransport','ProxyResults','ServiceTargets','CountryLookup','Socks5Probe','ProxyScanner',
+    'SourceCatalog','ProtectedSocksGateway','TunnelVerifier','AutoScanSelection','FailoverPolicy','QuickControlState','TrafficMeter','DownloadSpeedTest','DistributionPolicy','SingleProxyTest','ProxyHttpConnection','ProxyTestResult','ScanCheckpoint','ScanFiles','PreparedScanner','ProxyIndex','ProxyCacheFile']
+with tempfile.TemporaryDirectory(prefix='persiansocks-tests-') as tmp:
+    work=Path(tmp);classes=work/'classes';classes.mkdir();tls=work/'tls.p12'
+    def run(*args):subprocess.run([str(x) for x in args],check=True)
+    run(jdk/'bin/keytool','-genkeypair','-alias','tests','-keyalg','RSA','-keysize','2048','-validity','2',
+        '-storetype','PKCS12','-keystore',tls,'-storepass','test-only-password','-keypass','test-only-password',
+        '-dname','CN=web.telegram.org','-ext','SAN=dns:web.telegram.org,dns:www.youtube.com,dns:www.instagram.com,dns:www.facebook.com,dns:speed.cloudflare.com,dns:localhost,ip:127.0.0.1')
+    flag=work/'BuildConfig.java'
+    flag.write_text('package ir.persiansocks.app; public final class BuildConfig { public static final boolean PLAY_DISTRIBUTION = false; }')
+    src=[root/'app/src/main/java/ir/persiansocks/app'/(name+'.java') for name in names]+list((root/'tests').glob('*.java'))+[flag]
+    run(jdk/'bin/javac','-encoding','UTF-8','-cp',json,'-d',classes,*src)
+    for name,extra in [('ScanHarness',[tls]),('FeatureHarness',[root/'app/src/main/assets/ip-country.bin']),
+            ('ControlsHarness',[]),('ResultsHarness',[]),('PingFilterHarness',[]),('MaxScanHarness',[]),('ProtocolTrafficHarness',[tls]),('OptionalTlsHarness',[tls]),('SingleProxyHarness',[tls]),('ResultDisplayHarness',[]),('ScanResumeHarness',[tls]),('LargeCacheHarness',[]),('ScanRouteHarness',[tls])]:
+        run(jdk/'bin/java',*(['-Xmx128m'] if name=='LargeCacheHarness' else []),'-cp',str(classes)+':'+str(json),name,*extra)
+    # Compile the whole transport stack again for Play; javac inlines the immutable flag.
+    play=work/'play-classes';play.mkdir()
+    flag.write_text('package ir.persiansocks.app; public final class BuildConfig { public static final boolean PLAY_DISTRIBUTION = true; }')
+    run(jdk/'bin/javac','-encoding','UTF-8','-cp',json,'-d',play,*src)
+    run(jdk/'bin/java','-cp',str(play)+':'+str(json),'PlaySecurityHarness',tls)
