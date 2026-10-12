@@ -253,7 +253,7 @@ public final class MainActivity extends Activity {
         TextView brand = text("PersianSocks", 22, Color.WHITE, true);
         brand.setTextDirection(View.TEXT_DIRECTION_LTR);
         title.addView(brand);
-        title.addView(text(DistributionPolicy.play() ? "v0.20.0 • TLS" : "v0.20.0", 11, SECONDARY, false));
+        title.addView(text(DistributionPolicy.play() ? "v0.21.0 • TLS" : "v0.21.0", 11, SECONDARY, false));
         LinearLayout.LayoutParams titleCell = new LinearLayout.LayoutParams(0, -2, 1);
         titleCell.setMarginStart(dp(10)); top.addView(title, titleCell);
         android.widget.ImageView brandIcon=new android.widget.ImageView(this);
@@ -647,7 +647,7 @@ public final class MainActivity extends Activity {
         dialog.show();
     }
     private void aboutDialog() {
-        TextView info = text("PersianSocks 0.20.0\n\nکشور، موقعیت تقریبی سرور پروکسی است.\n" +
+        TextView info = text("PersianSocks 0.21.0\n\nکشور، موقعیت تقریبی سرور پروکسی است.\n" +
             "IP Geolocation by DB-IP\nhttps://db-ip.com\n" +
             "DB-IP Country Lite، اکتبر ۲۰۲۶\nمجوز CC BY 4.0\nhttps://creativecommons.org/licenses/by/4.0/\n" +
             "دادهٔ CSV به جدول IPv4 فشرده تبدیل شده است.\n\nموتور تونل: hev-socks5-tunnel، مجوز MIT",
