@@ -662,12 +662,15 @@ public final class MainActivity extends Activity {
     }
     private void sortMenu() {
         PopupMenu popup = new PopupMenu(this, sortButton);
-        for (ProxyResults.Sort option : ProxyResults.Sort.values())
-            popup.getMenu().add(1, option.ordinal() + 1, option.ordinal(), option.label).setChecked(sort == option);
+        for (ProxyResults.Sort option : ProxyResults.Sort.values()) {
+            popup.getMenu().add(1, option.ordinal() + 1, option.ordinal() * 2, option.label)
+                .setChecked(!smoothResults && sort == option);
+            if(option==ProxyResults.Sort.DOWNLOAD)
+                // Immediately after 'Fast download', not at the end of the menu.
+                popup.getMenu().add(2, 101, option.ordinal() * 2 + 1, "پینگ کم / دانلود سریع")
+                    .setCheckable(true).setChecked(smoothResults);
+        }
         popup.getMenu().setGroupCheckable(1, true, true);
-        // Combined low-ping / fast-download is a sorting choice, not a service filter.
-        popup.getMenu().add(2, 101, ProxyResults.Sort.values().length, "پینگ کم / دانلود سریع")
-            .setCheckable(true).setChecked(smoothResults);
         popup.setOnMenuItemClickListener(item -> {
             if(item.getItemId()==101){
                 smoothResults=!smoothResults;
