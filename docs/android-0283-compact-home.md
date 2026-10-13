@@ -1,0 +1,7 @@
+# Android 0.28.3 — compact home actions
+
+Replace the four separate service/protocol/ping/sort dropdowns with one filter icon and one dialog. Four icon tabs show radio choices in the same panel, including custom domains and the combined ping/download ranking. Selections are drafts until Save; Cancel leaves current preferences unchanged and Reset edits the draft. Encrypted-only restrictions remain. Apply persists all selected criteria together and refreshes the existing ranking pipeline.
+
+Home uses one 48dp icon toolbar for saved proxies, filters, filtered speed testing and reset. Saved mode switches to back, saved ping and saved speed controls in the same row. Selected-filter summary remains visible in one compact line; active filters color the filter icon. Main connection/speed and collection/scan buttons are icons too. Running operations display a red Stop icon and retain cancellation handlers. Scan status is beside the scan actions rather than below another full-width button row. Icons have localized accessibility labels and long-press tooltips, and live counters remain in those descriptions.
+
+Validation: final offline APK compilation/resource packaging and signature/integrity audit passed; 523 bilingual resource checks passed. The change reuses the tested scanner, filtering and test transports. No Android device/emulator is available, so visual layout and touch interaction still require device validation.
