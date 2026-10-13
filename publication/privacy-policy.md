@@ -1,0 +1,33 @@
+# PersianSocks Privacy Policy / سیاست حریم خصوصی
+
+Updated: 13 October 2026. Application: `ir.persiansocks.app`.
+Project and contact: [PersianSocks repository](https://github.com/A-Masoumiyan/PersianSocks) and [project issues](https://github.com/A-Masoumiyan/PersianSocks/issues).
+Do not include passwords, private keys, or private browsing data in public issues.
+
+## English
+
+PersianSocks is a proxy discovery, testing and VPN routing app. It uses Android VPN permission to forward selected app traffic through the proxy chosen by you. Connection requires affirmative in-app consent and Android VPN consent. You can disconnect at any time. The app does not operate a centrally controlled VPN server or promise the privacy practices of third-party public proxy operators.
+
+The personal edition supports SOCKS5, HTTP and HTTPS proxies. SOCKS5 and HTTP do **not** encrypt the transport between the phone and the proxy. HTTPS proxies and the optional TLS-only setting use TLS 1.2 or 1.3 with certificate and hostname validation. The separate Play edition requires this encrypted transport and cannot fall back to plaintext proxies. Encryption to a proxy does not itself encrypt traffic after that proxy; destination apps and sites need their own HTTPS or suitable end-to-end encryption.
+
+The selected proxy receives your connection IP, destination addresses and forwarded traffic. Its operator may observe destinations and unencrypted traffic. Public proxy operators and their retention practices are outside this project's control. Traffic is not redirected for advertising monetization.
+
+Proxy-list downloads contact the sources in the app, including GitHub and jsDelivr. Scans contact your selected test domains, including Telegram, YouTube and Instagram, through candidate proxies. Speed tests download from Cloudflare or, on certain failures, OVH, with a 20 MB limit per test. Public-IP checks contact ipify or AWS; they run when the main screen is visible, periodically, when routes change, and on a requested refresh. These services receive the outgoing connection IP and normal request metadata. Their own privacy and retention policies apply. The app has no account, advertising SDK, analytics SDK, tracking identifier or automatic crash-report upload.
+
+Proxy addresses, test results, saved entries, selected test domains, preferences, usage counters and diagnostic reports are stored in private app storage on your phone. Reports may contain proxy addresses and test destinations, but do not record browsing contents or messages. Reports leave the app only if you explicitly copy or share them. Installed-app names and package identifiers are read locally for per-app VPN routing (Split Tunneling); this inventory is not uploaded. Proxy country information uses an offline DB-IP data file, rather than uploading your app inventory or location.
+
+You can stop the VPN, change selected apps/domains, delete saved proxies, or remove local data using Android's Clear storage or uninstall controls. The app disables Android application-data backup. This deletes local app data, not any records independently retained by third-party servers or diagnostic text you have copied elsewhere. This policy and the in-app notice will be updated if the processing changes. Questions can be raised through the project contact above.
+
+## فارسی
+
+PersianSocks برنامهٔ دریافت، آزمون پروکسی و عبور ترافیک با مجوز VPN اندروید است. ترافیک برنامه‌های انتخاب‌شده به پروکسی منتخب شما فرستاده می‌شود. اتصال به رضایت صریح داخل برنامه و مجوز VPN اندروید نیاز دارد و هر زمان می‌توانید آن را قطع کنید. این پروژه سرور VPN مرکزی اداره نمی‌کند و رفتار اپراتورهای پروکسی عمومی را تضمین نمی‌کند.
+
+نسخهٔ personal از SOCKS5، HTTP و HTTPS پشتیبانی می‌کند. SOCKS5 و HTTP مسیر گوشی تا پروکسی را رمزنگاری نمی‌کنند. پروکسی HTTPS و تنظیم اختیاری «فقط TLS» با TLS نسخهٔ ۱٫۲ یا ۱٫۳ و بررسی گواهی و نام سرور کار می‌کنند. پروفایل جداگانهٔ Play این رمزنگاری را الزامی می‌کند و به پروکسی بدون رمزنگاری برنمی‌گردد. رمزنگاری تا پروکسی برای مسیر بعد از آن کافی نیست؛ برنامه یا سایت مقصد نیز باید HTTPS یا رمزنگاری مناسب داشته باشد.
+
+سرور منتخب، آی‌پی ارتباطی، نشانی مقصدها و ترافیک عبوری را دریافت می‌کند. اپراتور آن ممکن است مقصدها و ترافیک رمزنگاری‌نشده را ببیند. نحوهٔ نگهداری داده نزد اپراتورهای عمومی در کنترل این پروژه نیست. ترافیک برای درآمد تبلیغاتی تغییر مسیر داده نمی‌شود.
+
+دریافت فهرست به منابع معرفی‌شده در برنامه، از جمله GitHub و jsDelivr، درخواست می‌فرستد. اسکن از طریق پروکسی‌های کاندیدا دامنه‌های انتخابی، از جمله تلگرام، یوتیوب و اینستاگرام را بررسی می‌کند. تست سرعت از Cloudflare و در برخی خطاها از OVH، تا سقف ۲۰ مگابایت در هر آزمون دانلود می‌کند. بررسی آی‌پی به ipify یا AWS درخواست می‌فرستد؛ هنگام نمایش صفحهٔ اصلی، به‌صورت دوره‌ای، پس از تغییر مسیر و با درخواست تازه‌سازی انجام می‌شود. این سرویس‌ها آی‌پی خروجی و اطلاعات معمول درخواست را دریافت می‌کنند و سیاست‌های خودشان دربارهٔ نگهداری داده اعمال می‌شود. برنامه حساب کاربری، ابزار تبلیغات، تحلیل رفتار، شناسهٔ ردیابی یا ارسال خودکار گزارش خطا ندارد.
+
+نشانی پروکسی‌ها، نتیجه‌ها، موارد ذخیره‌شده، دامنه‌های آزمون، تنظیمات، مصرف و گزارش‌های خطا در فضای خصوصی برنامه روی گوشی نگهداری می‌شوند. گزارش‌ها ممکن است نشانی پروکسی و مقصد آزمون را داشته باشند؛ محتوای وب‌گردی یا پیام‌ها ثبت نمی‌شود. فقط با کپی یا اشتراک‌گذاری صریح شما، گزارش از برنامه خارج می‌شود. نام و شناسهٔ برنامه‌های نصب‌شده برای انتخاب برنامه‌های عبوری از VPN، فقط روی گوشی خوانده می‌شوند و ارسال نمی‌شوند. کشور پروکسی با فایل آفلاین DB-IP مشخص می‌شود.
+
+می‌توانید VPN را قطع کنید، برنامه‌ها و دامنه‌های انتخابی را تغییر دهید یا پروکسی‌های ذخیره‌شده را حذف کنید. پاک‌کردن فضای ذخیره‌سازی از تنظیمات اندروید یا حذف برنامه، اطلاعات محلی آن را پاک می‌کند. پشتیبان‌گیری دادهٔ برنامه در اندروید غیرفعال است. این کار اطلاعات نگهداری‌شده نزد سرورهای اشخاص ثالث یا گزارش‌هایی که قبلاً کپی کرده‌اید را حذف نمی‌کند. تغییر شیوهٔ پردازش در این سیاست و توضیح داخل برنامه منعکس خواهد شد. راه تماس، مخزن و بخش Issues معرفی‌شده در بالای صفحه است.

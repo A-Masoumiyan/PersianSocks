@@ -492,7 +492,7 @@ public final class MainActivity extends Activity {
         sidebarAction(content,AppLanguage.t(R.string.ui_050),() -> QuickControls.requestWidget(this));
         sidebarAction(content,AppLanguage.t(R.string.ui_051),this::showReport);
         sidebarAction(content,AppLanguage.t(R.string.ui_052),this::crashReport);
-        if(DistributionPolicy.play())sidebarAction(content,AppLanguage.t(R.string.ui_053),()->VpnDisclosure.showPrivacy(this));
+        sidebarAction(content,AppLanguage.t(R.string.ui_053),()->VpnDisclosure.showPrivacy(this));
         sidebarAction(content,AppLanguage.t(R.string.ui_054),this::aboutDialog);
         page.addView(sidebarOverlay,new FrameLayout.LayoutParams(-1,-1));
     }

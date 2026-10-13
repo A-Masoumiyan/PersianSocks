@@ -1,0 +1,7 @@
+# Play Protect audit — 2026-10-13
+
+The screenshot shows an unknown-app scan, not a harmful-app verdict. Official research and remaining publisher/Google steps are in [GOOGLE-REGISTRATION.md](../GOOGLE-REGISTRATION.md). The signed 0.26.0 personal build includes PR12 security work that was not in the published 0.25.0 binary, and enables explicit VPN disclosure in both distributions. Privacy is accessible in both languages and distributions, with the current public policy link embedded.
+
+Validation: complete personal host suites and Play security harness passed; six release-input tests passed; 494 bilingual resources passed. The final signed APK passed integrity, native-library provenance, permission inventory, certificate, non-debug package/SDK and alignment checks. Four negative archive fixtures were rejected (header, packaged private key, duplicate entry, modified native library). Exact checksum and limits are in [verification.txt](verification.txt).
+
+The verifier fails closed if release permission inventory or native libraries change. It is not a malware scanner and does not claim Google approval. No scan/TCP/speed algorithms were changed in this release; those behavior investigations remain the next task. No device UI/native VPN end-to-end test, Google review, Play Console declaration, identity registration or public malware-analysis upload has been performed. Existing personal plaintext-proxy support is retained and is explicitly disclosed; only the separate Play profile enforces encrypted transport.
