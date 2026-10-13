@@ -194,7 +194,7 @@ public final class ProxyVpnService extends VpnService {
             final ScanCheckpoint scan=autoCheckpoint;
             PhysicalTestNetwork network = PhysicalTestNetwork.capture(this);
             automaticScanner = new PreparedScanner();
-            automaticScanner.start(autoCheckpoint, files::save, network::socket, network::resolve, new PreparedScanner.Listener() {
+            automaticScanner.start(autoCheckpoint, state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(ProxyVpnService.this);files.save(state);}, network::socket, network::resolve, new PreparedScanner.Listener() {
                 public void onProgress(int done, int total, int good) { handler.post(() -> {
                     if (!autoScanning || token != generation) return;
                     autoDone = done; autoTotal = total;

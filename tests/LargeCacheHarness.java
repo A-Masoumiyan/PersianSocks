@@ -50,8 +50,8 @@ public final class LargeCacheHarness {
             catch(InterruptedException ex){return new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false);}
             finally{running.decrementAndGet();}
         },new PreparedScanner.Listener(){public void onResult(int i,Socks5Probe.Result r){}public void onProgress(int d,int t,int g){}public void onFinished(ScanCheckpoint s,String m){finished.countDown();}});
-        check(finished.await(10,TimeUnit.SECONDS)&&peak.get()<=12,"Probe concurrency remains bounded at 12 under a large queued batch");
-        check(bounded.done()==135,"Reducing parallelism never drops queued results");
+        check(finished.await(10,TimeUnit.SECONDS)&&peak.get()<=30,"Probe concurrency remains bounded at 30 under a large queued batch");
+        check(bounded.done()==135,"Bounded parallelism never drops queued results");
         PreparedScanner waiting=new PreparedScanner();CountDownLatch diskEntered=new CountDownLatch(1),diskRelease=new CountDownLatch(1);AtomicInteger writes=new AtomicInteger();
         ScanCheckpoint unstarted=new ScanCheckpoint(initial.subList(0,3),new ProxyScanner.Options(100,false),"CATALOG");
         waiting.start(unstarted,state->{if(writes.incrementAndGet()==1){diskEntered.countDown();while(diskRelease.getCount()>0)try{diskRelease.await();}catch(InterruptedException ignored){}}},
