@@ -1,6 +1,6 @@
 {
-  "sha256": "bb885140c1353b4f2c878d23f0bc610710da3f34afb48fd47421f94abacef4b4",
-  "bytes": 3893257,
+  "sha256": "6b369d8353e73a7750d66a442d59663a67f7e6b88c948c6d489335ebb8d42722",
+  "bytes": 3909641,
   "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
   "permissions": [
     "android.permission.ACCESS_NETWORK_STATE",
@@ -13,12 +13,17 @@
     "ir.persiansocks.app.permission.INTERNAL_STATE"
   ],
   "status": "release integrity checks passed; Google review not performed",
-  "version": "0.27.0",
-  "versionCode": 29,
+  "version": "0.28.0",
+  "versionCode": 30,
   "hostSuitesPassed": true,
   "updateSelectionChecks": 30,
-  "bilingualStrings": 512,
+  "dnsAndFaviconPolicyChecks": 15,
+  "bilingualStrings": 520,
+  "largeScanRows": 96000,
+  "largeScanFailedPruned": 95040,
+  "largeScanHealthyPreserved": 960,
+  "largeScanPersistedBytes": 8830311,
   "deviceUITested": false,
-  "installerDeviceTested": false,
+  "realPhoneVpnTested": false,
   "googleReviewPerformed": false
 }

@@ -17,7 +17,7 @@ public final class PreparedScanner {
     private static final class Run {
         final ScanCheckpoint state; final Persistence persistence;
         final AtomicBoolean cancelled = new AtomicBoolean(); final Set<Socket> sockets = ConcurrentHashMap.newKeySet();
-        final ExecutorService workers = Executors.newFixedThreadPool(60);
+        final ExecutorService workers = Executors.newFixedThreadPool(24,r->{Thread t=new Thread(r,"proxy-scan-worker");t.setPriority(Thread.MIN_PRIORITY);return t;});
         Thread coordinator;
         Run(ScanCheckpoint state, Persistence persistence) { this.state = state; this.persistence = persistence; }
         void close() {
@@ -30,6 +30,9 @@ public final class PreparedScanner {
         final int index; final Socks5Probe.Result result;
         Completed(int index, Socks5Probe.Result result) { this.index = index; this.result = result; }
     }
+    private static volatile boolean connecting;
+    private static final java.util.concurrent.atomic.AtomicInteger active=new java.util.concurrent.atomic.AtomicInteger();
+    public static void connectionPending(boolean value){connecting=value;}
     private volatile Run current;
     public void requestStop(){Run run=current;if(run!=null){run.cancelled.set(true);run.workers.shutdownNow();new Thread(run::close,"stop-proxy-sockets").start();}}
     public synchronized void start(ScanCheckpoint state, Persistence persistence, Socks5Probe.SocketMaker maker,
@@ -49,29 +52,29 @@ public final class PreparedScanner {
     private void execute(Run run, Probe probe, Listener listener) {
         ScanCheckpoint state = run.state;
         try {
-            List<Integer> pending = state.pending();
+            int[] pending = state.pendingIndices();
             if(current!=run)return;
             run.persistence.save(state);
             if(current!=run||run.cancelled.get())return;
             listener.onProgress(state.done(), state.total(), state.goodCount());
             CompletionService<Completed> tasks = new ExecutorCompletionService<>(run.workers);
-            int submitted = 0, received = 0; int batchEnd=Math.min(ScanCheckpoint.BATCH_SIZE,pending.size()); long progressAt = 0, savedAt = System.nanoTime();
-            while (submitted < Math.min(120, batchEnd)) submit(tasks, run, probe, pending.get(submitted++));
-            while (received < pending.size() && !run.cancelled.get()) {
+            int submitted = 0, received = 0; int batchEnd=Math.min(ScanCheckpoint.BATCH_SIZE,pending.length); long progressAt = 0, savedAt = System.nanoTime();
+            while (submitted < Math.min(48, batchEnd)) submit(tasks, run, probe, pending[submitted++]);
+            while (received < pending.length && !run.cancelled.get()) {
                 Future<Completed> task = tasks.poll(250, TimeUnit.MILLISECONDS); if (task == null) continue;
                 Completed completed = task.get(); received++;
                 synchronized (this) {
                     if (current != run || run.cancelled.get()) return;
                     if (state.record(completed.index, completed.result)) listener.onResult(completed.index, completed.result);
                     long now = System.nanoTime();
-                    if (now - progressAt > 400_000_000L || received == pending.size()) {
+                    if (now - progressAt > 400_000_000L || received == pending.length) {
                         listener.onProgress(state.done(), state.total(), state.goodCount()); progressAt = now;
                     }
                 }
                 long now=System.nanoTime();
-                if(now-savedAt>5_000_000_000L){run.persistence.save(state);savedAt=System.nanoTime();}
-                if(received==batchEnd){run.persistence.save(state);savedAt=System.nanoTime();batchEnd=Math.min(pending.size(),batchEnd+ScanCheckpoint.BATCH_SIZE);while(submitted<Math.min(batchEnd,received+120)&&!run.cancelled.get())submit(tasks,run,probe,pending.get(submitted++));}
-                else if (submitted < batchEnd && !run.cancelled.get()) submit(tasks, run, probe, pending.get(submitted++));
+                if(now-savedAt>15_000_000_000L){run.persistence.save(state);savedAt=System.nanoTime();}
+                if(received==batchEnd){run.persistence.save(state);savedAt=System.nanoTime();batchEnd=Math.min(pending.length,batchEnd+ScanCheckpoint.BATCH_SIZE);while(submitted<Math.min(batchEnd,received+48)&&!run.cancelled.get())submit(tasks,run,probe,pending[submitted++]);}
+                else if (submitted < batchEnd && !run.cancelled.get()) submit(tasks, run, probe, pending[submitted++]);
             }
             run.persistence.save(state);
             synchronized (this) {
@@ -87,6 +90,11 @@ public final class PreparedScanner {
         } finally { run.close(); }
     }
     private static void submit(CompletionService<Completed> tasks, Run run, Probe probe, int index) {
-        tasks.submit(() -> new Completed(index, probe.inspect(run.state.candidate(index), run.state.slow, run.cancelled, run.sockets)));
+        tasks.submit(() -> {
+            boolean entered=false;
+            try{while(!run.cancelled.get()) {int n=active.get();if(n<(connecting?4:24)&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
+                return new Completed(index,entered?probe.inspect(run.state.candidate(index),run.state.slow,run.cancelled,run.sockets):new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false));
+            }finally{if(entered)active.decrementAndGet();}
+        });
     }
 }

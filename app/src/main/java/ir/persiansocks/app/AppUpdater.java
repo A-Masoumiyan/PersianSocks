@@ -16,6 +16,8 @@ import java.util.concurrent.*;
 public final class AppUpdater {
     private final Activity activity;
     private final Button button;
+    private final TextView versionNote;
+    private boolean started;
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private volatile boolean closed,cancelled;
     private volatile HttpURLConnection connection;
@@ -23,15 +25,14 @@ public final class AppUpdater {
     private UpdateRelease release;
     private File ready;
     private AlertDialog progressDialog;
-    public AppUpdater(Activity a,Button b){activity=a;button=b;try{release=UpdateRelease.newest(a.getSharedPreferences("persiansocks",0).getString("update-release","[]"),AppLanguage.version(a));}catch(Exception ignored){}if(DistributionPolicy.play())release=null;label();button.setOnClickListener(v->{if(release!=null)offer();else check(true);});}
+    public AppUpdater(Activity a,Button b,TextView note){versionNote=note;activity=a;button=b;try{release=UpdateRelease.newest(a.getSharedPreferences("persiansocks",0).getString("update-release","[]"),AppLanguage.version(a));}catch(Exception ignored){}if(DistributionPolicy.play())release=null;label();button.setOnClickListener(v->{if(release!=null)offer();else check(true);});}
     private String t(int id){return AppLanguage.t(id);}
     private void post(Runnable r){activity.runOnUiThread(()->{if(!closed&&!activity.isDestroyed())r.run();});}
-    private void label(){button.setText(t(release==null?R.string.ui_update_000:R.string.ui_update_001));button.setTextColor(release==null?android.graphics.Color.WHITE:android.graphics.Color.rgb(70,226,184));button.setEnabled(!busy);}
+    private void label(){versionNote.setText(release==null?"":t(R.string.ui_v28_update)+" "+AppLanguage.isolate("v"+release.version));if(button instanceof UiIconButton)((UiIconButton)button).active(release!=null);button.setContentDescription(t(release==null?R.string.ui_update_000:R.string.ui_update_001)+(release==null?"":" v"+release.version));button.setText(t(release==null?R.string.ui_update_000:R.string.ui_update_001));button.setTextColor(release==null?android.graphics.Color.WHITE:android.graphics.Color.rgb(70,226,184));button.setEnabled(!busy);}
     public void start(){
         if(returningFromSettings){returningFromSettings=false;if(activity.getPackageManager().canRequestPackageInstalls())install();}
         if(DistributionPolicy.play())return;
-        long last=activity.getSharedPreferences("persiansocks",0).getLong("update-checked",0),now=System.currentTimeMillis();
-        if(last<=0||now<last||now-last>=12*60*60*1000L)check(false);
+        check(false);
     }
     public void close(){closed=true;cancelled=true;if(connection!=null)connection.disconnect();worker.shutdownNow();if(progressDialog!=null)progressDialog.dismiss();}
     private HttpURLConnection open(String address,Network network,boolean redirects,long deadline)throws Exception {

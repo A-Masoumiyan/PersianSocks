@@ -8,6 +8,7 @@ import org.json.JSONObject;
 public final class ProxyTestResult {
     public double downloadMBps = -1;
     public long downloadedBytes;
+    public long speedAt,probeAt;
     public String speedError = "", probeError = "", probeInfo = "";
     public static double fromMbps(double mbps) {
         return Double.isFinite(mbps) && mbps >= 0 ? mbps / 8.0 : -1;
@@ -34,7 +35,7 @@ public final class ProxyTestResult {
         JSONObject json = new JSONObject();
         try {
             json.put("downloadMBps", Double.isFinite(downloadMBps) && downloadMBps >= 0 ? downloadMBps : -1);
-            json.put("downloadedBytes", Math.max(0, downloadedBytes));
+            json.put("downloadedBytes", Math.max(0, downloadedBytes));json.put("speedAt",speedAt);json.put("probeAt",probeAt);
             json.put("speedError", speedError); json.put("probeError", probeError); json.put("probeInfo", probeInfo);
         } catch (Exception ignored) {}
         return json;
@@ -45,7 +46,7 @@ public final class ProxyTestResult {
         result.downloadMBps = Double.isFinite(speed) && speed >= 0 ? speed : -1;
         result.downloadedBytes = Math.max(0, json.optLong("downloadedBytes", 0));
         result.speedError = json.optString("speedError"); result.probeError = json.optString("probeError");
-        result.probeInfo = json.optString("probeInfo"); return result;
+        result.speedAt=Math.max(0,json.optLong("speedAt"));result.probeAt=Math.max(0,json.optLong("probeAt"));result.probeInfo = json.optString("probeInfo"); return result;
     }
     public static ProxyTestResult legacy(String speedNote, String probeNote) {
         ProxyTestResult result = new ProxyTestResult();

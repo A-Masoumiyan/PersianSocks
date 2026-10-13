@@ -42,6 +42,9 @@ public final class PhysicalTestNetwork {
         return caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
     }
+    public Network network(){return network;}
+    public void bind(Socket socket)throws IOException {if(!valid())throw new IOException("Physical network changed");network.bindSocket(socket);}
+    public void bind(DatagramSocket socket)throws IOException {if(!valid())throw new IOException("Physical network changed");network.bindSocket(socket);}
     public boolean valid() { return physical(manager.getNetworkCapabilities(network)); }
     public Socket socket() throws IOException {
         if (!valid()) throw new IOException("شبکهٔ تست قطع شد");

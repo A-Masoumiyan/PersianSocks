@@ -512,4 +512,12 @@
     <string name="ui_update_015" formatted="false">"Android requires permission to install unknown apps for PersianSocks to install this APK. The choice is yours; Play Protect stays enabled."</string>
     <string name="ui_update_016" formatted="false">"Open settings"</string>
     <string name="ui_update_017" formatted="false">"Check again"</string>
+    <string name="ui_v28_limit" formatted="false">"Enter a number between 100 and 100000."</string>
+    <string name="ui_v28_sources" formatted="false">"Built-in sources are used automatically. To add a source, select its proxy types and enter one HTTPS link per line."</string>
+    <string name="ui_v28_type" formatted="false">"Select at least one type."</string>
+    <string name="ui_v28_source_error" formatted="false">"Enter valid HTTPS links; at most 20 sources."</string>
+    <string name="ui_v28_update" formatted="false">"Update:"</string>
+    <string name="ui_v28_speed_time" formatted="false">"Last successful download: "</string>
+    <string name="ui_v28_vpn_error" formatted="false">"Last VPN error for this proxy: "</string>
+    <string name="ui_v28_evidence" formatted="false">"A speed test checks only the download server route at the time of that test. VPN connectivity is checked separately through the real tunnel; an earlier success does not guarantee the current connection."</string>
 </resources>

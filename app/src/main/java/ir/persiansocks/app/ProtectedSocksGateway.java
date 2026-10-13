@@ -25,6 +25,8 @@ public final class ProtectedSocksGateway implements AutoCloseable {
     }
     public String username(){return username;}
     public String password(){return password;}
+    private volatile String lastError="";
+    public String lastError(){return lastError;}
     private final AtomicBoolean stopped=new AtomicBoolean(false);
     private final Semaphore slots=new Semaphore(64);
     private final Set<Connection> connections=ConcurrentHashMap.newKeySet();
@@ -89,7 +91,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
             Socket raw=new Socket();c.add(raw);
             raw.bind(new InetSocketAddress(0));
             if(c.ended.get()||stopped.get()||!protector.tcp(raw))throw new IOException("Physical TCP protection failed");
-            raw.connect(new InetSocketAddress(protector.resolve(proxy.host),proxy.port),6000);
+            raw.connect(new InetSocketAddress(protector.resolve(proxy.host),proxy.port),10000);
             raw.setSoTimeout(10000);raw.setTcpNoDelay(true);
             final Socket remote;
             if(request.code==3){
@@ -108,7 +110,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
             AtomicInteger remaining=new AtomicInteger(2);
             pool.execute(()->pump(remote,client,c,remaining));
             handedOff=true;pump(client,remote,c,remaining);
-        }catch(Exception ignored){}
+        }catch(Exception error){lastError=error.getClass().getSimpleName()+": "+String.valueOf(error.getMessage());}
         finally{if(!handedOff)c.close();}
     }
     private static void pump(Socket from,Socket to,Connection c,AtomicInteger remaining) {
