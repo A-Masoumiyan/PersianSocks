@@ -1,5 +1,5 @@
 {
-  "sha256": "602153118b5acd49a9a76b42d600c319e018fb7a114fbe9a5b717054aabbc95d",
+  "sha256": "b936b53f5fe23fb002f596275c37e3f92082b05aab97451318641ea8ab09b0fe",
   "bytes": 3909641,
   "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
   "permissions": [
@@ -13,8 +13,8 @@
     "ir.persiansocks.app.permission.INTERNAL_STATE"
   ],
   "status": "release integrity checks passed; Google review not performed",
-  "version": "0.28.1",
-  "versionCode": 31,
+  "version": "0.28.2",
+  "versionCode": 32,
   "hostSuitesPassed": true,
   "updateSelectionChecks": 30,
   "dnsAndFaviconPolicyChecks": 23,
