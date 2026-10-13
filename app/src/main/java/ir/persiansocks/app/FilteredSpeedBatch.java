@@ -16,6 +16,7 @@ public final class FilteredSpeedBatch {
             java.util.Map<String, Double> speeds, boolean smooth) {
         input = ProxyResults.visible(source, service, sort, protocol, ping, speeds, smooth);
     }
+    public FilteredSpeedBatch(List<ProxyEndpoint> saved) { input=new java.util.ArrayList<>(saved); }
     public ProxyEndpoint next() { return cancelled || done >= input.size() ? null : input.get(done); }
     public void completed() { if (!cancelled && done < input.size()) done++; }
     public void cancel() { cancelled = true; }

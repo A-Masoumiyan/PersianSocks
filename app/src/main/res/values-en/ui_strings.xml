@@ -168,7 +168,7 @@
     <string name="ui_165" formatted="false">"Ping:"</string>
     <string name="ui_166" formatted="false">"Already saved"</string>
     <string name="ui_167" formatted="false">"Add to Saved"</string>
-    <string name="ui_168" formatted="false">"; swipe left: speed test; swipe right: ping"</string>
+    <string name="ui_168" formatted="false">"; swipe left: ping; swipe right: speed test"</string>
     <string name="ui_169" formatted="false">" verified"</string>
     <string name="ui_170" formatted="false">" not verified"</string>
     <string name="ui_171" formatted="false">" not tested"</string>
@@ -474,4 +474,22 @@
     <string name="ui_controls_006" formatted="false">"Auto scan and connect"</string>
     <string name="ui_controls_007" formatted="false">"Open app"</string>
     <string name="ui_controls_008" formatted="false">"Auto scan and connect using the selected filter"</string>
+    <string name="ui_v25_000" formatted="false">"Your IP: "</string>
+    <string name="ui_v25_001" formatted="false">"Checking…"</string>
+    <string name="ui_v25_002" formatted="false">"IP could not be verified; tap to retry"</string>
+    <string name="ui_v25_003" formatted="false">"Proxy exit route verified"</string>
+    <string name="ui_v25_004" formatted="false">"Route verified; exit IP differs from the server address"</string>
+    <string name="ui_v25_005" formatted="false">"IP does not match the verified proxy exit"</string>
+    <string name="ui_v25_006" formatted="false">"Connection is changing; awaiting actual verification"</string>
+    <string name="ui_v25_007" formatted="false">"Back"</string>
+    <string name="ui_v25_008" formatted="false">"Saved ping"</string>
+    <string name="ui_v25_009" formatted="false">"Saved speed"</string>
+    <string name="ui_v25_010" formatted="false">"Stop test"</string>
+    <string name="ui_v25_011" formatted="false">"Test saved proxy pings"</string>
+    <string name="ui_v25_012" formatted="false">"Test saved proxy speeds"</string>
+    <string name="ui_v25_013" formatted="false">"Ping"</string>
+    <string name="ui_v25_014" formatted="false">"↓ Download"</string>
+    <string name="ui_v25_015" formatted="false">"Current attempt failed temporarily; previous result retained"</string>
+    <string name="ui_v25_016" formatted="false">"VPN IP read; proxy exit comparison could not be verified"</string>
+    <string name="ui_v25_017" formatted="false">"Selected proxy is not active; showing the active connection IP"</string>
 </resources>

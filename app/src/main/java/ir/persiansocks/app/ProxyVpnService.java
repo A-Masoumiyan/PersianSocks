@@ -208,7 +208,7 @@ public final class ProxyVpnService extends VpnService {
                 public void onResult(int index,Socks5Probe.Result result) {
                     if(!autoScanning||token!=generation)return;
                     if(result.endpoint!=null){ProxyStore.index().accept(result.endpoint);autoSelection.add(result.endpoint);}
-                    else if(result.failure!=Socks5Probe.Failure.CANCELLED&&ProxyStore.index().find(scan.candidate(index).key())!=null)
+                    else if(ProbeFailurePolicy.invalidates(result.failure)&&ProxyStore.index().find(scan.candidate(index).key())!=null)
                         ProxyStore.index().reject(scan.candidate(index).key(),scan.finishedAt(index));
                 }
                 public void onFinished(ScanCheckpoint state, String message) { handler.post(() -> {

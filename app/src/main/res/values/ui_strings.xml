@@ -168,7 +168,7 @@
     <string name="ui_165" formatted="false">"پینگ:"</string>
     <string name="ui_166" formatted="false">"قبلاً به ذخیره‌شده‌ها اضافه شده"</string>
     <string name="ui_167" formatted="false">"افزودن به ذخیره‌شده‌ها"</string>
-    <string name="ui_168" formatted="false">"؛ کشیدن به چپ: تست سرعت؛ کشیدن به راست: پینگ"</string>
+    <string name="ui_168" formatted="false">"؛ کشیدن به چپ: پینگ؛ کشیدن به راست: تست سرعت"</string>
     <string name="ui_169" formatted="false">" تأیید شد"</string>
     <string name="ui_170" formatted="false">" تأیید نشد"</string>
     <string name="ui_171" formatted="false">" تست نشده"</string>
@@ -474,4 +474,22 @@
     <string name="ui_controls_006" formatted="false">"اسکن و اتصال خودکار"</string>
     <string name="ui_controls_007" formatted="false">"برنامه"</string>
     <string name="ui_controls_008" formatted="false">"اسکن و اتصال خودکار با فیلتر انتخابی"</string>
+    <string name="ui_v25_000" formatted="false">"آی‌پی شما: "</string>
+    <string name="ui_v25_001" formatted="false">"در حال بررسی…"</string>
+    <string name="ui_v25_002" formatted="false">"آی‌پی قابل بررسی نیست؛ برای تلاش دوباره بزن"</string>
+    <string name="ui_v25_003" formatted="false">"مسیر خروجی پروکسی تأیید شد"</string>
+    <string name="ui_v25_004" formatted="false">"مسیر تأیید شد؛ آی‌پی خروجی با آدرس سرور متفاوت است"</string>
+    <string name="ui_v25_005" formatted="false">"آی‌پی با خروجی بررسی‌شدهٔ پروکسی مطابقت ندارد"</string>
+    <string name="ui_v25_006" formatted="false">"اتصال در حال تغییر است؛ منتظر بررسی واقعی"</string>
+    <string name="ui_v25_007" formatted="false">"برگشت"</string>
+    <string name="ui_v25_008" formatted="false">"پینگ ذخیره‌ها"</string>
+    <string name="ui_v25_009" formatted="false">"سرعت ذخیره‌ها"</string>
+    <string name="ui_v25_010" formatted="false">"توقف تست"</string>
+    <string name="ui_v25_011" formatted="false">"تست پینگ ذخیره‌شده‌ها"</string>
+    <string name="ui_v25_012" formatted="false">"تست سرعت ذخیره‌شده‌ها"</string>
+    <string name="ui_v25_013" formatted="false">"پینگ"</string>
+    <string name="ui_v25_014" formatted="false">"↓ دانلود"</string>
+    <string name="ui_v25_015" formatted="false">"نتیجهٔ فعلی موقتاً ناموفق بود؛ نتیجهٔ قبلی حفظ شد"</string>
+    <string name="ui_v25_016" formatted="false">"آی‌پی VPN خوانده شد؛ تطابق خروجی پروکسی قابل بررسی نبود"</string>
+    <string name="ui_v25_017" formatted="false">"پروکسی انتخابی فعال نیست؛ آی‌پی اتصال فعال نمایش داده شده"</string>
 </resources>
