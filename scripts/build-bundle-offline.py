@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import zipfile
+import importlib.util
 
 p=argparse.ArgumentParser()
 for name in ['sdk','jdk','aapt2','bundletool']:p.add_argument('--'+name,required=True)
@@ -14,15 +15,25 @@ p.add_argument('--profile',choices=['personal','play'],default='personal')
 a=p.parse_args()
 root=Path(__file__).resolve().parents[1]
 sdk,jdk,aapt,bundle=map(lambda x:Path(x).resolve(),[a.sdk,a.jdk,a.aapt2,a.bundletool])
+spec=importlib.util.spec_from_file_location('release_security',root/'scripts/release-security.py')
+security=importlib.util.module_from_spec(spec);spec.loader.exec_module(security)
+security.verify_signing(root,jdk);security.verify_native(root)
 apkwork=root/('app/build/manual-release-'+a.profile)
-if json.loads((apkwork/'profile.json').read_text())['profile']!=a.profile:raise RuntimeError('Wrong APK compilation profile')
+profile=json.loads((apkwork/'profile.json').read_text())
+if profile['profile']!=a.profile:raise RuntimeError('Wrong APK compilation profile')
+security.validate_privacy_url(profile.get('privacyPolicyUrl',''))
 work=root/('app/build/manual-bundle-'+a.profile);work.mkdir(parents=True,exist_ok=True)
 gradle=(root/'app/build.gradle').read_text()
 version=re.search(r"versionName '([^']+)'",gradle).group(1)
 compile_sdk=re.search(r'compileSdk (\d+)',gradle).group(1)
 android=sdk/('platforms/android-'+compile_sdk+'/android.jar')
 env=os.environ.copy();env.pop('JAVA_TOOL_OPTIONS',None)
-def run(*args):subprocess.run([str(x) for x in args],check=True,env=env,cwd=root)
+def run(*args):
+    if os.name=='nt' and str(args[0]).endswith('apksigner'):
+        args=(jdk/'bin/java.exe','-jar',sdk/'build-tools/35.0.0/lib/apksigner.jar',*args[1:])
+    elif os.name=='nt' and not Path(args[0]).exists() and Path(str(args[0])+'.exe').exists():
+        args=(str(args[0])+'.exe',*args[1:])
+    subprocess.run([str(x) for x in args],check=True,env=env,cwd=root)
 run(aapt,'compile','--dir',root/'app/src/main/res','-o',work/'resources.zip')
 run(aapt,'link','--proto-format','-o',work/'proto.apk','-I',android,
     '--manifest',apkwork/'AndroidManifest.xml','--java',work/'generated',

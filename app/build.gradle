@@ -1,5 +1,8 @@
 plugins { id 'com.android.application' }
 
+def releaseKey = rootProject.file('signing/PersianSocks-release.p12')
+def releasePassword = rootProject.file('signing/password.txt')
+
 android {
     namespace 'ir.persiansocks.app'
     compileSdk 36
@@ -8,8 +11,8 @@ android {
         buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(project.findProperty('privacyPolicyUrl') ?: '')
         minSdk 29
         targetSdk 36
-        versionCode 22
-        versionName '0.21.0'
+        versionCode 23
+        versionName '0.22.0'
     }
     buildFeatures { buildConfig true }
     flavorDimensions 'distribution'
@@ -24,9 +27,56 @@ android {
     buildTypes {
         release { minifyEnabled false }
     }
+    signingConfigs {
+        originalRelease {
+            if (releaseKey.isFile() && releasePassword.isFile()) {
+                storeFile releaseKey
+                storeType 'PKCS12'
+                storePassword releasePassword.getText('UTF-8').trim()
+                keyAlias 'persiansocks'
+                keyPassword storePassword
+            }
+        }
+    }
+    buildTypes.release.signingConfig signingConfigs.originalRelease
     packaging {
         jniLibs { useLegacyPackaging = false }
     }
+}
+
+def verifyNative = tasks.register('verifyNativeInput') {
+    doLast {
+        def aar = file('libs/hev-socks5-tunnel.aar')
+        if (!aar.isFile() || java.security.MessageDigest.getInstance('SHA-256').digest(aar.bytes).encodeHex().toString() !=
+                '15ec8ed121663b562c99caa5bb602d1009f24e5b09e733438b81988f12feaaab') {
+            throw new GradleException('Missing or modified pinned upstream 2.18.0 AAR')
+        }
+    }
+}
+def verifyRelease = tasks.register('verifyReleaseInputs') {
+    dependsOn verifyNative
+    doLast {
+        if (!releaseKey.isFile() || !releasePassword.isFile()) {
+            throw new GradleException('Original signing key and password required; never generate a replacement key')
+        }
+        def keyStore = java.security.KeyStore.getInstance('PKCS12')
+        releaseKey.withInputStream { keyStore.load(it, releasePassword.getText('UTF-8').trim().toCharArray()) }
+        def cert = keyStore.getCertificate('persiansocks')
+        if (cert == null || java.security.MessageDigest.getInstance('SHA-256').digest(cert.encoded).encodeHex().toString() !=
+                '01093c8c0026d46c2d4dd45914c1bb5c5667a5d703286b612911582d202673dd') {
+            throw new GradleException('Signing certificate differs from the pinned official certificate')
+        }
+        def policy = (project.findProperty('privacyPolicyUrl') ?: '').toString()
+        def uri
+        try { uri = new java.net.URI(policy) } catch (Exception ignored) { throw new GradleException('Invalid privacy policy URL') }
+        if (uri.scheme != 'https' || !uri.host || uri.rawUserInfo != null || policy.any { (int)it < 33 }) {
+            throw new GradleException('Release requires a public HTTPS privacy policy URL without credentials')
+        }
+    }
+}
+tasks.configureEach {
+    if (name == 'preBuild') dependsOn verifyNative
+    if (name.matches('pre.*ReleaseBuild')) dependsOn verifyRelease
 }
 
 dependencies {

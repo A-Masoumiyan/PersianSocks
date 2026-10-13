@@ -52,10 +52,9 @@ public final class PlaySecurityHarness {
         while(bytes.size()<16384){int c=in.read();if(c<0)throw new EOFException();bytes.write(c);tail=(tail<<8)|c;if(tail==0x0d0a0d0a)return bytes.toString("US-ASCII");}
         throw new IOException("Header too long");
     }
-    static void nativeConnect(Socket client,int gateway,String host,int port)throws Exception {
-        client.connect(new InetSocketAddress("127.0.0.1",gateway),3000);client.setSoTimeout(5000);
-        OutputStream out=client.getOutputStream();InputStream in=client.getInputStream();out.write(new byte[]{5,1,0});out.flush();
-        if(in.read()!=5||in.read()!=0)throw new IOException("Local negotiation rejected");
+    static void nativeConnect(Socket client,ProtectedSocksGateway gateway,String host,int port)throws Exception {
+        client.connect(new InetSocketAddress("127.0.0.1",gateway.port()),3000);client.setSoTimeout(5000);
+        OutputStream out=client.getOutputStream();InputStream in=client.getInputStream();GatewayTestSupport.authenticate(client,gateway);
         byte[] name=host.getBytes(StandardCharsets.US_ASCII);out.write(new byte[]{5,1,0,3,(byte)name.length});out.write(name);out.write(new byte[]{(byte)(port>>8),(byte)port});out.flush();
         byte[] reply=in.readNBytes(10);if(reply.length!=10||reply[1]!=0)throw new IOException("Local connect rejected");
     }
@@ -93,7 +92,7 @@ public final class PlaySecurityHarness {
             check("HTTPS".equals(socket.getSSLParameters().getEndpointIdentificationAlgorithm()),"Certificate hostname checking is enabled");
         }
         for(String version:new String[]{"TLSv1.2","TLSv1.3"})try(EchoTlsProxy server=new EchoTlsProxy(version);WireTap tap=new WireTap(server.listener.getLocalPort());ProtectedSocksGateway gateway=new ProtectedSocksGateway(tap.endpoint(),protector(new AtomicInteger()));Socket client=new Socket()){
-            nativeConnect(client,gateway.port(),"example.com",80);
+            nativeConnect(client,gateway,"example.com",80);
             String marker="SECRET-"+UUID.randomUUID();String request="GET /"+marker+" HTTP/1.1\r\nHost: example.com\r\n\r\n";
             client.getOutputStream().write(request.getBytes(StandardCharsets.US_ASCII));client.getOutputStream().flush();
             check(header(client.getInputStream()).startsWith("HTTP/1.1 200")&&client.getInputStream().readNBytes(2).length==2,"Plain HTTP destination is carried successfully inside "+version);
@@ -109,7 +108,7 @@ public final class PlaySecurityHarness {
                     public Socket create(){return new Socket(){public void connect(SocketAddress endpoint,int timeout)throws IOException{
                         try{InetSocketAddress address=(InetSocketAddress)endpoint;int index=(address.getAddress().getAddress()[3]&255)-1;
                             super.connect(new InetSocketAddress("127.0.0.1",gateway.port()),timeout);setSoTimeout(5000);
-                            OutputStream out=getOutputStream();InputStream in=getInputStream();out.write(new byte[]{5,1,0});out.flush();if(in.read()!=5||in.read()!=0)throw new IOException();
+                            OutputStream out=getOutputStream();InputStream in=getInputStream();GatewayTestSupport.authenticate(this,gateway);
                             byte[] host=ServiceTargets.ALL[index].host.getBytes(StandardCharsets.US_ASCII);out.write(new byte[]{5,1,0,3,(byte)host.length});out.write(host);out.write(new byte[]{1,(byte)0xbb});out.flush();
                             byte[] reply=in.readNBytes(10);if(reply.length!=10||reply[1]!=0)throw new IOException();
                         }catch(Exception ex){throw new IOException(ex);}
@@ -118,7 +117,7 @@ public final class PlaySecurityHarness {
                 },new AtomicBoolean(false),ConcurrentHashMap.newKeySet());
                 check(result.accepts("FULL")&&result.profile(e).type==ProxyEndpoint.Type.HTTPS,"VPN-path service verification preserves TLS type and accepts complete service results");
                 try(Socket client=new Socket("127.0.0.1",gateway.port())){
-                    client.setSoTimeout(2000);client.getOutputStream().write(new byte[]{5,1,0});client.getInputStream().readNBytes(2);
+                    client.setSoTimeout(2000);GatewayTestSupport.authenticate(client,gateway);
                     client.getOutputStream().write(new byte[]{5,3,0,1,0,0,0,0,0,0});byte[] reply=client.getInputStream().readNBytes(10);
                     check(reply.length==10&&reply[1]==7,"Raw UDP cannot leave the Play gateway");
                 }

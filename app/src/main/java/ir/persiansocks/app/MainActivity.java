@@ -463,7 +463,7 @@ public final class MainActivity extends Activity {
         sidebarAction(content,"افزودن ویجت گوشی",() -> QuickControls.requestWidget(this));
         sidebarAction(content,"گزارش اسکن و اتصال",this::showReport);
         sidebarAction(content,"گزارش خطای برنامه",this::crashReport);
-        if(DistributionPolicy.play())sidebarAction(content,"حریم خصوصی",()->VpnDisclosure.showPrivacy(this));
+        sidebarAction(content,"حریم خصوصی",()->VpnDisclosure.showPrivacy(this));
         sidebarAction(content,"دربارهٔ برنامه",this::aboutDialog);
         page.addView(sidebarOverlay,new FrameLayout.LayoutParams(-1,-1));
     }

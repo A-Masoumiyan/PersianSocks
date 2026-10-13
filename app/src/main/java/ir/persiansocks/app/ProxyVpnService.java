@@ -330,6 +330,8 @@ public final class ProxyVpnService extends VpnService {
                 "socks5:\n" +
                 "  address: 127.0.0.1\n" +
                 "  port: " + gateway.port() + "\n" +
+                "  username: '" + gateway.username() + "'\n" +
+                "  password: '" + gateway.password() + "'\n" +
                 "  udp: 'udp'\n" +
                 "mapdns:\n" +
                 "  address: 198.18.0.2\n" +
@@ -593,6 +595,7 @@ public final class ProxyVpnService extends VpnService {
         handler.removeCallbacksAndMessages(null);
         if (gateway != null) { gateway.close(); gateway = null; }
         try { TProxyService.TProxyStopService(); } catch (Throwable ignored) {}
+        new File(getFilesDir(), "active-tunnel.yml").delete();
         if (tun != null) { try { tun.close(); } catch (Exception ignored) {} tun = null; }
         current = "";
         try { stopForeground(STOP_FOREGROUND_REMOVE); } catch (Exception ignored) {}

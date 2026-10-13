@@ -25,10 +25,16 @@ jobs:
             -o app/libs/hev-socks5-tunnel.aar
           echo "15ec8ed121663b562c99caa5bb602d1009f24e5b09e733438b81988f12feaaab  app/libs/hev-socks5-tunnel.aar" | sha256sum -c -
           unzip -t app/libs/hev-socks5-tunnel.aar
-      - name: Build debug APK
-        run: gradle --no-daemon :app:assemblePersonalDebug
+      - name: Host security and Split Tunneling tests
+        run: |
+          curl -fL 'https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar' -o /tmp/persiansocks-json.jar
+          echo '3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed  /tmp/persiansocks-json.jar' | sha256sum -c -
+          python3 scripts/run-tests.py --jdk "$JAVA_HOME" --json /tmp/persiansocks-json.jar
+          python3 tests/release_security_test.py --jdk "$JAVA_HOME"
+      - name: Build and lint both debug profiles
+        run: gradle --no-daemon :app:assemblePersonalDebug :app:assemblePlayDebug :app:lintPersonalDebug :app:lintPlayDebug
       - uses: actions/upload-artifact@v4
         with:
           name: PersianSocks-debug-apk
-          path: app/build/outputs/apk/personal/debug/*.apk
+          path: app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error

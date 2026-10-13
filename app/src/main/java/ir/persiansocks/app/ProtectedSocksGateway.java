@@ -16,6 +16,15 @@ public final class ProtectedSocksGateway implements AutoCloseable {
     private final ProxyEndpoint proxy;
     private final Protector protector;
     private final ServerSocket listener;
+    private final String username = token(), password = token();
+    private static String token() {
+        byte[] bytes = new byte[32];new java.security.SecureRandom().nextBytes(bytes);
+        StringBuilder value = new StringBuilder(64);
+        for(byte b:bytes)value.append(String.format(java.util.Locale.ROOT,"%02x",b&255));
+        return value.toString();
+    }
+    public String username(){return username;}
+    public String password(){return password;}
     private final AtomicBoolean stopped=new AtomicBoolean(false);
     private final Semaphore slots=new Semaphore(64);
     private final Set<Connection> connections=ConcurrentHashMap.newKeySet();
@@ -60,10 +69,19 @@ public final class ProtectedSocksGateway implements AutoCloseable {
             InputStream ci=client.getInputStream();OutputStream co=client.getOutputStream();
             if(ci.read()!=5)return;
             int n=ci.read();if(n<1||n>255)return;
-            byte[]methods=read(ci,n);boolean noAuth=false;
-            for(byte b:methods)if(b==0)noAuth=true;
-            if(!noAuth){co.write(new byte[]{5,(byte)255});co.flush();return;}
-            co.write(new byte[]{5,0});co.flush();
+            byte[]methods=read(ci,n);boolean authenticated=false;
+            for(byte b:methods)if(b==2)authenticated=true;
+            if(!authenticated){co.write(new byte[]{5,(byte)255});co.flush();return;}
+            co.write(new byte[]{5,2});co.flush();
+            if(ci.read()!=1)return;
+            int userLength=ci.read();if(userLength<1)return;
+            byte[] user=read(ci,userLength);
+            int passLength=ci.read();if(passLength<1)return;
+            byte[] pass=read(ci,passLength);
+            boolean valid=java.security.MessageDigest.isEqual(user,username.getBytes(java.nio.charset.StandardCharsets.US_ASCII)) &
+                java.security.MessageDigest.isEqual(pass,password.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            co.write(new byte[]{1,(byte)(valid?0:1)});co.flush();
+            if(!valid)return;
             Packet request=packet(ci);
             if(request.code!=1&&request.code!=3 || request.code==3&&proxy.type!=ProxyEndpoint.Type.SOCKS5){
                 co.write(new byte[]{5,7,0,1,0,0,0,0,0,0});co.flush();return;

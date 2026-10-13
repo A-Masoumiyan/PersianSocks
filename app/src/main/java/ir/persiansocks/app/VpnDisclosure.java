@@ -9,7 +9,7 @@ import android.widget.TextView;
 /** An affirmative app disclosure precedes Android VPN consent on every connection entry point. */
 public final class VpnDisclosure {
     private VpnDisclosure() {}
-    public static boolean accepted(Context context){return !DistributionPolicy.play()||
+    public static boolean accepted(Context context){return
         context.getSharedPreferences("persiansocks",Context.MODE_PRIVATE).getInt("vpn-disclosure",0)==DistributionPolicy.DISCLOSURE_VERSION;}
     public static void ensure(Activity activity,Runnable accept,Runnable decline){
         if(accepted(activity)){accept.run();return;}
@@ -33,5 +33,13 @@ public final class VpnDisclosure {
             catch(Exception ex){android.widget.Toast.makeText(activity,"امکان بازکردن نشانی نیست",android.widget.Toast.LENGTH_LONG).show();}
         });
         dialog.show();
+    }
+    public static void ensurePackages(Activity activity,Runnable accept,Runnable decline){
+        android.content.SharedPreferences prefs=activity.getSharedPreferences("persiansocks",Context.MODE_PRIVATE);
+        if(prefs.getBoolean("split-inventory-consent",false)){accept.run();return;}
+        new AlertDialog.Builder(activity,R.style.AppDialogTheme).setTitle("اجازهٔ مشاهدهٔ برنامه‌ها برای اسپلیت تونل")
+            .setMessage("PersianSocks نام و شناسهٔ برنامه‌های نصب‌شده، شامل برنامه‌های سیستمی، را روی همین گوشی می‌خواند تا انتخاب کنی کدام برنامه‌ها از VPN عبور کنند. انتخاب‌ها در فضای خصوصی برنامه ذخیره می‌شوند؛ فهرست برنامه‌ها به سرورها ارسال نمی‌شود و برای تبلیغات یا تحلیل رفتار استفاده نمی‌شود. با پاک‌کردن دادهٔ برنامه، انتخاب‌ها و این رضایت حذف می‌شوند.")
+            .setPositiveButton("می‌پذیرم",(d,w)->{prefs.edit().putBoolean("split-inventory-consent",true).apply();if(!activity.isFinishing()&&!activity.isDestroyed())accept.run();})
+            .setNegativeButton("نمی‌پذیرم",(d,w)->decline.run()).setOnCancelListener(d->decline.run()).show();
     }
 }

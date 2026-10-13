@@ -85,7 +85,7 @@ public final class SplitTunnelActivity extends Activity {
         root.addView(frame,new LinearLayout.LayoutParams(-1,0,1));
         save=new Button(this);save.setText("ذخیرهٔ تنظیمات");save.setEnabled(false);save.setOnClickListener(v->save());root.addView(save,new LinearLayout.LayoutParams(-1,dp(52)));
         if(state!=null)search.setText(state.getString("search", ""));
-        worker.execute(()->{
+        VpnDisclosure.ensurePackages(this,()->worker.execute(()->{
             List<Entry> entries=new ArrayList<>();
             try{
                 for(ApplicationInfo app:getPackageManager().getInstalledApplications(0)){
@@ -98,7 +98,7 @@ public final class SplitTunnelActivity extends Activity {
                 entries.sort((a,b)->{int n=collator.compare(a.label,b.label);return n==0?a.name.compareTo(b.name):n;});
             }catch(RuntimeException e){runOnUiThread(()->{if(!isDestroyed()){loadError="خواندن برنامه‌ها ناموفق بود؛ صفحه را دوباره باز کن.";count.setText(loadError);}});return;}
             runOnUiThread(()->{if(isDestroyed()||isFinishing())return;all.addAll(entries);loaded=true;save.setEnabled(true);filter();});
-        });
+        }),this::finish);
     }
     private void filter(){
         if(search==null||showAll==null)return;
