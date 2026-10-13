@@ -39,6 +39,7 @@ public final class ProxyIndex extends AbstractList<ProxyEndpoint> {
     public void apply(ScanCheckpoint checkpoint) {
         ScanCheckpoint copy=checkpoint.copy();
         for(int index:copy.completedIndices()) {
+            if(copy.candidate(index)==null)continue;
             ProxyEndpoint fresh=copy.verified(index);
             if(fresh!=null)accept(fresh);
             else { String key=copy.candidate(index).key(); if(find(key)!=null)reject(key,copy.finishedAt(index)); }

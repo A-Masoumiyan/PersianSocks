@@ -6,6 +6,7 @@ import java.io.*;
 
 /** Completed indices, rather than a cursor, preserve out-of-order parallel results. */
 public final class ScanCheckpoint {
+    public static final int BATCH_SIZE=500;
     public final String mode, fingerprint;
     public final boolean slow;
     public final int types;
@@ -19,10 +20,10 @@ public final class ScanCheckpoint {
         for (ProxyEndpoint p : input) if (DistributionPolicy.allows(p) && (p.type.bit & types) != 0) {
             unique.putIfAbsent(p.key(), p); if (unique.size() >= options.maxTests) break;
         }
-        candidates = Collections.unmodifiableList(new ArrayList<>(unique.values()));
+        candidates = new ArrayList<>(unique.values());
     }
     private ScanCheckpoint(List<ProxyEndpoint> input, String mode, String fingerprint, boolean slow, int types) {
-        candidates = Collections.unmodifiableList(input); this.mode = mode; this.fingerprint = fingerprint; this.slow = slow; this.types = types;
+        candidates = new ArrayList<>(input); this.mode = mode; this.fingerprint = fingerprint; this.slow = slow; this.types = types;
     }
     public static String fingerprint() {
         StringBuilder result = new StringBuilder(Boolean.toString(DistributionPolicy.encryptedOnly()));
@@ -31,7 +32,7 @@ public final class ScanCheckpoint {
     }
     public boolean compatible() { return fingerprint.equals(fingerprint()); }
     public int total() { return candidates.size(); }
-    public ProxyEndpoint candidate(int index) { return candidates.get(index); }
+    public synchronized ProxyEndpoint candidate(int index) { return candidates.get(index); }
     public synchronized int done() { return completed.cardinality(); }
     public synchronized boolean complete() { return done() == total(); }
     public synchronized List<Integer> pending() {
@@ -54,14 +55,14 @@ public final class ScanCheckpoint {
             if(entry.getValue().key().equals(key)&&Math.max(entry.getValue().testedAt,entry.getValue().latencyAt)<=time){good.remove(entry.getKey());finishedAt.put(entry.getKey(),time);break;}
     }
     public synchronized List<Integer> completedIndices(){List<Integer> out=new ArrayList<>();for(int i=completed.nextSetBit(0);i>=0;i=completed.nextSetBit(i+1))out.add(i);return out;}
-    public synchronized ScanCheckpoint copy(){ScanCheckpoint out=new ScanCheckpoint(candidates,mode,fingerprint,slow,types);out.completed.or(completed);out.good.putAll(good);out.finishedAt.putAll(finishedAt);return out;}
+    public synchronized ScanCheckpoint copy(){ScanCheckpoint out=new ScanCheckpoint(new ArrayList<>(candidates),mode,fingerprint,slow,types);out.completed.or(completed);out.good.putAll(good);out.finishedAt.putAll(finishedAt);return out;}
     public void writeRows(BufferedWriter writer)throws Exception {
         ScanCheckpoint copy=copy();JSONObject header=new JSONObject();
-        header.put("format",2);header.put("mode",mode);header.put("fingerprint",fingerprint);header.put("slow",slow);header.put("types",types);header.put("total",total());
+        header.put("format",3);header.put("mode",mode);header.put("fingerprint",fingerprint);header.put("slow",slow);header.put("types",types);header.put("total",total());
         header.put("done",copy.done());
         writer.write(header.toString());writer.newLine();
         for(int i=0;i<copy.total();i++) {
-            JSONObject row=new JSONObject();row.put("key",copy.candidate(i).key());
+            JSONObject row=new JSONObject();if(copy.candidate(i)==null){row.put("pruned",true);writer.write(row.toString());writer.newLine();continue;}row.put("key",copy.candidate(i).key());
             if(copy.completed.get(i))row.put("finished",copy.finishedAt.get(i));
             ProxyEndpoint p=copy.good.get(i);if(p!=null)row.put("proxy",p.json());
             writer.write(row.toString());writer.newLine();
@@ -72,8 +73,8 @@ public final class ScanCheckpoint {
         ScanCheckpoint state=new ScanCheckpoint(candidates,header.getString("mode"),header.getString("fingerprint"),header.getBoolean("slow"),header.getInt("types"));
         String line;int index=0;
         while((line=reader.readLine())!=null){
-            JSONObject row=new JSONObject(line);ProxyEndpoint raw=ProxyEndpoint.parse(row.getString("key"));
-            if(raw==null||!keys.add(raw.key()))throw new IOException("Invalid checkpoint candidate");candidates.add(raw);
+            JSONObject row=new JSONObject(line);if(row.optBoolean("pruned",false)){state.candidates.add(null);state.completed.set(index++);continue;}ProxyEndpoint raw=ProxyEndpoint.parse(row.getString("key"));
+            if(raw==null||!keys.add(raw.key()))throw new IOException("Invalid checkpoint candidate");state.candidates.add(raw);
             long time=row.optLong("finished",0);if(time>0){state.completed.set(index);state.finishedAt.put(index,time);}
             JSONObject payload=row.optJSONObject("proxy");
             if(payload!=null){ProxyEndpoint p=ProxyEndpoint.fromJson(payload);if(time<=0||!p.key().equals(raw.key()))throw new IOException("Invalid checkpoint result");state.good.put(index,p);}
@@ -85,7 +86,7 @@ public final class ScanCheckpoint {
         Map<String, ProxyEndpoint> results = new LinkedHashMap<>();
         for (ProxyEndpoint p : previous) if (DistributionPolicy.allows(p)) results.put(p.key(), p);
         for (int i = completed.nextSetBit(0); i >= 0; i = completed.nextSetBit(i + 1)) {
-            String key = candidate(i).key(); ProxyEndpoint previousResult = results.get(key), fresh = good.get(i);
+            if(candidate(i)==null)continue;String key = candidate(i).key(); ProxyEndpoint previousResult = results.get(key), fresh = good.get(i);
             if (fresh == null) {
                 if (previousResult == null || previousResult.testedAt <= finishedAt.getOrDefault(i, 0L)) results.remove(key);
             } else if (fresh.hasAnyService() && DistributionPolicy.allows(fresh) &&
@@ -93,10 +94,20 @@ public final class ScanCheckpoint {
         }
         return new ArrayList<>(results.values());
     }
+
+    public synchronized Set<String> failedBatchKeys(){
+        Set<String> keys=new HashSet<>();if(!mode.equals("CATALOG"))return keys;
+        for(int start=0;start<total();start+=BATCH_SIZE){int end=Math.min(total(),start+BATCH_SIZE);if(completed.nextClearBit(start)<end)continue;
+            for(int i=start;i<end;i++)if(candidates.get(i)!=null&&!good.containsKey(i))keys.add(candidates.get(i).key());}
+        return keys;
+    }
+    public synchronized void compactFailed(Set<String> keys){
+        for(int i=completed.nextSetBit(0);i>=0;i=completed.nextSetBit(i+1))if(candidates.get(i)!=null&&!good.containsKey(i)&&keys.contains(candidates.get(i).key())){candidates.set(i,null);finishedAt.remove(i);}
+    }
     public JSONObject json() throws JSONException {return copy().snapshotJson();}
     private JSONObject snapshotJson() throws JSONException {
         JSONObject out = new JSONObject(); out.put("mode", mode); out.put("fingerprint", fingerprint); out.put("slow", slow); out.put("types", types);
-        JSONArray list = new JSONArray(); for (ProxyEndpoint p : candidates) list.put(p.key()); out.put("candidates", list);
+        JSONArray list = new JSONArray(); for (ProxyEndpoint p : candidates) list.put(p==null?JSONObject.NULL:p.key()); out.put("candidates", list);
         out.put("completed", Base64.getEncoder().encodeToString(completed.toByteArray()));
         JSONArray finished = new JSONArray();
         for (Map.Entry<Integer, Long> entry : finishedAt.entrySet()) {
@@ -112,7 +123,7 @@ public final class ScanCheckpoint {
     public static ScanCheckpoint fromJson(JSONObject input) throws Exception {
         JSONArray raw = input.getJSONArray("candidates"); List<ProxyEndpoint> candidates = new ArrayList<>(); Set<String> keys = new HashSet<>();
         for (int i = 0; i < raw.length(); i++) {
-            ProxyEndpoint p = ProxyEndpoint.parse(raw.getString(i));
+            if(raw.isNull(i)){candidates.add(null);continue;}ProxyEndpoint p = ProxyEndpoint.parse(raw.getString(i));
             if (p == null || !keys.add(p.key())) throw new IllegalArgumentException("Invalid stored candidate");
             candidates.add(p);
         }
@@ -125,7 +136,8 @@ public final class ScanCheckpoint {
             if (index < 0 || index >= result.total() || !result.completed.get(index) || time <= 0) throw new IllegalArgumentException("Invalid result timestamp");
             result.finishedAt.put(index, time);
         }
-        if (result.finishedAt.size() != result.done()) throw new IllegalArgumentException("Incomplete result timestamps");
+        int pruned=0;for(int i=0;i<result.total();i++)if(result.candidate(i)==null){if(!result.completed.get(i))throw new IllegalArgumentException("Pending candidate pruned");pruned++;}
+        if (result.finishedAt.size()+pruned != result.done()) throw new IllegalArgumentException("Incomplete result timestamps");
         JSONArray good = input.getJSONArray("good");
         for (int i = 0; i < good.length(); i++) {
             JSONObject row = good.getJSONObject(i); int index = row.getInt("index"); ProxyEndpoint p = ProxyEndpoint.fromJson(row.getJSONObject("proxy"));

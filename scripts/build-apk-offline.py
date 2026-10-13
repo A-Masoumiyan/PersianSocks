@@ -5,7 +5,6 @@ import os
 import json
 from pathlib import Path
 import re
-import secrets
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
@@ -94,16 +93,21 @@ signing = root / 'signing'
 signing.mkdir(mode=0o700, exist_ok=True)
 password = signing / 'password.txt'
 key = signing / 'PersianSocks-release.p12'
-if not key.exists():
-    if password.exists():
-        raise RuntimeError('Existing signing password without key; do not overwrite.')
-    password.write_text(secrets.token_urlsafe(32) + '\n')
-    password.chmod(0o600)
-    run(jdk / 'bin/keytool', '-genkeypair', '-keystore', key, '-storetype', 'PKCS12',
-        '-alias', 'persiansocks', '-keyalg', 'RSA', '-keysize', '3072', '-validity', '10000',
-        '-dname', 'CN=PersianSocks, OU=Android', '-storepass:file', password,
-        '-keypass:file', password)
-    key.chmod(0o600)
+if not key.is_file() or not password.is_file():
+    raise RuntimeError(
+        'Official signing key or password missing. Retrieve the approved key '
+        'from the private PersianSocks Drive backup. Do not generate a replacement.'
+    )
+# Protect the new signing lineage from accidental key changes.
+expected_cert_sha256 = '1F:2E:E9:12:EE:98:27:77:49:E2:EB:A1:EA:BC:F6:C9:69:A2:05:05:16:1F:7D:CE:DA:9E:8B:3B:EE:67:61:25'
+verification = subprocess.run(
+    [str(jdk / 'bin/keytool'), '-list', '-v', '-storetype', 'PKCS12',
+     '-keystore', str(key), '-storepass:file', str(password), '-alias', 'persiansocks'],
+    check=True, capture_output=True, text=True, env=env
+)
+fingerprint = re.search(r'SHA256:\s*([0-9A-Fa-f:]+)', verification.stdout)
+if not fingerprint or fingerprint.group(1).upper() != expected_cert_sha256:
+    raise RuntimeError('Signing certificate does not match the approved PersianSocks 2026-10-13 key.')
 output = root / 'app/build/outputs/apk/release' / ('PersianSocks-' + version + ('-Play' if a.profile == 'play' else '') + '.apk')
 output.parent.mkdir(parents=True, exist_ok=True)
 run(bt / 'apksigner', 'sign', '--ks', key, '--ks-key-alias', 'persiansocks',

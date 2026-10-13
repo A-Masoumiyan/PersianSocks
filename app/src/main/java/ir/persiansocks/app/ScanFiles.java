@@ -23,6 +23,10 @@ public final class ScanFiles {
         value.put("items", list); value.put("receivedAt", System.currentTimeMillis()); write("proxy-catalog.json", value);
         JSONObject meta=new JSONObject();meta.put("count",unique.size());write("catalog-meta.json",meta);
     }
+    public synchronized void mergeCatalog(List<ProxyEndpoint> incoming)throws Exception {
+        Map<String,ProxyEndpoint> unique=new LinkedHashMap<>();for(ProxyEndpoint e:catalog())unique.put(e.key(),e);for(ProxyEndpoint e:incoming)unique.putIfAbsent(e.key(),e);saveCatalog(new ArrayList<>(unique.values()));
+    }
+    private synchronized void pruneCatalog(Set<String> keys)throws Exception {if(keys.isEmpty())return;List<ProxyEndpoint> rows=catalog();rows.removeIf(e->keys.contains(e.key()));saveCatalog(rows);}
     public synchronized List<ProxyEndpoint> catalog() throws Exception {
         Path file = directory.resolve("proxy-catalog.json"); if (!Files.exists(file)) return new ArrayList<>();
         JSONArray rows = new JSONObject(new String(Files.readAllBytes(file), StandardCharsets.UTF_8)).getJSONArray("items");
@@ -36,6 +40,7 @@ public final class ScanFiles {
     public void save(ScanCheckpoint checkpoint) throws Exception {
         synchronized(CHECKPOINT_LOCK){
             if(ACTIVE.containsKey(directory)&&ACTIVE.get(directory).get()!=checkpoint)return;
+            Set<String> failed=checkpoint.failedBatchKeys();pruneCatalog(failed);checkpoint.compactFailed(failed);
             Files.createDirectories(directory);Path target=directory.resolve("scan-checkpoint.json"),temp=directory.resolve("scan-checkpoint.json.tmp");
             try(FileOutputStream raw=new FileOutputStream(temp.toFile());BufferedWriter out=new BufferedWriter(new OutputStreamWriter(raw,StandardCharsets.UTF_8))){checkpoint.writeRows(out);out.flush();raw.getFD().sync();}
             try{Files.move(temp,target,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}
@@ -46,7 +51,7 @@ public final class ScanFiles {
         Path file = directory.resolve("scan-checkpoint.json"); if (!Files.exists(file)) return null;
         try(BufferedReader in=Files.newBufferedReader(file,StandardCharsets.UTF_8)){
             String first=in.readLine();if(first==null)return null;JSONObject header=new JSONObject(first);
-            return header.optInt("format",0)==2?ScanCheckpoint.readRows(header,in):ScanCheckpoint.fromJson(header);
+            return header.optInt("format",0)>=2?ScanCheckpoint.readRows(header,in):ScanCheckpoint.fromJson(header);
         }
     }
     public synchronized int catalogCount()throws Exception {
@@ -63,7 +68,7 @@ public final class ScanFiles {
             boolean complete;
             try(BufferedReader in=Files.newBufferedReader(file,StandardCharsets.UTF_8)){
                 JSONObject head=new JSONObject(in.readLine());
-                complete=head.optInt("format",0)==2?head.optInt("done",-1)==head.optInt("total",-2):ScanCheckpoint.fromJson(head).complete();
+                complete=head.optInt("format",0)>=2?head.optInt("done",-1)==head.optInt("total",-2):ScanCheckpoint.fromJson(head).complete();
             }
             if(complete){Files.deleteIfExists(file);ACTIVE.remove(directory);}
         }
