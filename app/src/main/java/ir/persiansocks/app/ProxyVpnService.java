@@ -332,7 +332,7 @@ public final class ProxyVpnService extends VpnService {
                 "  cache-size: 4096\n" +
                 "misc:\n" +
                 "  max-session-count: 128\n" +
-                "  connect-timeout: 10000\n" +
+                "  connect-timeout: 20000\n" +
                 "  log-file: '" + new File(getFilesDir(), "native-tunnel.log").getAbsolutePath() + "'\n" +
                 "  log-level: warn\n";
             try (FileOutputStream clear = new FileOutputStream(new File(getFilesDir(), "native-tunnel.log"), false)) {}

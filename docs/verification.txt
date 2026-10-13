@@ -1,5 +1,5 @@
 {
-  "sha256": "6b369d8353e73a7750d66a442d59663a67f7e6b88c948c6d489335ebb8d42722",
+  "sha256": "31ee6863b794a89ca7b1f4315fdb4bc29ac20dd0d179ff30f602b008ce2d028c",
   "bytes": 3909641,
   "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
   "permissions": [
@@ -13,8 +13,8 @@
     "ir.persiansocks.app.permission.INTERNAL_STATE"
   ],
   "status": "release integrity checks passed; Google review not performed",
-  "version": "0.28.0",
-  "versionCode": 30,
+  "version": "0.28.1",
+  "versionCode": 31,
   "hostSuitesPassed": true,
   "updateSelectionChecks": 30,
   "dnsAndFaviconPolicyChecks": 15,
@@ -25,5 +25,10 @@
   "largeScanPersistedBytes": 8830311,
   "deviceUITested": false,
   "realPhoneVpnTested": false,
-  "googleReviewPerformed": false
+  "googleReviewPerformed": false,
+  "scanWorkerCaps": {
+    "foreground": 24,
+    "background": 8,
+    "connecting": 4
+  }
 }

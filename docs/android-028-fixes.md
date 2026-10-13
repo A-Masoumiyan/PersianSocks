@@ -1,10 +1,10 @@
-# Android 0.28.0 fixes — 14 October 2026
+# Android 0.28.1 fixes — 14 October 2026
 
-This release implements the reported 0.25/0.27 connection, large-scan and UI issues. APK identity remains ir.persiansocks.app, versionCode 30, signed with the same pinned official certificate. Exact APK digest and checks are in verification.txt.
+This release implements the reported 0.25/0.27 connection, large-scan and UI issues. APK identity remains ir.persiansocks.app, versionCode 31, signed with the same pinned official certificate. Exact APK digest and checks are in verification.txt.
 
 ## Connection versus download
 
-A successful download establishes that one server route worked at that time; it cannot certify all app destinations or a native VPN tunnel. Inspection found differences between the captured physical network used by tests and the gateway's network choice/DNS, plus an unconditional healthy-cache rejection on any VPN failure. VPN preflight, gateway TCP/UDP sockets and upstream DNS now use the same captured physical network; the VPN declares that underlying network. A transient preflight failure gets one bounded retry, while TLS/auth/protocol failures remain hard failures. Scans yield new workers while VPN connection is pending. Gateway TCP setup allows 10 seconds and exposes the most recent upstream failure for diagnosis.
+A successful download establishes that one server route worked at that time; it cannot certify all app destinations or a native VPN tunnel. Inspection found differences between the captured physical network used by tests and the gateway's network choice/DNS, plus an unconditional healthy-cache rejection on any VPN failure. VPN preflight, gateway TCP/UDP sockets and upstream DNS now use the same captured physical network; the VPN declares that underlying network. A transient preflight failure gets one bounded retry, while TLS/auth/protocol failures remain hard failures. Scans yield new workers while VPN connection is pending. Gateway TCP setup allows 10 seconds; the native connect budget is 20 seconds and full tunnel verification has a 30-second per-socket deadline so it does not expire before the gateway completes its setup and exposes the most recent upstream failure for diagnosis.
 
 Actual tunnel verification and health DNS queries are sent to native mapdns at 198.18.0.2 through the captured VPN network, instead of relying on Android's ordinary resolver/private-DNS choice. Responses must match the transaction and question. The returned fake address is connected through the VPN; the pinned native mapdns translates it to a SOCKS domain request. No physical-network result can count as successful VPN verification. TLS chain and hostname verification remain mandatory. Temporary/native tunnel failures no longer erase a previously verified healthy endpoint; failover still skips failed choices. Recorded speed timestamps, current errors and an explanation in Details distinguish historical success from current connectivity.
 
@@ -32,3 +32,5 @@ Primary references:
 - https://developer.android.com/reference/android/net/VpnService.Builder
 - https://github.com/heiher/hev-socks5-tunnel/blob/main/conf/main.yml
 - https://github.com/heiher/hev-socks5-tunnel/discussions/246 (maintainer explanation of passing domains using mapped DNS)
+
+The 0.28.1 final pass caps scanning to eight workers when MainActivity is not foregrounded, skips offscreen renders/UI action refreshes, and refreshes progress on foreground return. Scanning continues, using the same probes/timeouts. A controlled concurrency harness verifies foreground, background and VPN-setup caps; this is not a device thermal/battery measurement.
