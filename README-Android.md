@@ -245,3 +245,10 @@ privacy disclosures and quick-control help. Dialog forms use transparent content
 with padding instead of a second bordered card. Title, body and actions share one
 background. Android-owned VPN permission and system prompts remain OS-managed.
 Split tunnelling from 0.17.0 remains available.
+
+## نسخهٔ ۰٫۲۱٫۰ — کد ۲۲
+
+- گزینهٔ ترکیبی «پینگ کم / دانلود سریع» در منوی سرویس‌ها با امکان ترکیب با سایر فیلترها.
+- حذف فیلتر مستقل کیفیت و حذف متن‌های نتیجهٔ آخرین تست از کادر اتصال؛ حفظ نتیجه‌های کارت و جزئیات پروکسی.
+- آیکون سپر اعلان و سربرگ و امضای اصلی حفظ شده‌اند.
+- کامپایل کامل MainActivity با Android SDK 36، ساخت APK، بررسی نسخهٔ Manifest، امضا و هم‌ترازی انجام شدند؛ ۳۶۹ بررسی هسته پاس شدند. رابط و VPN روی گوشی واقعی هنوز آزمایش نشده‌اند.

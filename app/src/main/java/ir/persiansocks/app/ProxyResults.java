@@ -50,7 +50,7 @@ public final class ProxyResults {
         return visible(byPing(byProtocol(source,protocol),limit),key,sort);
     }
     public enum Sort {
-        FASTEST("کمترین تأخیر"), MOST_SERVICES("بیشترین سرویس تأییدشده"),
+        FASTEST("پینگ کم"), DOWNLOAD("دانلود سریع"), MOST_SERVICES("بیشترین سرویس تأییدشده"),
         RECENT("جدیدترین تست"), UDP_FIRST("اولویت UDP، سپس تأخیر");
         public final String label;
         Sort(String label) { this.label = label; }
@@ -73,11 +73,26 @@ public final class ProxyResults {
         catch (IllegalArgumentException ex) { return Filter.ALL.label; }
     }
     public static List<ProxyEndpoint> visible(List<ProxyEndpoint> source, String key, Sort sort) {
+        return ranked(source, key, sort, p -> -1, false);
+    }
+    public static List<ProxyEndpoint> visible(List<ProxyEndpoint> source, String key, Sort sort,
+            Protocol protocol, PingLimit limit, java.util.Map<String, Double> speeds, boolean smooth) {
+        return ranked(byPing(byProtocol(source, protocol), limit), key, smooth ? Sort.DOWNLOAD : sort,
+            p -> speeds.getOrDefault(p.key(), -1.0), smooth);
+    }
+    private static double rate(double value) { return Double.isFinite(value) && value >= 0 ? value : -1; }
+    private static List<ProxyEndpoint> ranked(List<ProxyEndpoint> source, String key, Sort sort,
+            java.util.function.ToDoubleFunction<ProxyEndpoint> speeds, boolean smooth) {
         List<ProxyEndpoint> list = new ArrayList<>();
-        for (ProxyEndpoint p : source) if (accepts(p, key)) list.add(p);
+        for (ProxyEndpoint p : source) if (accepts(p, key) &&
+                (!smooth || (rate(speeds.applyAsDouble(p)) > 0 && p.latencyMs >= 0))) list.add(p);
         Comparator<ProxyEndpoint> latency = Comparator.comparingLong(p -> p.latencyMs < 0 ? Long.MAX_VALUE : p.latencyMs);
         Comparator<ProxyEndpoint> comparator;
         switch (sort) {
+            case DOWNLOAD:
+                comparator = Comparator.comparingDouble((ProxyEndpoint p) -> rate(speeds.applyAsDouble(p)))
+                    .reversed().thenComparing(latency);
+                break;
             case MOST_SERVICES:
                 comparator = Comparator.comparingInt((ProxyEndpoint p) -> -p.serviceCount()).thenComparing(latency);
                 break;
