@@ -1,4 +1,4 @@
-PersianSocks Windows 0.4.0 — self-contained EXE (Windows x64).
+PersianSocks Windows 0.5.0 — self-contained EXE (Windows x64).
 
 Run PersianSocks.exe. Approve the Windows Administrator prompt needed for TUN routing.
 The embedded sing-box/Wintun runtime is verified and extracted on first connection.
@@ -40,7 +40,7 @@ Wintun and flag-icons licenses and notices are bundled.
 https://github.com/SagerNet/sing-box/tree/v1.14.3
 https://github.com/lipis/flag-icons/tree/v7.5.0
 
-Windows 0.4.0:
+Windows 0.5.0:
 Native Win32/WebView2 main window, dark title bar and tray popup. Requires Microsoft
 WebView2 Runtime (normally present on Windows 11); install the Microsoft runtime if
 missing. The connection engine and Wintun are still embedded in the standalone EXE.
@@ -51,3 +51,13 @@ most 20 MB. Proxy context menus support keyboard access and connect/select toget
 Additional native Windows tests exercise hide/restore/exit. The built EXE smoke test
 checks the local controller, single-instance restoration and persisted close policy.
 Auto Android builds are disabled; its workflow remains manually available.
+
+Windows 0.5.0: default scan workers doubled to 24, maximum 48. Legacy settings and
+checkpoints upgrade once. Up to three TLS destinations run concurrently while
+classification and timeout requirements remain unchanged. The controlled throughput
+comparison is part of scan_speed_test.go. Live and final speed values use the same
+byte/time average; downloaded MB is explicitly separate from MB/s. Old speed values
+are hidden while measuring. Letter service badges removed from cards; service
+filters and details retained. Power is red while disconnected and orange in transit.
+Default browser context menus and source/devtools shortcuts are disabled throughout
+the panel. Native WebView2 host restores the same window on repeated launches.

@@ -65,7 +65,9 @@ func TestNativeDesktopHideRestoreAndExit(t *testing.T) {
 	if stopped.Load() != 0 || !desktopReady.Load() {
 		t.Fatal("close stopped background work or destroyed browser")
 	}
-	openUI(a.origin + "/#" + a.token)
+	for n := 0; n < 10; n++ {
+		openUI(a.origin + "/#" + a.token)
+	}
 	waitDesktop(t, func() bool { return desktopState().Visible })
 	if desktopWindow.Load() != h {
 		t.Fatal("reopening created a duplicate window")

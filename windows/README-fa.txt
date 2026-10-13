@@ -1,4 +1,4 @@
-PersianSocks Windows 0.4.0 • Windows 10/11 x64
+PersianSocks Windows 0.5.0 • Windows 10/11 x64
 
 فایل EXE را مستقیم اجرا کن و درخواست Administrator را تأیید کن.
 موتور اتصال و درایور داخل فایل‌اند؛ نصب Go یا استخراج ZIP لازم نیست.
@@ -30,3 +30,13 @@ PersianSocks Windows 0.4.0 • Windows 10/11 x64
 
 ساخت از سورس: Go 1.25+ و build.ps1. موتور sing-box 1.14.3، Wintun 0.14.1 و فایل‌های کشور
 با دانلودهای رسمی و SHA256 مشخص بسته‌بندی می‌شوند. مجوزها و سورس موتور داخل runtime قرار دارند.
+
+Windows 0.5.0: default scan workers doubled to 24, maximum 48. Legacy settings and
+checkpoints upgrade once. Up to three TLS destinations run concurrently while
+classification and timeout requirements remain unchanged. The controlled throughput
+comparison is part of scan_speed_test.go. Live and final speed values use the same
+byte/time average; downloaded MB is explicitly separate from MB/s. Old speed values
+are hidden while measuring. Letter service badges removed from cards; service
+filters and details retained. Power is red while disconnected and orange in transit.
+Default browser context menus and source/devtools shortcuts are disabled throughout
+the panel. Native WebView2 host restores the same window on repeated launches.

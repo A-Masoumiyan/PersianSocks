@@ -25,7 +25,9 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.4.0"
+const version = "0.5.0"
+const scanEngineVersion = 2
+const maxScanWorkers = 48
 
 type Source struct {
 	Name     string `json:"name"`
@@ -55,6 +57,7 @@ type Checkpoint struct {
 	Targets  []Target   `json:"targets"`
 }
 type Disk struct {
+	ScanEngine int                   `json:"scanEngine"`
 	Raw        []Endpoint            `json:"raw"`
 	Results    map[string]Endpoint   `json:"results"`
 	Checkpoint *Checkpoint           `json:"checkpoint,omitempty"`
@@ -121,11 +124,11 @@ type App struct {
 }
 
 func defaultSettings() Settings {
-	return Settings{Workers: 12, Timeout: 8, Max: 5000, Failover: true, ScanTypes: []string{"SOCKS5", "HTTP", "HTTPS"}, SplitMode: "all"}
+	return Settings{Workers: 24, Timeout: 8, Max: 5000, Failover: true, ScanTypes: []string{"SOCKS5", "HTTP", "HTTPS"}, SplitMode: "all"}
 }
 func validateSettings(s Settings) error {
-	if s.Workers < 1 || s.Workers > 24 || s.Timeout < 3 || s.Timeout > 30 || s.Max < 0 || s.Max > 100000 {
-		return errors.New("تعداد کارگر ۱ تا ۲۴، مهلت ۳ تا ۳۰ ثانیه و سقف ۰ تا ۱۰۰۰۰۰ است؛ صفر یعنی همه")
+	if s.Workers < 1 || s.Workers > maxScanWorkers || s.Timeout < 3 || s.Timeout > 30 || s.Max < 0 || s.Max > 100000 {
+		return errors.New("تعداد کارگر ۱ تا ۴۸، مهلت ۳ تا ۳۰ ثانیه و سقف ۰ تا ۱۰۰۰۰۰ است؛ صفر یعنی همه")
 	}
 	if _, err := customTargets(s.CustomTargets); err != nil {
 		return err
@@ -190,13 +193,21 @@ func customTargets(raw string) ([]Target, error) {
 	return ts, nil
 }
 func newApp(dir string) *App {
-	a := &App{dir: dir, disk: Disk{Results: map[string]Endpoint{}, Settings: defaultSettings()}, test: map[string]bool{}, attemptVersion: map[string]uint64{}, vpnState: "off", lastSeen: time.Now()}
+	a := &App{dir: dir, disk: Disk{ScanEngine: scanEngineVersion, Results: map[string]Endpoint{}, Settings: defaultSettings()}, test: map[string]bool{}, attemptVersion: map[string]uint64{}, vpnState: "off", lastSeen: time.Now()}
 	os.MkdirAll(dir, 0700)
 	if b, err := os.ReadFile(filepath.Join(dir, "state.json")); err == nil && len(b) < 512_000_000 {
 		var d Disk
 		if json.Unmarshal(b, &d) == nil && d.Results != nil && validateSettings(d.Settings) == nil {
 			a.disk = d
 		}
+	}
+	migrated := a.disk.ScanEngine < scanEngineVersion
+	if migrated {
+		a.disk.Settings.Workers = min(maxScanWorkers, a.disk.Settings.Workers*2)
+		if cp := a.disk.Checkpoint; cp != nil {
+			cp.Settings.Workers = min(maxScanWorkers, cp.Settings.Workers*2)
+		}
+		a.disk.ScanEngine = scanEngineVersion
 	}
 	cp := a.disk.Checkpoint
 	if cp != nil && (len(cp.Input) != len(cp.Done) || validateSettings(cp.Settings) != nil || len(cp.Targets) == 0) {
@@ -215,6 +226,9 @@ func newApp(dir string) *App {
 	a.disk.Traffic.UpRate = 0
 	a.tasks = map[string]*TestTask{}
 	a.cooldown = map[string]time.Time{}
+	if migrated {
+		a.saveChecked()
+	}
 	return a
 }
 func (a *App) save() error {

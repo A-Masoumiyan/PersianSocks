@@ -25,11 +25,13 @@ try {
  [WindowSmoke]::PostMessage($h,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
  Wait-For {!((Get-State).desktop.visible)} 'Close did not hide primary window'
  if($p.HasExited){throw 'Default close exited instead of continuing in background'}
- $second=Start-Process -FilePath $exe -PassThru
- Wait-For {(Get-State).desktop.visible} 'Second launch did not restore primary window'
- $second.WaitForExit(5000)|Out-Null
- if(!$second.HasExited){throw 'Second launch created an extra running instance'}
- if([WindowSmoke]::FindWindow('PersianSocksDesktopWindow','PersianSocks') -ne $h){throw 'Window identity changed'}
+ for($attempt=0;$attempt -lt 3;$attempt++) {
+  $second=Start-Process -FilePath $exe -PassThru
+  Wait-For {(Get-State).desktop.visible} 'Second launch did not restore primary window'
+  $second.WaitForExit(5000)|Out-Null
+  if(!$second.HasExited){throw 'Second launch created an extra running instance'}
+  if([WindowSmoke]::FindWindow('PersianSocksDesktopWindow','PersianSocks') -ne $h){throw 'Window identity changed'}
+ }
  $settings=(Get-State).settings;$settings.exitOnClose=$true;Do-Action @{action='settings';settings=$settings}
  [WindowSmoke]::PostMessage($h,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
  Wait-For {$p.Refresh();$p.HasExited} 'Exit-on-close did not stop EXE'
