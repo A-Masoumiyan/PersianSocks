@@ -105,7 +105,7 @@ verification = subprocess.run(
      '-keystore', str(key), '-storepass:file', str(password), '-alias', 'persiansocks'],
     check=True, capture_output=True, text=True, env=env
 )
-fingerprint = re.search(r'SHA256:\\s*([0-9A-Fa-f:]+)', verification.stdout)
+fingerprint = re.search(r'SHA256:\s*([0-9A-Fa-f:]+)', verification.stdout)
 if not fingerprint or fingerprint.group(1).upper() != expected_cert_sha256:
     raise RuntimeError('Signing certificate does not match the approved PersianSocks 2026-10-13 key.')
 output = root / 'app/build/outputs/apk/release' / ('PersianSocks-' + version + ('-Play' if a.profile == 'play' else '') + '.apk')
