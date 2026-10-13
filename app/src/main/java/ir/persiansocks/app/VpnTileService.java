@@ -14,8 +14,7 @@ public final class VpnTileService extends TileService {
         super.onStartListening();
         if(!listening){
             IntentFilter filter=new IntentFilter(ProxyVpnService.STATE);
-            if(Build.VERSION.SDK_INT>=33)registerReceiver(changes,filter,Context.RECEIVER_NOT_EXPORTED);
-            else registerReceiver(changes,filter);
+            registerReceiver(changes,filter,ProxyVpnService.INTERNAL_PERMISSION,null,Context.RECEIVER_NOT_EXPORTED);
             listening=true;
         }
         updateTile();

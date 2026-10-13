@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='persiansocks-tests-') as tmp:
     src=[root/'app/src/main/java/ir/persiansocks/app'/(name+'.java') for name in names]+list((root/'tests').glob('*.java'))+[flag]
     run(jdk/'bin/javac','-encoding','UTF-8','-cp',json,'-d',classes,*src)
     for name,extra in [('ScanHarness',[tls]),('FeatureHarness',[root/'app/src/main/assets/ip-country.bin']),
-            ('ControlsHarness',[]),('ResultsHarness',[]),('DownloadRankingHarness',[]),('PingFilterHarness',[]),('SplitTunnelHarness',[]),('FilteredSpeedHarness',[]),('MaxScanHarness',[]),('ProtocolTrafficHarness',[tls]),('OptionalTlsHarness',[tls]),('SingleProxyHarness',[tls]),('ResultDisplayHarness',[]),('ScanResumeHarness',[tls]),('LargeCacheHarness',[]),('ScanRouteHarness',[tls]),('BatchCompactionHarness',[]),('RetestEvidenceHarness',[]),('DownloadFallbackHarness',[])]:
+            ('ControlsHarness',[]),('ResultsHarness',[]),('DownloadRankingHarness',[]),('PingFilterHarness',[]),('SplitTunnelHarness',[]),('FilteredSpeedHarness',[]),('MaxScanHarness',[]),('ProtocolTrafficHarness',[tls]),('OptionalTlsHarness',[tls]),('SingleProxyHarness',[tls]),('ResultDisplayHarness',[]),('ScanResumeHarness',[tls]),('LargeCacheHarness',[]),('ScanRouteHarness',[tls]),('BatchCompactionHarness',[]),('RetestEvidenceHarness',[]),('GatewaySecurityHarness',[]),('DownloadFallbackHarness',[])]:
         run(jdk/'bin/java',*(['-Xmx128m'] if name=='LargeCacheHarness' else []),'-cp',str(classes)+os.pathsep+str(json),name,*extra)
     # Compile the whole transport stack again for Play; javac inlines the immutable flag.
     play=work/'play-classes';play.mkdir()

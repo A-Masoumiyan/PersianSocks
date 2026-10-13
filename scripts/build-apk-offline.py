@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build a signed release APK with official SDK tools; no Gradle downloads."""
 import argparse
+import importlib.util
 import os
 import json
 from pathlib import Path
@@ -16,6 +17,7 @@ p.add_argument('--profile', choices=['personal','play'], default='personal')
 p.add_argument('--sdk', required=True)
 p.add_argument('--jdk', required=True)
 p.add_argument('--aapt2', help='Optional Google Maven AAPT2 binary')
+p.add_argument("--play-query-all-packages-approved",action="store_true",help="Only after actual Google approval")
 a = p.parse_args()
 if a.privacy_policy_url:
     from urllib.parse import urlsplit
@@ -24,6 +26,9 @@ if a.privacy_policy_url:
         raise ValueError('Privacy policy URL must be a public HTTPS URL without embedded credentials')
 root = Path(__file__).resolve().parents[1]
 sdk, jdk = Path(a.sdk).resolve(), Path(a.jdk).resolve()
+spec=importlib.util.spec_from_file_location("release_security",root/"scripts/release-security.py")
+security=importlib.util.module_from_spec(spec);spec.loader.exec_module(security)
+security.verify_inputs(root,jdk,a.privacy_policy_url,a.profile,a.play_query_all_packages_approved)
 bt = sdk / 'build-tools/35.0.0'
 gradle = (root / 'app/build.gradle').read_text()
 compile_sdk = re.search(r'compileSdk (\d+)',gradle).group(1)
@@ -38,7 +43,7 @@ for folder in ['generated', 'classes', 'dex']:
 config = work / 'generated/ir/persiansocks/app/BuildConfig.java'
 config.parent.mkdir(parents=True, exist_ok=True)
 config.write_text('package ir.persiansocks.app; public final class BuildConfig { public static final boolean PLAY_DISTRIBUTION = ' + ('true' if a.profile == 'play' else 'false') + '; public static final String PRIVACY_POLICY_URL = ' + json.dumps(a.privacy_policy_url) + '; }\n')
-(work / 'profile.json').write_text(json.dumps({'profile': a.profile}))
+(work / 'profile.json').write_text(json.dumps({'profile': a.profile,'privacyPolicyUrl':a.privacy_policy_url,'playPermissionApproved':a.play_query_all_packages_approved}))
 env = os.environ.copy()
 env['JAVA_HOME'] = str(jdk)
 env['PATH'] = str(jdk / 'bin') + os.pathsep + env['PATH']

@@ -191,8 +191,7 @@ public final class MainActivity extends Activity {
         super.onStart();ui.removeCallbacks(ipTicker);ui.post(ipTicker);
         ScanInputs.initializePolicy(this);
         IntentFilter f = new IntentFilter(ProxyVpnService.STATE);
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(vpnState, f, Context.RECEIVER_NOT_EXPORTED);
-        else registerReceiver(vpnState, f);
+        registerReceiver(vpnState, f, ProxyVpnService.INTERNAL_PERMISSION, null, Context.RECEIVER_NOT_EXPORTED);
         vpnRequestPending = false;
         observedAutoScan=ProxyVpnService.autoScanning();
         if(!scanning)reloadSaved();
