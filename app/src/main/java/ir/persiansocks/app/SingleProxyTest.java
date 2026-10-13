@@ -23,6 +23,7 @@ public final class SingleProxyTest {
         return Socks5Probe.inspectTarget(proxy, target, slow, cancelled, sockets, maker, resolver);
     }
     public static ServiceTargets.Target latencyTarget(ProxyEndpoint proxy, String filter) {
+        ServiceTargets.Target selected=ScanProbePolicy.profile().target();if(selected!=null)return selected;
         for (ServiceTargets.Target target : ServiceTargets.current()) {
             boolean matches = filter.equals(target.id) ||
                 (target.bit == 1 && filter.equals("TELEGRAM")) ||

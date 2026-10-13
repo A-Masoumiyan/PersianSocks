@@ -38,7 +38,8 @@ public final class PreparedScanner {
     public void requestStop(){Run run=current;if(run!=null){run.cancelled.set(true);run.workers.shutdownNow();new Thread(run::close,"stop-proxy-sockets").start();}}
     public synchronized void start(ScanCheckpoint state, Persistence persistence, Socks5Probe.SocketMaker maker,
             Socks5Probe.Resolver resolver, Listener listener) throws Exception {
-        start(state, persistence, (p, slow, stop, sockets) -> Socks5Probe.inspect(p, slow, stop, sockets, maker, resolver), listener);
+        ScanProbePolicy.Profile profile=ScanProbePolicy.profile();
+        start(state, persistence, (p, slow, stop, sockets) -> profile.inspect(p,slow,stop,sockets,maker,resolver), listener);
     }
     public synchronized void start(ScanCheckpoint state, Persistence persistence, Probe probe, Listener listener) throws Exception {
         pause(); if (!state.compatible()) throw new IllegalArgumentException("تنظیمات تست تغییر کرده؛ اسکن را از ابتدا شروع کن");

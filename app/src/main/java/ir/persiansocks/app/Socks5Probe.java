@@ -41,18 +41,23 @@ public final class Socks5Probe {
     }
     public static Result inspect(ProxyEndpoint e, boolean slow, AtomicBoolean cancelled, Set<Socket> active,
             SocketMaker maker, Resolver dns) {
+        return inspect(e,slow,cancelled,active,maker,dns,null);
+    }
+    public static Result inspect(ProxyEndpoint e,boolean slow,AtomicBoolean cancelled,Set<Socket> active,
+            SocketMaker maker,Resolver dns,ServiceTargets.Target measurementTarget) {
         if(!DistributionPolicy.allows(e))return new Result(null,Failure.INSECURE_PROXY,false,false);
         Result last = new Result(null, Failure.IO_ERROR, false, false);
         int passed = 0, checked = 0;
         Set<String> extraPassed = new HashSet<>(), extraChecked = new HashSet<>();
         long latency = Long.MAX_VALUE;
-        boolean tcp = false, socks = false;
+        boolean tcp = false, socks = false;Result measured=null;
         for (ServiceTargets.Target target : ServiceTargets.current()) {
             if (cancelled.get()) return new Result(null, Failure.CANCELLED, tcp, socks);
             checked |= target.bit;
             if (target.bit == 0) extraChecked.add(target.id);
             last = attempt(e, target, slow, cancelled, active, maker, dns);
             tcp |= last.tcpReached; socks |= last.socksReached;
+            if(measurementTarget!=null&&target.url().equals(measurementTarget.url()))measured=last;
             if (last.endpoint != null) {
                 passed |= target.bit; latency = Math.min(latency, last.endpoint.latencyMs);
                 if (target.bit == 0) extraPassed.add(target.id);
@@ -60,10 +65,11 @@ public final class Socks5Probe {
         }
         if ((passed == 0 && extraPassed.isEmpty()) || cancelled.get())
             return new Result(null, cancelled.get() ? Failure.CANCELLED : last.failure, tcp, socks);
+        if(measurementTarget!=null){if(measured==null||measured.endpoint==null)return new Result(null,measured==null?last.failure:measured.failure,tcp,socks);latency=measured.endpoint.latencyMs;}
         boolean udp = e.type==ProxyEndpoint.Type.SOCKS5 && checkUdp(e, cancelled, active, maker, dns);
         if (cancelled.get()) return new Result(null, Failure.CANCELLED, tcp, socks);
         return new Result(new ProxyEndpoint(e.host, e.port, latency, udp, passed, checked, System.currentTimeMillis(),
-            extraPassed, extraChecked, CountryLookup.lookup(e.host),e.type),
+            extraPassed, extraChecked, CountryLookup.lookup(e.host),e.type).withLatency(latency,measurementTarget==null?"":measurementTarget.url()),
             Failure.NONE, tcp, socks);
     }
     public static Result inspectTarget(ProxyEndpoint e, ServiceTargets.Target target, boolean slow,

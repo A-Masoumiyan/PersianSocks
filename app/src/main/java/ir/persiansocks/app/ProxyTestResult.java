@@ -9,6 +9,7 @@ public final class ProxyTestResult {
     public double downloadMBps = -1;
     public long downloadedBytes;
     public long speedAt,probeAt;
+    public String speedTarget="",speedRequestTarget="";
     public String speedError = "", probeError = "", probeInfo = "";
     public static double fromMbps(double mbps) {
         return Double.isFinite(mbps) && mbps >= 0 ? mbps / 8.0 : -1;
@@ -23,6 +24,7 @@ public final class ProxyTestResult {
     public String pingValue(long latency) { return !probeError.isEmpty() ? shortError(probeError) : latency < 0 ? "تست نشده" : latency + " ms"; }
     public static String shortError(String error) {
         String lower = error.toLowerCase(Locale.ROOT);
+        if(lower.contains("کافی"))return "دادهٔ کافی نیست";
         if (lower.contains("متوقف") || lower.contains("cancel")) return "متوقف شد";
         if (lower.contains("abort") || lower.contains("reset") || lower.contains("broken pipe") || lower.contains("socket closed") || lower.contains("قطع")) return "قطع شد";
         if (lower.contains("timeout") || lower.contains("timed out") || lower.contains("مهلت")) return "مهلت تمام شد";
@@ -36,7 +38,7 @@ public final class ProxyTestResult {
         try {
             json.put("downloadMBps", Double.isFinite(downloadMBps) && downloadMBps >= 0 ? downloadMBps : -1);
             json.put("downloadedBytes", Math.max(0, downloadedBytes));json.put("speedAt",speedAt);json.put("probeAt",probeAt);
-            json.put("speedError", speedError); json.put("probeError", probeError); json.put("probeInfo", probeInfo);
+            json.put("speedTarget",speedTarget);json.put("speedRequestTarget",speedRequestTarget);json.put("speedError", speedError); json.put("probeError", probeError); json.put("probeInfo", probeInfo);
         } catch (Exception ignored) {}
         return json;
     }
@@ -45,7 +47,7 @@ public final class ProxyTestResult {
         double speed = json.optDouble("downloadMBps", -1);
         result.downloadMBps = Double.isFinite(speed) && speed >= 0 ? speed : -1;
         result.downloadedBytes = Math.max(0, json.optLong("downloadedBytes", 0));
-        result.speedError = json.optString("speedError"); result.probeError = json.optString("probeError");
+        result.speedTarget=json.optString("speedTarget");result.speedRequestTarget=json.optString("speedRequestTarget");result.speedError = json.optString("speedError"); result.probeError = json.optString("probeError");
         result.speedAt=Math.max(0,json.optLong("speedAt"));result.probeAt=Math.max(0,json.optLong("probeAt"));result.probeInfo = json.optString("probeInfo"); return result;
     }
     public static ProxyTestResult legacy(String speedNote, String probeNote) {

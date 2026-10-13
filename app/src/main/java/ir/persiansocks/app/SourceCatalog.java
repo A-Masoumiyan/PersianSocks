@@ -39,6 +39,13 @@ public final class SourceCatalog {
         new ProxyScanner.Source("Proxifly HTTP","https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/http/data.txt","https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/protocols/http/data.txt",ProxyEndpoint.Type.HTTP),
         new ProxyScanner.Source("Roosterkid HTTPS destinations","https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt","https://cdn.jsdelivr.net/gh/roosterkid/openproxylist@main/HTTPS_RAW.txt",ProxyEndpoint.Type.HTTP),
         new ProxyScanner.Source("Proxifly TLS proxy","https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/https/data.txt","https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/protocols/https/data.txt",ProxyEndpoint.Type.HTTPS),
+        new ProxyScanner.Source("Databay TLS candidates","https://raw.githubusercontent.com/databay-labs/free-proxy-list/master/https.txt","https://cdn.jsdelivr.net/gh/databay-labs/free-proxy-list@master/https.txt",ProxyEndpoint.Type.HTTPS),
+        new ProxyScanner.Source("Zaeem20 TLS candidates","https://raw.githubusercontent.com/Zaeem20/FREE_PROXIES_LIST/master/https.txt","https://cdn.jsdelivr.net/gh/Zaeem20/FREE_PROXIES_LIST@master/https.txt",ProxyEndpoint.Type.HTTPS),
+        new ProxyScanner.Source("SevenworksDev TLS candidates","https://raw.githubusercontent.com/SevenworksDev/proxy-list/main/proxies/https.txt","https://cdn.jsdelivr.net/gh/SevenworksDev/proxy-list@main/proxies/https.txt",ProxyEndpoint.Type.HTTPS),
+        new ProxyScanner.Source("ShiftyTR TLS candidates","https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/https.txt","https://cdn.jsdelivr.net/gh/ShiftyTR/Proxy-List@master/https.txt",ProxyEndpoint.Type.HTTPS),
+        new ProxyScanner.Source("zloi-user TLS candidates","https://raw.githubusercontent.com/zloi-user/hideip.me/main/https.txt","https://cdn.jsdelivr.net/gh/zloi-user/hideip.me@main/https.txt",ProxyEndpoint.Type.HTTPS),
+        new ProxyScanner.Source("Proxio TLS candidates","https://raw.githubusercontent.com/proxio-io/proxy-list/main/https.txt","https://cdn.jsdelivr.net/gh/proxio-io/proxy-list@main/https.txt",ProxyEndpoint.Type.HTTPS),
+        new ProxyScanner.Source("hproxy TLS candidates","https://raw.githubusercontent.com/hproxy-com/free-proxy-list/main/https.txt","https://cdn.jsdelivr.net/gh/hproxy-com/free-proxy-list@main/https.txt",ProxyEndpoint.Type.HTTPS),
     };
     public static ProxyScanner.Source custom(String line,int index){
         String[] pair=line.trim().split("\\s+",2);

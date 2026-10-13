@@ -523,4 +523,21 @@
     <string name="ui_home_filters" formatted="false">"Filters"</string>
     <string name="ui_home_scan" formatted="false">"Scan proxies"</string>
     <string name="ui_home_reset" formatted="false">"Reset"</string>
+    <string name="ui_target_ping" formatted="false">"Ping domain and scan mode"</string>
+    <string name="ui_target_speed" formatted="false">"Speed test domain"</string>
+    <string name="ui_target_default" formatted="false">"Default: Cloudflare / OVH"</string>
+    <string name="ui_target_last" formatted="false">"Last test destination: "</string>
+    <string name="ui_target_busy" formatted="false">"Stop the current scan or test first."</string>
+    <string name="ui_target_only" formatted="false">"Scan only this domain’s ping"</string>
+    <string name="ui_target_auto" formatted="false">"Automatic: fastest service response"</string>
+    <string name="ui_target_choose" formatted="false">"Select a specific domain."</string>
+    <string name="ui_target_ping_help" formatted="false">"Ping measures HTTPS response time through the proxy. Full scans check services and measure ping on the selected domain. Ping-only mode does not verify other services or UDP."</string>
+    <string name="ui_target_speed_help" formatted="false">"Enter an HTTPS file URL on a configured test domain for a real download. Each test uses up to 20 MB. Samples below 256 KB or HTML pages do not count as speed results. Custom tests never switch to another destination."</string>
+    <string name="ui_target_custom" formatted="false">"Download from a custom test domain"</string>
+    <string name="ui_target_invalid" formatted="false">"Enter a valid HTTPS file URL on a configured test domain."</string>
+    <string name="ui_target_small" formatted="false">"Insufficient data"</string>
+    <string name="ui_target_insufficient" formatted="false">"Insufficient data received for a speed test"</string>
+    <string name="ui_target_html" formatted="false">"The file URL returned an HTML page"</string>
+    <string name="ui_target_domain_error" formatted="false">"The URL host must be a configured test domain"</string>
+    <string name="ui_target_url_error" formatted="false">"Invalid file URL"</string>
 </resources>
