@@ -12,6 +12,7 @@ public final class ScanInputs {
         return context.getSharedPreferences("persiansocks",Context.MODE_PRIVATE);
     }
     public static void initializePolicy(Context context){
+        if(!prefs(context).getBoolean("ui-028-migrated",false))prefs(context).edit().putInt("scan-types",7).putBoolean("ui-028-migrated",true).apply();
         SharedPreferences p=prefs(context);
         // Mask 4 was persisted by the old fixed-TLS build; ordinary UI choices are 1, 6 or 7.
         if(!DistributionPolicy.play()&&p.getInt("scan-types",7)==4)p.edit().putInt("scan-types",7).apply();

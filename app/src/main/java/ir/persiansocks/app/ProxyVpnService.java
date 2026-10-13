@@ -248,6 +248,7 @@ public final class ProxyVpnService extends VpnService {
             });
         });
     }
+    private PhysicalTestNetwork tunnelPhysical;
     private void beginConnect(ProxyEndpoint proxy) {
         if(!DistributionPolicy.allows(proxy)){finishConnection(AppLanguage.t(R.string.ui_extra_032));return;}
         closeTunnel();
@@ -267,18 +268,22 @@ public final class ProxyVpnService extends VpnService {
         } catch (Throwable t) { saveVpnReport(AppLanguage.t(R.string.ui_extra_036) + t); announce(AppLanguage.t(R.string.ui_extra_037) + t.getMessage()); closeTunnel(); stopSelf(); return; }
         announce(AppLanguage.t(R.string.ui_extra_038) + ProxyResults.label(requiredFilter) + "»: " + current);
         new Thread(() -> {
-            Socks5Probe.Result checked = Socks5Probe.inspect(proxy, true, stop, probeSockets);
+            Socks5Probe.Result checked;PhysicalTestNetwork physical=null;
+            try {physical=PhysicalTestNetwork.capture(this);checked=Socks5Probe.inspect(proxy,true,stop,probeSockets,physical::socket,physical::resolve);
+                if(checked.endpoint==null&&ProbeFailurePolicy.transientFailure(checked.failure)&&!stop.get()){Thread.sleep(350);checked=Socks5Probe.inspect(proxy,true,stop,probeSockets,physical::socket,physical::resolve);}}
+            catch(Exception ex){checked=new Socks5Probe.Result(null,Socks5Probe.Failure.IO_ERROR,false,false);}
+            final Socks5Probe.Result verified=checked;final PhysicalTestNetwork chosenPhysical=physical;
             handler.post(() -> {
                 if (token != generation || stop.get()) return;
-                if (checked.endpoint == null || !ProxyResults.accepts(checked.endpoint, requiredFilter)) {
-                    String msg = AppLanguage.t(R.string.ui_extra_039) + Socks5Probe.describe(checked.failure);
-                    if (checked.endpoint != null) msg = AppLanguage.t(R.string.ui_extra_040) + ProxyResults.label(requiredFilter) + AppLanguage.t(R.string.ui_extra_041);
-                    failConnection(msg); return;
+                if (verified.endpoint == null || !ProxyResults.accepts(verified.endpoint, requiredFilter)) {
+                    String msg = AppLanguage.t(R.string.ui_extra_039) + Socks5Probe.describe(verified.failure);
+                    if (verified.endpoint != null) msg = AppLanguage.t(R.string.ui_extra_040) + ProxyResults.label(requiredFilter) + AppLanguage.t(R.string.ui_extra_041);
+                    failConnection(msg,verified.endpoint==null&&ProbeFailurePolicy.invalidates(verified.failure)); return;
                 }
-                ProxyStore.index().accept(checked.endpoint);ProxyStore.save(this,ProxyStore.index());
-                lastProfile = checked.endpoint;
-                announce(AppLanguage.t(R.string.ui_extra_042) + checked.endpoint.passedServices(), checked.endpoint);
-                openTunnel(checked.endpoint, token);
+                ProxyStore.index().accept(verified.endpoint);ProxyStore.save(this,ProxyStore.index());
+                lastProfile = verified.endpoint;tunnelPhysical=chosenPhysical;
+                announce(AppLanguage.t(R.string.ui_extra_042) + verified.endpoint.passedServices(), verified.endpoint);
+                openTunnel(verified.endpoint, token);
             });
         }, "vpn-service-preflight").start();
     }
@@ -288,33 +293,18 @@ public final class ProxyVpnService extends VpnService {
         try {
             if (Build.VERSION.SDK_INT >= 34) startForeground(ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(ID, n);
+            final PhysicalTestNetwork path=tunnelPhysical;if(path==null||!path.valid())throw new java.io.IOException("Physical network changed before tunnel start");
             gateway = new ProtectedSocksGateway(proxy, new ProtectedSocksGateway.Protector() {
-                public boolean tcp(Socket s) { return protect(s); }
-                public boolean udp(DatagramSocket s) { return protect(s); }
-                public InetAddress resolve(String host) throws Exception {
-                    ConnectivityManager manager = getSystemService(ConnectivityManager.class);
-                    for (Network net : manager.getAllNetworks()) {
-                        NetworkCapabilities caps = manager.getNetworkCapabilities(net);
-                        if (caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                                !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                            InetAddress[] ips = net.getAllByName(host);
-                            if (ips.length > 0) return ips[0];
-                        }
-                    }
-                    throw new java.io.IOException("No physical network for UDP relay DNS");
-                }
+                public boolean tcp(Socket s) {try{if(!protect(s))return false;path.bind(s);return true;}catch(Exception ex){return false;}}
+                public boolean udp(DatagramSocket s) {try{if(!protect(s))return false;path.bind(s);return true;}catch(Exception ex){return false;}}
+                public InetAddress resolve(String host)throws Exception {return path.resolve(host);}
             });
-            Socks5Probe.setResolver(this::resolvePhysical);
-            Socks5Probe.setSocketMaker(() -> {
-                Socket s = new Socket();
-                s.bind(new java.net.InetSocketAddress(0));
-                if (!protect(s)) { s.close(); throw new java.io.IOException("Protect scan socket failed"); }
-                return s;
-            });
+            Socks5Probe.setResolver(path::resolve);Socks5Probe.setSocketMaker(path::socket);
             Builder b = new Builder()
                 .setSession("PersianSocks • " + current)
                 .setBlocking(false)
                 .setMtu(1400)
+                .setUnderlyingNetworks(new Network[]{path.network()})
                 .addAddress("198.18.0.1", 15)
                 .addRoute("0.0.0.0", 0)
                 .addAddress("fd00:1:fd00:1::2", 64)
@@ -397,7 +387,7 @@ public final class ProxyVpnService extends VpnService {
         new Thread(() -> {
             TunnelVerifier.Result result = TunnelVerifier.check(new TunnelVerifier.Transport() {
                 public Socket create() throws Exception { return network.getSocketFactory().createSocket(); }
-                public InetAddress[] resolve(String host) throws Exception { return network.getAllByName(host); }
+                public InetAddress[] resolve(String host) throws Exception { return VpnMappedDns.resolve(network,host); }
             }, stop, probeSockets);
             handler.post(() -> {
                 if (token != generation || stop.get()) return;
@@ -408,7 +398,8 @@ public final class ProxyVpnService extends VpnService {
                 } catch (Throwable ignored) {}
                 saveVpnReport(AppLanguage.t(R.string.ui_extra_033) + current + "\n" + result.report + stats);
                 if (!result.accepts(requiredFilter)) {
-                    failConnection(AppLanguage.t(R.string.ui_extra_057)); return;
+                    String detail=gateway==null?"":gateway.lastError();
+                    failConnection(AppLanguage.t(R.string.ui_extra_057)+" • "+(detail.isEmpty()?result.report.replace("\n"," • "):detail)); return;
                 }
                 lastProfile = result.profile(lastProfile);
                 ProxyStore.index().accept(lastProfile);ProxyStore.save(this,ProxyStore.index());
@@ -420,18 +411,6 @@ public final class ProxyVpnService extends VpnService {
                 scheduleHealthCheck(token);
             });
         }, "vpn-real-path-check").start();
-    }
-    private InetAddress resolvePhysical(String host)throws Exception {
-        ConnectivityManager manager=getSystemService(ConnectivityManager.class);
-        for(Network net:manager.getAllNetworks()){
-            NetworkCapabilities c=manager.getNetworkCapabilities(net);
-            if(c!=null&&c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)&&!c.hasTransport(NetworkCapabilities.TRANSPORT_VPN)){
-                InetAddress[] addresses=net.getAllByName(host);
-                for(InetAddress address:addresses)if(address instanceof java.net.Inet4Address)return address;
-                if(addresses.length>0)return addresses[0];
-            }
-        }
-        throw new java.io.IOException("No physical network for proxy DNS");
     }
     private void resetTrafficSession(){
         if(newSessionPending){newSessionPending=false;trafficMeter.newSession();trafficSnapshot=trafficMeter.stopped();persistTraffic();publishTraffic();}
@@ -490,9 +469,10 @@ public final class ProxyVpnService extends VpnService {
     private void finishConnection(String message,boolean error){
         userRequested=false;saveVpnReport(message);if(!error)clearConnectionError();closeTunnel();if(error)announceError(message);else announce(message);stopSelf();
     }
-    private void failConnection(String reason) {
+    private void failConnection(String reason){failConnection(reason,false);}
+    private void failConnection(String reason,boolean invalidates) {
         announceError(reason);
-        if(userRequested&&physicalNetworkAvailable()&&!current.isEmpty()){ProxyStore.index().reject(current,System.currentTimeMillis());ProxyStore.save(this,ProxyStore.index());}
+        if(invalidates&&userRequested&&physicalNetworkAvailable()&&!current.isEmpty()){ProxyStore.index().reject(current,System.currentTimeMillis());ProxyStore.save(this,ProxyStore.index());}
         if (!userRequested || !autoSwitch()) { finishConnection(reason); return; }
         if (!physicalNetworkAvailable()) { waitForNetwork(); return; }
         String failed = current;
@@ -564,7 +544,7 @@ public final class ProxyVpnService extends VpnService {
             new Thread(() -> {
                 TunnelVerifier.Result result = TunnelVerifier.check(new TunnelVerifier.Transport() {
                     public Socket create() throws Exception { return network.getSocketFactory().createSocket(); }
-                    public InetAddress[] resolve(String host) throws Exception { return network.getAllByName(host); }
+                    public InetAddress[] resolve(String host) throws Exception { return VpnMappedDns.resolve(network,host); }
                 }, stop, probeSockets, targets, true, requiredFilter.equals("ALL"));
                 handler.post(() -> {
                     if (token != generation || stop.get() || !userRequested) return;
@@ -604,14 +584,14 @@ public final class ProxyVpnService extends VpnService {
     }
     private void updatePhase(int next) {
         if(next==CONNECTED)clearConnectionError();
-        phase = next;
+        phase = next;PreparedScanner.connectionPending(next==CONNECTING);
         activeEndpoint = next == DISCONNECTED ? "" : current;
         Intent i = new Intent(STATE).setPackage(getPackageName()).putExtra(EXTRA_PHASE, phase).putExtra("connection-error",getSharedPreferences("persiansocks",MODE_PRIVATE).getString("connection-error",""));
         sendBroadcast(i,INTERNAL_PERMISSION);
         QuickControls.refresh(this,true);
     }
-    private void clearConnectionError(){getSharedPreferences("persiansocks",MODE_PRIVATE).edit().remove("connection-error").apply();}
-    private void announceError(String message){getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("connection-error",message).apply();announce(message);}
+    private void clearConnectionError(){getSharedPreferences("persiansocks",MODE_PRIVATE).edit().remove("connection-error").remove("connection-error-endpoint").apply();}
+    private void announceError(String message){android.content.SharedPreferences.Editor edit=getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("connection-error",message);if(!current.isEmpty())edit.putString("connection-error-endpoint",current);edit.apply();announce(message);}
     private void announce(String message) {
         announce(message, null);
     }

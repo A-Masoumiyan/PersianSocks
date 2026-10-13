@@ -19,6 +19,7 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -109,6 +110,7 @@ public final class MainActivity extends Activity {
     private Button sidebarScan;
     private Button sidebarToggle, sidebarClose;
     private AppUpdater appUpdater;
+    private SiteIcons siteIcons;
     private FrameLayout page, sidebarOverlay;
     private View mainScroller;
     private LinearLayout sidebar;
@@ -176,6 +178,7 @@ public final class MainActivity extends Activity {
         scanReport = getSharedPreferences("persiansocks", MODE_PRIVATE).getString("scan-report", scanReport);
         customTargets.addAll(ServiceTargets.decode(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("test-domains", "[]")));
         ServiceTargets.configure(customTargets);
+        siteIcons=new SiteIcons(this,()->{resultAdapter.notifyDataSetChanged();});siteIcons.sync();
         filter = getSharedPreferences("persiansocks", MODE_PRIVATE).getString("filter", "ALL");
         if (filter.startsWith("https://") && customTargets.stream().noneMatch(t -> t.id.equals(filter))) filter = "ALL";
         try { CountryLookup.initialize(getAssets().open("ip-country.bin")); } catch (Exception ignored) {}
@@ -216,7 +219,7 @@ public final class MainActivity extends Activity {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(sidebarBack);
             sidebarBack = null;
         }
-        if(appUpdater!=null)appUpdater.close();
+        if(appUpdater!=null)appUpdater.close();if(siteIcons!=null)siteIcons.close();
         if(ipCheck!=null)ipCheck.cancel();
         stopFilteredSpeed();
         cancelSingleTests();
@@ -464,43 +467,26 @@ public final class MainActivity extends Activity {
         });
         LinearLayout heading = horizontal();
         heading.addView(text(AppLanguage.t(R.string.ui_034), 17, Color.WHITE, true), new LinearLayout.LayoutParams(0,-2,1));
-        Button update=button(AppLanguage.t(R.string.ui_update_000),false);update.setTextSize(11);heading.addView(update,new LinearLayout.LayoutParams(dp(96),dp(48)));
-        appUpdater=new AppUpdater(this,update);
-        sidebarClose = button("×", false);sidebarClose.setTextSize(25);
-        sidebarClose.setContentDescription(AppLanguage.t(R.string.ui_036));
-        sidebarClose.setOnClickListener(v -> setSidebarVisible(false));
-        LinearLayout.LayoutParams closeCell = new LinearLayout.LayoutParams(dp(48),dp(48));
-        closeCell.setMarginStart(dp(8)); heading.addView(sidebarClose, closeCell);
-        sidebar.addView(heading);
-        ScrollView scroll = new ScrollView(this); scroll.setFillViewport(false);
-        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(0,dp(12),0,dp(8)); scroll.addView(content);
-        sidebar.addView(scroll, new LinearLayout.LayoutParams(-1,0,1));
-
-        content.addView(text(AppLanguage.t(R.string.ui_037),14,PRIMARY,true));
-        sidebarTls=sidebarCheck(AppLanguage.t(R.string.ui_038),DistributionPolicy.encryptedOnly());sidebarTls.setEnabled(!DistributionPolicy.play());
-        sidebarTls.setOnCheckedChangeListener((b,on)->{if(on!=DistributionPolicy.encryptedOnly())changeTlsMode(on);});content.addView(sidebarTls,sized(dp(48),dp(4)));
-        sidebarAuto=sidebarCheck(AppLanguage.t(R.string.ui_039),getSharedPreferences("persiansocks",MODE_PRIVATE).getBoolean("auto-switch",true));
-        sidebarAuto.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("auto-switch",on).apply());content.addView(sidebarAuto,sized(dp(48),0));
-        sidebarAction(content,AppLanguage.t(R.string.ui_297),this::languageDialog);
-        sidebarAction(content,AppLanguage.t(R.string.ui_040),() -> startActivity(new Intent(this,SplitTunnelActivity.class)));
-        content.addView(text(AppLanguage.t(R.string.ui_041),14,PRIMARY,true),margin(dp(12),0));
-        sidebarScan=sidebarAction(content,AppLanguage.t(R.string.ui_042),this::scanSettings);
-        sidebarAction(content,AppLanguage.t(R.string.ui_043),this::fastPing);
-        catalogInfo=text("",11,SECONDARY,false);content.addView(catalogInfo,margin(dp(4),0));
-        content.addView(text(AppLanguage.t(R.string.ui_044),14,PRIMARY,true),margin(dp(12),0));
-        sidebarAction(content,AppLanguage.t(R.string.ui_045),this::sourceDialog);
-        sidebarAction(content,AppLanguage.t(R.string.ui_046),this::manualDialog);
-        sidebarAction(content,AppLanguage.t(R.string.ui_047),this::targetsDialog);
-        content.addView(text(AppLanguage.t(R.string.ui_048),14,PRIMARY,true),margin(dp(12),0));
-        sidebarAction(content,AppLanguage.t(R.string.ui_049),() -> QuickControls.requestTile(this));
-        sidebarAction(content,AppLanguage.t(R.string.ui_050),() -> QuickControls.requestWidget(this));
-        sidebarAction(content,AppLanguage.t(R.string.ui_051),this::showReport);
-        sidebarAction(content,AppLanguage.t(R.string.ui_052),this::crashReport);
-        sidebarAction(content,AppLanguage.t(R.string.ui_053),()->VpnDisclosure.showPrivacy(this));
-        sidebarAction(content,AppLanguage.t(R.string.ui_054),this::aboutDialog);
+        Button language=button("en".equals(AppLanguage.code(this))?"🇬🇧":"🇮🇷",false);language.setTextSize(23);language.setContentDescription(AppLanguage.t(R.string.ui_297));
+        language.setOnClickListener(v->{pendingLanguage="en".equals(AppLanguage.code(this))?"fa":"en";applyPendingLanguage();});
+        LinearLayout.LayoutParams languageCell=new LinearLayout.LayoutParams(dp(48),dp(48));languageCell.setMarginEnd(dp(12));heading.addView(language,languageCell);
+        sidebarClose=button("×",false);sidebarClose.setTextSize(25);sidebarClose.setContentDescription(AppLanguage.t(R.string.ui_036));sidebarClose.setOnClickListener(v->setSidebarVisible(false));heading.addView(sidebarClose,new LinearLayout.LayoutParams(dp(48),dp(48)));sidebar.addView(heading);
+        ScrollView scroll=new ScrollView(this);LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(0,dp(12),0,dp(8));scroll.addView(content);sidebar.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        sidebarTls=sidebarCheck(AppLanguage.t(R.string.ui_038),DistributionPolicy.encryptedOnly());sidebarTls.setEnabled(!DistributionPolicy.play());sidebarTls.setOnCheckedChangeListener((b,on)->{if(on!=DistributionPolicy.encryptedOnly())changeTlsMode(on);});content.addView(sidebarTls,sized(dp(48),0));
+        sidebarAuto=sidebarCheck(AppLanguage.t(R.string.ui_039),getSharedPreferences("persiansocks",MODE_PRIVATE).getBoolean("auto-switch",true));sidebarAuto.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("auto-switch",on).apply());content.addView(sidebarAuto,sized(dp(48),0));
+        LinearLayout tools=horizontal();sidebarIcon(tools,UiIconButton.Kind.SPLIT,AppLanguage.t(R.string.ui_254),()->startActivity(new Intent(this,SplitTunnelActivity.class)));sidebarIcon(tools,UiIconButton.Kind.SOURCE,AppLanguage.t(R.string.ui_227),this::sourceDialog);sidebarIcon(tools,UiIconButton.Kind.TARGET,AppLanguage.t(R.string.ui_047),this::targetsDialog);sidebarIcon(tools,UiIconButton.Kind.PRIVACY,AppLanguage.t(R.string.ui_276),()->VpnDisclosure.showPrivacy(this));content.addView(tools,margin(dp(12),0));
+        content.addView(text(AppLanguage.t(R.string.ui_041),14,PRIMARY,true),margin(dp(18),0));
+        EditText scanCount=new EditText(this);scanCount.setText(scanAll?"":Integer.toString(maxTests));scanCount.setHint("Max");scanCount.setTextColor(Color.WHITE);scanCount.setTextSize(16);scanCount.setSingleLine(true);scanCount.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);scanCount.setTextDirection(View.TEXT_DIRECTION_LTR);content.addView(scanCount,sized(dp(48),0));
+        final int[] values={5000,10000,20000,ProxyScanner.MAX_TESTS};final boolean[] choosing={false};
+        ScanLimitView limits=new ScanLimitView(this,scanAll?3:maxTests==5000?0:maxTests==10000?1:maxTests==20000?2:-1,index->{choosing[0]=true;scanAll=index==3;maxTests=values[index];scanCount.setText(scanAll?"":Integer.toString(maxTests));scanCount.setHint("Max");saveScanLimit();choosing[0]=false;});content.addView(limits,sized(dp(64),0));
+        scanCount.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence x,int a,int c,int f){}public void onTextChanged(CharSequence x,int a,int before,int count){if(choosing[0])return;try{int n=Integer.parseInt(x.toString());if(n<100||n>ProxyScanner.MAX_TESTS){scanCount.setError(AppLanguage.t(R.string.ui_v28_limit));return;}scanCount.setError(null);scanAll=false;maxTests=n;limits.selected(n==5000?0:n==10000?1:n==20000?2:-1);saveScanLimit();}catch(NumberFormatException ignored){}}public void afterTextChanged(android.text.Editable e){}});
+        LinearLayout footer=horizontal();sidebarIcon(footer,UiIconButton.Kind.INFO,AppLanguage.t(R.string.ui_054),this::aboutDialog);sidebarIcon(footer,UiIconButton.Kind.TELEGRAM,"Telegram @HTpink",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse("https://t.me/HTpink")));}catch(Exception ignored){}});
+        TextView version=text("v"+AppLanguage.version(this),10,SECONDARY,false);version.setTextDirection(View.TEXT_DIRECTION_LTR);footer.addView(version,new LinearLayout.LayoutParams(0,-2,1));
+        LinearLayout updateBox=new LinearLayout(this);updateBox.setOrientation(LinearLayout.VERTICAL);updateBox.setGravity(Gravity.CENTER);UiIconButton update=new UiIconButton(this,UiIconButton.Kind.UPDATE,AppLanguage.t(R.string.ui_update_000));updateBox.addView(update,new LinearLayout.LayoutParams(dp(46),dp(46)));TextView available=text("",9,SECONDARY,false);available.setGravity(Gravity.CENTER);available.setTextDirection(AppLanguage.textDirection());available.setSingleLine(true);updateBox.addView(available);footer.addView(updateBox,new LinearLayout.LayoutParams(dp(104),-2));appUpdater=new AppUpdater(this,update,available);sidebar.addView(footer,margin(dp(12),0));
         page.addView(sidebarOverlay,new FrameLayout.LayoutParams(-1,-1));
     }
+    private void saveScanLimit(){getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putInt("max-tests",maxTests).putBoolean("scan-all",scanAll).apply();}
+    private void sidebarIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(60),dp(60));cell.setMarginEnd(dp(8));row.addView(icon,cell);}
     private Button sidebarAction(LinearLayout parent,String label,Runnable action) {
         Button choice = button(label,false); choice.setTextSize(13);
         choice.setGravity(AppLanguage.gravity()|Gravity.CENTER_VERTICAL); choice.setPadding(dp(12),0,dp(12),0);
@@ -625,7 +611,7 @@ public final class MainActivity extends Activity {
         ServiceTargets.configure(customTargets);
         getSharedPreferences("persiansocks", MODE_PRIVATE).edit()
             .putString("test-domains", ServiceTargets.encode(customTargets)).putString("filter", filter).apply();
-        rebuildFilters(); render();
+        if(siteIcons!=null)siteIcons.sync();rebuildFilters(); render();
     }
     private void targetsDialog() {
         List<String> items = new ArrayList<>(); items.add(AppLanguage.t(R.string.ui_068));
@@ -682,11 +668,11 @@ public final class MainActivity extends Activity {
                 applyPendingLanguage();
             }).setNegativeButton(AppLanguage.t(R.string.ui_007),null).show();
     }
-    private boolean languageBusy() { return scanning||collecting||preparing||stopping||loading||speedBatch!=null||preparingSpeedBatch||singleTest!=null||speedTest!=null||savedPingQueue!=null; }
+    private boolean languageBusy() { return preparing||stopping||loading; }
     private void applyPendingLanguage() {
         if(isDestroyed()||pendingLanguage==null)return;
         if(languageBusy()){ui.postDelayed(this::applyPendingLanguage,500);return;}
-        String next=pendingLanguage;pendingLanguage=null;if(next.equals(AppLanguage.code(this)))return;AppLanguage.select(this,next);recreate();
+        String next=pendingLanguage;pendingLanguage=null;if(next.equals(AppLanguage.code(this)))return;AppLanguage.select(this,next);boolean opened=sidebarVisible;setSidebarVisible(false);if(appUpdater!=null)appUpdater.close();buildUi();renderedRevision=-1;render();setSidebarVisible(opened);if(appUpdater!=null)appUpdater.start();
     }
     private void aboutDialog() {
         TextView info = text("PersianSocks " + AppLanguage.version(this) + "\n\n" + AppLanguage.t(R.string.ui_078) +
@@ -854,19 +840,6 @@ public final class MainActivity extends Activity {
             ui.post(()->{if(isDestroyed())return;preparing=false;if(ready==null){status.setText(AppLanguage.display(note));updateActions();}else runPrepared(ready);});
         });
     }
-    private void fastPing() {
-        if(scanning||collecting||loading||preparing||stopping){Toast.makeText(this,AppLanguage.t(R.string.ui_120),Toast.LENGTH_SHORT).show();return;}
-        if(ranked.isEmpty()){Toast.makeText(this,AppLanguage.t(R.string.ui_121),Toast.LENGTH_SHORT).show();return;}
-        sort=ProxyResults.Sort.FASTEST;getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("sort",sort.name()).apply();
-        preparing=true;updateActions();status.setText(AppLanguage.t(R.string.ui_122));
-        final String service=filter;final ProxyResults.Protocol kind=protocol;final ProxyResults.PingLimit limit=pingLimit;final boolean slow=slowScan;
-        final List<ProxyEndpoint> snapshot=healthy.snapshot();
-        rankWorker.execute(()->{
-            List<ProxyEndpoint> choices=ProxyResults.visible(snapshot,service,ProxyResults.Sort.FASTEST,kind,limit);
-            ScanCheckpoint work=new ScanCheckpoint(new ArrayList<>(choices.subList(0,Math.min(20,choices.size()))),new ProxyScanner.Options(100,slow,true,7),"LATENCY");
-            ui.post(()->{if(isDestroyed())return;preparing=false;runPrepared(work);});
-        });
-    }
     private void runPrepared(ScanCheckpoint work) {
         if(work==null||work.total()==0){status.setText(AppLanguage.t(R.string.ui_123));return;}
         if(scanning||collecting||preparing||stopping||loading||ProxyVpnService.autoScanning())return;
@@ -944,6 +917,7 @@ public final class MainActivity extends Activity {
         }
         favoritesRevision++;render();Toast.makeText(this,AppLanguage.t(R.string.ui_134),Toast.LENGTH_SHORT).show();
     }
+    private void toggleFavorite(ProxyEndpoint proxy){if(!favorites.containsKey(proxy.key())){addFavorite(proxy);return;}ProxyEndpoint old=favorites.remove(proxy.key());if(!FavoriteProxies.save(this,favorites.values())){favorites.put(old.key(),old);Toast.makeText(this,AppLanguage.t(R.string.ui_138),Toast.LENGTH_LONG).show();return;}favoritesRevision++;render();}
     private void confirmRemoveFavorite(ProxyEndpoint proxy){
         if(proxy==null||!favorites.containsKey(proxy.key()))return;
         new AlertDialog.Builder(this,R.style.AppDialogTheme)
@@ -1045,16 +1019,17 @@ public final class MainActivity extends Activity {
             holder.bind(getItem(position));return recycled;
         }
     }
+    private final class ServiceIcon extends LinearLayout {final ImageView image=new ImageView(MainActivity.this);final TextView mark=text("",11,SECONDARY,true);ServiceIcon(){super(MainActivity.this);setGravity(Gravity.CENTER);setLayoutDirection(View.LAYOUT_DIRECTION_LTR);image.setScaleType(ImageView.ScaleType.FIT_CENTER);addView(image,new LinearLayout.LayoutParams(dp(22),dp(22)));addView(mark,new LinearLayout.LayoutParams(dp(12),-2));}}
     private final class CardHolder {
         final LinearLayout wrapper=new LinearLayout(MainActivity.this),row=new LinearLayout(MainActivity.this),services=new LinearLayout(MainActivity.this);
         final TextView address=text("",15,Color.WHITE,true),badge=chip(AppLanguage.t(R.string.ui_162),PRIMARY,Color.rgb(22,75,68)),detail=text("",12,SECONDARY,false);
         final TextView down=metricValue("",SECONDARY),ping=metricValue("",Color.WHITE);
-        final List<TextView> serviceViews=new ArrayList<>();
+        final List<ServiceIcon> serviceViews=new ArrayList<>();
         final View divider=new View(MainActivity.this);
         final FrameLayout swipeFrame=new FrameLayout(MainActivity.this);
         final TextView pingHint=text(AppLanguage.t(R.string.ui_v25_013),15,PRIMARY,true),downloadHint=text(AppLanguage.t(R.string.ui_v25_014),15,Color.rgb(99,172,255),true);
         ProxyEndpoint endpoint;String targetSet="";boolean swiping;
-        Button favoriteButton;
+        UiIconButton favoriteButton;
         CardHolder(){
             wrapper.setOrientation(LinearLayout.VERTICAL);wrapper.setLayoutDirection(AppLanguage.direction());
             wrapper.setPadding(dp(12),dp(4),dp(12),dp(4));
@@ -1068,23 +1043,20 @@ public final class MainActivity extends Activity {
             address.setMaxLines(1);address.setEllipsize(android.text.TextUtils.TruncateAt.END);
             address.setAutoSizeTextTypeUniformWithConfiguration(12,16,1,android.util.TypedValue.COMPLEX_UNIT_SP);
             top.addView(address,new LinearLayout.LayoutParams(0,-2,1));top.addView(badge);
-            Button star=button("☆",false);star.setTextSize(19);
-            star.setOnClickListener(v->{
-                if(endpoint==null)return;
-                if(showFavorites)confirmRemoveFavorite(endpoint);else addFavorite(endpoint);
-            });
-            LinearLayout.LayoutParams starCell=new LinearLayout.LayoutParams(dp(42),dp(40));
-            starCell.setMarginStart(dp(4));top.addView(star,starCell);
-            favoriteButton=star;
-            Button menu=button("⋮",false);menu.setTextSize(22);menu.setContentDescription(AppLanguage.t(R.string.ui_163));
-            menu.setOnClickListener(v->{if(endpoint!=null)proxyMenu(endpoint,menu);});
-            LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(36),dp(40));cell.setMarginStart(dp(4));top.addView(menu,cell);row.addView(top);
-            row.addView(detail,margin(dp(2),0));services.setOrientation(LinearLayout.VERTICAL);row.addView(services,margin(dp(5),0));
+            row.addView(top);
+            LinearLayout actions=horizontal();actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+            UiIconButton download=cardIcon(actions,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_176),()->{if(endpoint!=null)startSpeedTest(endpoint);});
+            cardIcon(actions,UiIconButton.Kind.CONNECT,AppLanguage.t(R.string.ui_174),()->{if(endpoint!=null)startProxyProbe(endpoint,false);});
+            cardIcon(actions,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_175),()->{if(endpoint!=null)startProxyProbe(endpoint,true);});
+            cardIcon(actions,UiIconButton.Kind.INFO,AppLanguage.t(R.string.ui_177),()->{if(endpoint!=null)proxyDetails(endpoint);});
+            favoriteButton=cardIcon(actions,UiIconButton.Kind.STAR,AppLanguage.t(R.string.ui_167),()->{if(endpoint!=null)toggleFavorite(endpoint);});
+            LinearLayout meta=horizontal();detail.setMaxLines(1);detail.setEllipsize(android.text.TextUtils.TruncateAt.END);meta.addView(detail,new LinearLayout.LayoutParams(0,-2,1));meta.addView(actions);row.addView(meta,margin(dp(3),0));
+            services.setOrientation(LinearLayout.VERTICAL);row.addView(services,margin(dp(5),0));
             row.addView(divider,sized(dp(1),dp(6)));
             LinearLayout metrics=horizontal();metrics.addView(resultColumn(AppLanguage.t(R.string.ui_164),down),new LinearLayout.LayoutParams(0,-2,1.5f));
             LinearLayout.LayoutParams pingCell=new LinearLayout.LayoutParams(0,-2,1);pingCell.setMarginStart(dp(8));metrics.addView(resultColumn(AppLanguage.t(R.string.ui_165),ping),pingCell);row.addView(metrics,margin(dp(5),0));
             row.setOnClickListener(v->{if(endpoint!=null){chooseProxy(endpoint);}});
-            row.setOnLongClickListener(v->{if(endpoint!=null)proxyDetails(endpoint);return true;});
+            row.setLongClickable(false);
             // Horizontal gestures only; vertical movement stays with the scrolling ListView.
             row.setOnTouchListener(new View.OnTouchListener(){
                 float startX,startY;boolean horizontal;ProxyEndpoint gestureProxy;
@@ -1118,10 +1090,7 @@ public final class MainActivity extends Activity {
             row.setBackground(background(active?Color.rgb(23,54,57):SURFACE,dp(14),active?PRIMARY:STROKE));
             address.setText(p.address());badge.setVisibility(ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&p.key().equals(ProxyVpnService.activeEndpoint())?View.VISIBLE:View.GONE);
             boolean saved=favorites.containsKey(p.key());
-            favoriteButton.setText(AppLanguage.display(showFavorites?AppLanguage.t(R.string.ui_137):saved?"★":"☆"));
-            favoriteButton.setTextSize(showFavorites?11:19);
-            favoriteButton.setTextColor(saved?PRIMARY:SECONDARY);
-            favoriteButton.setContentDescription(showFavorites?AppLanguage.t(R.string.ui_135):saved?AppLanguage.t(R.string.ui_166):AppLanguage.t(R.string.ui_167));
+            favoriteButton.active(saved);favoriteButton.setContentDescription(saved?AppLanguage.t(R.string.ui_135):AppLanguage.t(R.string.ui_167));favoriteButton.setTooltipText(saved?AppLanguage.t(R.string.ui_135):AppLanguage.t(R.string.ui_167));
             row.setContentDescription(p.address()+AppLanguage.t(R.string.ui_168));
             String country=p.countryCode.isEmpty()?CountryLookup.lookup(p.host):p.countryCode;
             detail.setText(AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())+"  •  "+AppLanguage.isolate(p.type.name())));detail.setTextColor(active?PRIMARY:SECONDARY);
@@ -1129,49 +1098,22 @@ public final class MainActivity extends Activity {
             if(!shape.equals(targetSet)){
                 targetSet=shape;services.removeAllViews();serviceViews.clear();LinearLayout line=null;int count=0;
                 for(ServiceTargets.Target target:ServiceTargets.current()){
-                    if(count++%3==0){line=horizontal();services.addView(line,margin(serviceViews.isEmpty()?0:dp(6),0));}
-                    TextView chip=chip("",SECONDARY,SURFACE);chip.setPadding(dp(4),dp(2),dp(4),dp(2));
-                    LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(0,-2,1);cell.setMarginEnd(dp(5));line.addView(chip,cell);serviceViews.add(chip);
+                    if(count++%7==0){line=horizontal();services.addView(line,margin(serviceViews.isEmpty()?0:dp(5),0));}
+                    ServiceIcon chip=new ServiceIcon();LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(42),dp(32));cell.setMarginEnd(dp(3));line.addView(chip,cell);serviceViews.add(chip);
                 }
             }
             int index=0;for(ServiceTargets.Target target:ServiceTargets.current()){
-                boolean ok=p.passed(target);TextView chip=serviceViews.get(index++);
-                chip.setText((ok?"✓ ":p.checked(target)?"× ":"• ")+AppLanguage.display(target.name));chip.setTextColor(ok?PRIMARY:SECONDARY);
-                int fill=ok?Color.rgb(22,68,62):Color.rgb(32,42,56);chip.setBackground(background(fill,dp(9),fill));
-                chip.setContentDescription(AppLanguage.display(target.name)+(ok?AppLanguage.t(R.string.ui_169):p.checked(target)?AppLanguage.t(R.string.ui_170):AppLanguage.t(R.string.ui_171)));
+                boolean ok=p.passed(target);ServiceIcon chip=serviceViews.get(index++);android.graphics.Bitmap icon=siteIcons==null?null:siteIcons.get(target.host);if(icon==null)chip.image.setImageDrawable(SiteIcons.placeholder());else chip.image.setImageBitmap(icon);
+                chip.mark.setText(ok?"✓":p.checked(target)?"×":"•");chip.mark.setTextColor(ok?PRIMARY:SECONDARY);chip.setTooltipText(target.host);chip.setContentDescription(target.name+" • "+target.host+(ok?AppLanguage.t(R.string.ui_169):p.checked(target)?AppLanguage.t(R.string.ui_170):AppLanguage.t(R.string.ui_171)));
             }
             ProxyTestResult measured=testResults.get(p.key());if(measured==null)measured=new ProxyTestResult();
             boolean running=testingProxy!=null&&testingProxy.key().equals(p.key());boolean downloadRunning=running&&speedTest!=null,probeRunning=running&&singleTest!=null;
             setMetricValue(down,downloadRunning?liveDownloadMBps>=0?ProxyTestResult.speed(liveDownloadMBps):AppLanguage.t(R.string.ui_172):measured.speedValue());
-            down.setTextColor(downloadRunning||measured.downloadMBps>=0?PRIMARY:SECONDARY);
+            down.setTextColor(downloadRunning||measured.speedError.isEmpty()&&measured.downloadMBps>=0?PRIMARY:measured.speedError.isEmpty()?SECONDARY:WARNING);
             setMetricValue(ping,probeRunning?AppLanguage.t(R.string.ui_172):measured.pingValue(p.latencyMs));divider.setBackgroundColor(active?Color.rgb(44,88,88):STROKE);
         }
     }
-    private void proxyMenu(ProxyEndpoint p, View anchor) {
-        PopupMenu popup = new PopupMenu(this, anchor);
-        popup.getMenu().add(0, 1, 0, AppLanguage.t(R.string.ui_173));
-        popup.getMenu().add(0, 2, 1, AppLanguage.t(R.string.ui_174));
-        popup.getMenu().add(0, 3, 2, AppLanguage.t(R.string.ui_175));
-        popup.getMenu().add(0, 4, 3, AppLanguage.t(R.string.ui_176));
-        popup.getMenu().add(0, 5, 4, AppLanguage.t(R.string.ui_177));
-        if(showFavorites&&favorites.containsKey(p.key()))popup.getMenu().add(0,7,5,AppLanguage.t(R.string.ui_135));
-        else if(!favorites.containsKey(p.key()))popup.getMenu().add(0,8,5,AppLanguage.t(R.string.ui_167));
-        if (testingProxy != null && testingProxy.key().equals(p.key())) popup.getMenu().add(0, 6, 5, AppLanguage.t(R.string.ui_178));
-        popup.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case 1: chooseProxy(p); break;
-                case 2: startProxyProbe(p, false); break;
-                case 3: startProxyProbe(p, true); break;
-                case 4: startSpeedTest(p); break;
-                case 5: proxyDetails(p); break;
-                case 6: cancelSingleTests(); render(); break;
-                case 7: confirmRemoveFavorite(p); break;
-                case 8: addFavorite(p); break;
-            }
-            return true;
-        });
-        popup.show();
-    }
+    private UiIconButton cardIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(34),dp(38));cell.setMarginStart(dp(3));row.addView(icon,cell);return icon;}
     private void proxyDetails(ProxyEndpoint p) {
         String country = p.countryCode.isEmpty() ? CountryLookup.lookup(p.host) : p.countryCode;
         StringBuilder details = new StringBuilder(p.key()).append(AppLanguage.t(R.string.ui_179)).append(CountryLookup.display(country,AppLanguage.locale()))
@@ -1191,61 +1133,14 @@ public final class MainActivity extends Activity {
                 .append("\n").append(measured.probeError);
             if (!measured.probeInfo.isEmpty()) details.append("\n").append(measured.probeInfo);
         }
+        if(measured!=null&&measured.speedAt>0)details.append("\n").append(AppLanguage.t(R.string.ui_v28_speed_time)).append(android.text.format.DateFormat.getDateFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt))).append(" ").append(android.text.format.DateFormat.getTimeFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt)));
+        if(p.key().equals(getSharedPreferences("persiansocks",0).getString("connection-error-endpoint","")))details.append("\n\n").append(AppLanguage.t(R.string.ui_v28_vpn_error)).append(getSharedPreferences("persiansocks",0).getString("connection-error",""));
+        details.append("\n\n").append(AppLanguage.t(R.string.ui_v28_evidence));
         TextView info = text(details.toString(), 14, Color.WHITE, false);
         info.setPadding(dp(18), dp(12), dp(18), dp(12)); info.setTextIsSelectable(true);
         ScrollView scroll = new ScrollView(this); scroll.addView(info);
         new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_192)).setView(scroll)
-            .setPositiveButton(AppLanguage.t(R.string.ui_193), (d, which) -> { userSelected = true; selected = p; render(); })
-            .setNegativeButton(AppLanguage.t(R.string.ui_007), null).show();
-    }
-    private void manualDialog() {
-        EditText field = new EditText(this);
-        field.setHint(DistributionPolicy.play()?"https://proxy.example.com:443":AppLanguage.t(R.string.ui_194));
-        field.setTextDirection(View.TEXT_DIRECTION_LTR);
-        field.setSingleLine(true);
-        field.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
-        LinearLayout inputs=panel();inputs.addView(field);
-        android.widget.Spinner type=new android.widget.Spinner(this);
-        type.setAdapter(new android.widget.ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"SOCKS5","HTTP",AppLanguage.t(R.string.ui_195)}));
-        if(DistributionPolicy.play()){type.setSelection(2);}else inputs.addView(type);
-        inputs.addView(text(AppLanguage.t(R.string.ui_196),12,SECONDARY,false),margin(dp(8),0));
-        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_046)).setView(inputs)
-            .setPositiveButton(AppLanguage.t(R.string.ui_075), (d, which) -> {
-                String raw=field.getText().toString().trim();
-                if(!raw.contains("://"))raw=(type.getSelectedItemPosition()==1?"http://":type.getSelectedItemPosition()==2?"https://":"")+raw;
-                ProxyEndpoint e = ProxyEndpoint.parse(raw);
-                if(e!=null&&!DistributionPolicy.allows(e)){Toast.makeText(this,AppLanguage.t(R.string.ui_197),Toast.LENGTH_LONG).show();return;}
-                if (e == null) { Toast.makeText(this, AppLanguage.t(R.string.ui_198), Toast.LENGTH_LONG).show(); return; }
-                manual.add(e); status.setText(AppLanguage.t(R.string.ui_199));
-                new Thread(() -> {
-                    Socks5Probe.Result outcome;
-                    try{PhysicalTestNetwork network=PhysicalTestNetwork.capture(this);
-                        outcome=Socks5Probe.inspect(e,slowScan,new java.util.concurrent.atomic.AtomicBoolean(false),null,network::socket,network::resolve);}
-                    catch(Exception ex){outcome=new Socks5Probe.Result(null,Socks5Probe.Failure.IO_ERROR,false,false);}
-                    final Socks5Probe.Result tested=outcome;
-                    ProxyEndpoint good = tested.endpoint;
-                    ui.post(() -> {
-                        if (isDestroyed()) return;
-                        if (good != null) {
-                            healthy.accept(good); selected = good; userSelected = true;
-                            if (!ProxyResults.accepts(good, filter)) {
-                                filter = "ALL";
-                                getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putString("filter", filter).apply();
-                            }
-                            if(!protocol.accepts(good)){
-                                protocol=good.type==ProxyEndpoint.Type.SOCKS5?ProxyResults.Protocol.SOCKS:ProxyResults.Protocol.HTTP;
-                                getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("protocol-filter",protocol.name()).apply();
-                            }
-                            ProxyStore.save(this, healthy);
-                            status.setText(AppLanguage.t(R.string.ui_200)); render();
-                        } else {
-                            manual.removeIf(p->p.key().equals(e.key()));
-                            if(tested.tcpReached){healthy.reject(e.key(),System.currentTimeMillis());ProxyStore.save(this,healthy);}
-                            status.setText(AppLanguage.t(R.string.ui_201));render();
-                        }
-                    });
-                }, "manual-socks-test").start();
-            }).setNegativeButton(AppLanguage.t(R.string.ui_067), null).show();
+            .setPositiveButton(AppLanguage.t(R.string.ui_007),null).show();
     }
     private void chooseProxy(ProxyEndpoint proxy) {
         selected=proxy;userSelected=true;ipRoute="";ipCheckedAt=0;
@@ -1338,68 +1233,15 @@ public final class MainActivity extends Activity {
                 Toast.makeText(this, AppLanguage.t(R.string.ui_210), Toast.LENGTH_SHORT).show();
             }).show();
     }
-    private void scanSettings() {
-        LinearLayout panel = dialogContent();
-        panel.addView(text(AppLanguage.t(R.string.ui_211), 14, Color.WHITE, false));
-        EditText count = new EditText(this); count.setText(String.valueOf(maxTests));
-        count.setInputType(android.text.InputType.TYPE_CLASS_NUMBER); panel.addView(count);
-        CheckBox all=new CheckBox(this);all.setText(AppLanguage.t(R.string.ui_212));
-        all.setTextColor(Color.WHITE);all.setButtonTintList(ColorStateList.valueOf(PRIMARY));all.setChecked(scanAll);
-        count.setEnabled(!scanAll);count.setAlpha(scanAll?.4f:1f);
-        all.setOnCheckedChangeListener((b,checked)->{count.setEnabled(!checked);count.setAlpha(checked?.4f:1f);});
-        panel.addView(all);
-        panel.addView(text(AppLanguage.t(R.string.ui_213),14,Color.WHITE,true),margin(dp(10),0));
-        CheckBox socks=new CheckBox(this);socks.setText(AppLanguage.display("SOCKS5"));socks.setTextColor(Color.WHITE);socks.setChecked((getSharedPreferences("persiansocks",MODE_PRIVATE).getInt("scan-types",7)&1)!=0);socks.setEnabled(!DistributionPolicy.encryptedOnly());if(!DistributionPolicy.play())panel.addView(socks);
-        CheckBox http=new CheckBox(this);http.setText(AppLanguage.t(R.string.ui_214));http.setTextColor(Color.WHITE);http.setChecked((getSharedPreferences("persiansocks",MODE_PRIVATE).getInt("scan-types",7)&6)!=0);http.setEnabled(!DistributionPolicy.encryptedOnly());if(!DistributionPolicy.play())panel.addView(http);
-        panel.addView(text(DistributionPolicy.encryptedOnly()?AppLanguage.t(R.string.ui_215):AppLanguage.t(R.string.ui_216),12,SECONDARY,false));
-        CheckBox slow = new CheckBox(this); slow.setText(AppLanguage.t(R.string.ui_217));
-        slow.setTextColor(Color.WHITE); slow.setChecked(slowScan); panel.addView(slow);
-        panel.addView(text(AppLanguage.t(R.string.ui_218), 12, SECONDARY, false));
-        panel.addView(text(AppLanguage.t(R.string.ui_219), 12, SECONDARY, false));
-        panel.setLayoutDirection(AppLanguage.direction());
-        ScrollView scroll = new ScrollView(this); scroll.addView(panel);
-        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_220)).setView(scroll)
-            .setPositiveButton(AppLanguage.t(R.string.ui_065), (d, w) -> {
-                scanAll=all.isChecked();
-                if(!scanAll){
-                    try { maxTests = Math.max(100, Math.min(ProxyScanner.MAX_TESTS, Integer.parseInt(count.getText().toString()))); }
-                    catch (NumberFormatException ignored) { maxTests = 5000; }
-                }
-                int requested=(socks.isChecked()?1:0)|(http.isChecked()?6:0);
-                if(requested==0)requested=7;
-                scanTypes=DistributionPolicy.scanTypes(requested);
-                if(scanTypes==0){scanTypes=7;Toast.makeText(this,AppLanguage.t(R.string.ui_221),Toast.LENGTH_LONG).show();}
-                slowScan = slow.isChecked();
-                getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putInt("max-tests", maxTests)
-                    .putBoolean("slow-scan", slowScan).putBoolean("scan-all",scanAll).putInt("scan-types",requested).apply();
-                Toast.makeText(this, AppLanguage.t(R.string.ui_222), Toast.LENGTH_SHORT).show();
-            }).setNegativeButton(AppLanguage.t(R.string.ui_067), null).show();
-    }
     private void sourceDialog() {
-        LinearLayout panel = dialogContent();
-        StringBuilder names = new StringBuilder(AppLanguage.t(R.string.ui_223));
-        if(!DistributionPolicy.play())for (ProxyScanner.Source source : SourceCatalog.DEFAULT) names.append(source.name).append(" • ");
-        names.append(DistributionPolicy.play()?AppLanguage.t(R.string.ui_224):"\nHTTP / HTTPS:\n");
-        for(ProxyScanner.Source source:SourceCatalog.HTTP)if(DistributionPolicy.allows(source.type))names.append(source.name).append(" • ");
-        panel.addView(text(names.toString(), 12, SECONDARY, false));
-        panel.addView(text(DistributionPolicy.play()?AppLanguage.t(R.string.ui_225):AppLanguage.t(R.string.ui_226), 14, Color.WHITE, false));
-        EditText urls = new EditText(this); urls.setMinLines(3); urls.setMaxLines(6);
-        urls.setHint(DistributionPolicy.play()?"HTTPS https://example.com/tls-proxies.txt":"HTTP https://example.com/http.txt\nHTTPS https://example.com/tls-proxies.txt");
-        urls.setText(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("extra-sources", ""));
-        panel.addView(urls);
-        ScrollView scroll = new ScrollView(this); scroll.addView(panel);
-        new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_227)).setView(scroll)
-            .setPositiveButton(AppLanguage.t(R.string.ui_065), (d, w) -> {
-                StringBuilder valid = new StringBuilder(); int added = 0;
-                for (String row : urls.getText().toString().split("\\n")) {
-                    try {
-                        ProxyScanner.Source source=SourceCatalog.custom(row,added+1);
-                        if(source!=null&&DistributionPolicy.allows(source.type)&&added<20){added++;valid.append(source.type.name()).append(' ').append(source.url).append('\n');}
-                    } catch (Exception ignored) {}
-                }
-                getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putString("extra-sources", valid.toString()).apply();
-                Toast.makeText(this, AppLanguage.t(R.string.ui_228), Toast.LENGTH_SHORT).show();
-            }).setNegativeButton(AppLanguage.t(R.string.ui_067), null).show();
+        LinearLayout panel=dialogContent();panel.addView(text(AppLanguage.t(R.string.ui_v28_sources),13,SECONDARY,false));LinearLayout types=horizontal();CheckBox[] choices=new CheckBox[3];ProxyEndpoint.Type[] protocols={ProxyEndpoint.Type.SOCKS5,ProxyEndpoint.Type.HTTP,ProxyEndpoint.Type.HTTPS};int stored=getSharedPreferences("persiansocks",0).getInt("source-types",0);if(stored==0){for(String oldRow:getSharedPreferences("persiansocks",0).getString("extra-sources","").split("\n")){try{ProxyScanner.Source oldSource=SourceCatalog.custom(oldRow,1);if(oldSource!=null)stored|=oldSource.type.bit;}catch(Exception ignored){}}if(stored==0)stored=1;}
+        for(int i=0;i<3;i++){choices[i]=sidebarCheck(protocols[i].name(),(stored&protocols[i].bit)!=0);if(DistributionPolicy.encryptedOnly()){choices[i].setChecked(i==2);choices[i].setEnabled(i==2);}types.addView(choices[i],new LinearLayout.LayoutParams(0,dp(48),1));}panel.addView(types);
+        EditText urls=new EditText(this);urls.setMinLines(3);urls.setMaxLines(8);urls.setTextDirection(View.TEXT_DIRECTION_LTR);urls.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);urls.setHint("https://example.com/proxies.txt");StringBuilder old=new StringBuilder();java.util.Set<String> unique=new java.util.LinkedHashSet<>();for(String row:getSharedPreferences("persiansocks",0).getString("extra-sources","").split("\n")){try{ProxyScanner.Source source=SourceCatalog.custom(row,1);if(source!=null)unique.add(source.url);}catch(Exception ignored){}}for(String u:unique)old.append(u).append('\n');urls.setText(old.toString());panel.addView(urls);ScrollView scroll=new ScrollView(this);scroll.addView(panel);
+        AlertDialog dialog=new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_227)).setView(scroll).setPositiveButton(AppLanguage.t(R.string.ui_065),null).setNegativeButton(AppLanguage.t(R.string.ui_067),null).create();dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            int selected=0;for(int i=0;i<3;i++)if(choices[i].isChecked())selected|=protocols[i].bit;if(selected==0){urls.setError(AppLanguage.t(R.string.ui_v28_type));return;}StringBuilder valid=new StringBuilder();int added=0;
+            for(String row:urls.getText().toString().split("\n")){if(row.trim().isEmpty())continue;try{for(int i=0;i<3;i++)if(choices[i].isChecked()){ProxyScanner.Source source=SourceCatalog.custom(protocols[i].name()+" "+row.trim(),added+1);if(source==null||!DistributionPolicy.allows(source.type)||++added>20)throw new IllegalArgumentException();valid.append(source.type.name()).append(' ').append(source.url).append('\n');}}catch(Exception ex){urls.setError(AppLanguage.t(R.string.ui_v28_source_error));return;}}
+            getSharedPreferences("persiansocks",0).edit().putString("extra-sources",valid.toString()).putInt("source-types",selected).apply();dialog.dismiss();Toast.makeText(this,AppLanguage.t(R.string.ui_228),Toast.LENGTH_SHORT).show();
+        }));dialog.show();
     }
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -1489,7 +1331,7 @@ public final class MainActivity extends Activity {
                 if (isDestroyed() || singleTest != test) return;
                 singleTest = null; testingProxy = null;
                 String note;
-                ProxyTestResult record = resultFor(proxy);
+                ProxyTestResult record = resultFor(proxy);record.probeAt=System.currentTimeMillis();
                 if (test.cancelled()) { note = AppLanguage.t(R.string.ui_240); record.probeError = note; record.probeInfo = ""; }
                 else if (finished != null && finished.endpoint != null) {
                     ProxyEndpoint fresh = finished.endpoint;
@@ -1562,7 +1404,7 @@ public final class MainActivity extends Activity {
         if (isDestroyed() || speedTest != test) return;
         test.cancel(); speedTest = null; testingProxy = null;
         ProxyTestResult record = resultFor(proxy); record.speedError = error; record.downloadedBytes = bytes;
-        if (error.isEmpty()) record.downloadMBps = ProxyTestResult.fromMbps(mbps);
+        if (error.isEmpty()){record.downloadMBps = ProxyTestResult.fromMbps(mbps);record.speedAt=System.currentTimeMillis();}
         saveTestResults();
         if(speedBatch!=null){speedBatch.completed();nextFilteredSpeed();}
         render();

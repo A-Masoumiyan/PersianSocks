@@ -1,6 +1,6 @@
 # وضعیت امنیت و ثبت Google — ۱۳ اکتبر ۲۰۲۶
 
-نسخهٔ فعلی 0.27.0، versionCode 29، بستهٔ `ir.persiansocks.app`، minSdk 29 و targetSdk 36 است. این نسخهٔ personal را نباید تأییدشدهٔ Google Play یا دارای تضمین حذف درخواست اسکن معرفی کرد.
+نسخهٔ فعلی 0.28.0، versionCode 30، بستهٔ `ir.persiansocks.app`، minSdk 29 و targetSdk 36 است. این نسخهٔ personal را نباید تأییدشدهٔ Google Play یا دارای تضمین حذف درخواست اسکن معرفی کرد.
 
 ## تفاوت پیام‌ها
 

@@ -1,0 +1,34 @@
+# Android 0.28.0 fixes — 14 October 2026
+
+This release implements the reported 0.25/0.27 connection, large-scan and UI issues. APK identity remains ir.persiansocks.app, versionCode 30, signed with the same pinned official certificate. Exact APK digest and checks are in verification.txt.
+
+## Connection versus download
+
+A successful download establishes that one server route worked at that time; it cannot certify all app destinations or a native VPN tunnel. Inspection found differences between the captured physical network used by tests and the gateway's network choice/DNS, plus an unconditional healthy-cache rejection on any VPN failure. VPN preflight, gateway TCP/UDP sockets and upstream DNS now use the same captured physical network; the VPN declares that underlying network. A transient preflight failure gets one bounded retry, while TLS/auth/protocol failures remain hard failures. Scans yield new workers while VPN connection is pending. Gateway TCP setup allows 10 seconds and exposes the most recent upstream failure for diagnosis.
+
+Actual tunnel verification and health DNS queries are sent to native mapdns at 198.18.0.2 through the captured VPN network, instead of relying on Android's ordinary resolver/private-DNS choice. Responses must match the transaction and question. The returned fake address is connected through the VPN; the pinned native mapdns translates it to a SOCKS domain request. No physical-network result can count as successful VPN verification. TLS chain and hostname verification remain mandatory. Temporary/native tunnel failures no longer erase a previously verified healthy endpoint; failover still skips failed choices. Recorded speed timestamps, current errors and an explanation in Details distinguish historical success from current connectivity.
+
+These fixes address code-level causes. The reported Swiss endpoint and the user's carrier/Wi-Fi route were not tested from the phone, and we cannot guarantee the availability or admission/rate-limit policy of a third-party public proxy.
+
+## Scan pressure
+
+Previously each completed 500-row block could reparse/rewrite the entire catalog and full checkpoint. The catalog now uses a small append-only removal journal, and the checkpoint uses an initial snapshot plus delta batches. Failed endpoint references/timestamps/failure payloads are released after completed blocks. Logical catalog reads exclude removed rows; final compaction removes their old disk entries once. Original indices/progress and pending work are preserved for resume; saved favorites remain independent and are never automatically deleted.
+
+Snapshot/delta generation IDs prevent stale journal replay across snapshot replacement. A truncated final delta from power loss does not discard prior valid batches; completed catalog removal records recover pruning. Writes are serialized with checkpoint mutations. The worker pool is reduced from 60 to 24 low-priority workers, with at most 48 submitted tasks; new work is limited to four while VPN setup is pending. Pending indices use a primitive array. Probe/TLS checks and normal scan timeouts are unchanged. Checkpoint intervals are 15 seconds or a completed block, reducing storage churn without dropping results on an explicit pause.
+
+The 96,000-row host stress test under a 128 MiB heap cap pruned 95,040 failures, preserved 960 successes, kept the initial full checkpoint unchanged, restored all outcomes, handled a truncated tail and compacted the final catalog. Total persisted state/catalog was 8,830,311 bytes. The observed 1.4–1.8 seconds concerns simulated result recording/storage/recovery, not 96,000 real Internet probes; no claim of a measured real-network speedup is made.
+
+## Interface and icons
+
+- Card star toggles save/remove on both home and saved lists. Long press no longer opens details. Cards select by tap; the three-dot menu is replaced by compact star/info/retest/connect/download vector actions. Info has only Close, avoiding a second selection path that could bypass live tunnel switching. Retest measures one HTTPS route's latency; Connect checks configured services through that proxy. Swipe actions remain animated.
+- Domain/service chips use site icons and pass/fail markers, seven per row, with accessible domain/status descriptions. Icons are downloaded from the site's HTTPS homepage/icon declaration or favicon.ico, never guessed from a label or a favicon directory. Page redirects are limited to the same host/www canonical pair; declared HTTPS CDN image links are permitted. Comments/scripts/data-href and unsupported SVG declarations are excluded. Downloads and raster dimensions are bounded; common ICO PNG/DIB images are decoded and scaled. Files/provenance are keyed by exact hostname; deletion of its last domain removes the icon. Missing/unreachable/unsupported icons show a generic globe. There is no guarantee every site supplies an accessible raster favicon.
+- Split Tunneling buttons have dark rounded styling without native gray insets. App icons are loaded locally/lazily with bounded memory; package identifiers stay in storage but are not shown under names.
+- Drawer: flag toggle near ×; a four-button square icon row (Split Tunneling, Sources, Domains, Privacy); scan number and four stops (5000/10000/20000/Max). Built-in source names are hidden. Extra-source types use checkboxes and source URLs stay one per line; old stored types are preserved when initializing the selector. Manual-add and 20-result revalidation are removed. Widget/tile/report action buttons are absent. About and Telegram @HTpink icons, installed version and update icon are at the bottom. On each foreground entry an update check runs; new versions get a red dot and Update: vX.Y.Z text. Language changes rebuild the UI in place rather than destroying the active scan; short preparation/save transitions defer the rebuild.
+
+Validation: complete personal host suites, 33-check Play security suite, update policy tests, DNS/favicon-policy tests, 96k pressure test, journal-generation/cancellation tests, 520 bilingual resource checks, full Android source/resource compilation and signed APK integrity/native/permission/alignment checks. APK installation UI, native VPN behavior and actual layout on the user's phone remain device-test limitations. Windows, main ruleset and disabled manual-only Android workflow are unchanged.
+
+Primary references:
+- https://developer.android.com/reference/android/net/VpnService
+- https://developer.android.com/reference/android/net/VpnService.Builder
+- https://github.com/heiher/hev-socks5-tunnel/blob/main/conf/main.yml
+- https://github.com/heiher/hev-socks5-tunnel/discussions/246 (maintainer explanation of passing domains using mapped DNS)

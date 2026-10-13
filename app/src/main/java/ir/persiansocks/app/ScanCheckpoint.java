@@ -12,6 +12,8 @@ public final class ScanCheckpoint {
     public final int types;
     private final List<ProxyEndpoint> candidates;
     private final BitSet completed = new BitSet();
+    private final BitSet dirty = new BitSet();
+    private int prunedThrough;
     private final Map<Integer, ProxyEndpoint> good = new LinkedHashMap<>();
     private final Map<Integer,Socks5Probe.Failure> failures = new HashMap<>();
     private final Map<Integer, Long> finishedAt = new HashMap<>();
@@ -41,10 +43,11 @@ public final class ScanCheckpoint {
         for (int i = completed.nextClearBit(0); i < total(); i = completed.nextClearBit(i + 1)) result.add(i);
         return result;
     }
+    public synchronized int[] pendingIndices(){int[] out=new int[total()-done()];int n=0;for(int i=completed.nextClearBit(0);i<total();i=completed.nextClearBit(i+1))out[n++]=i;return out;}
     public synchronized boolean record(int index, Socks5Probe.Result result) {
         if (index < 0 || index >= total() || completed.get(index) || result.failure == Socks5Probe.Failure.CANCELLED) return false;
         if (result.endpoint != null && !candidate(index).key().equals(result.endpoint.key())) throw new IllegalArgumentException("Mismatched scan result");
-        completed.set(index); finishedAt.put(index, System.currentTimeMillis());
+        completed.set(index); dirty.set(index); finishedAt.put(index, System.currentTimeMillis());
         if(result.endpoint==null)failures.put(index,result.failure);
         if (result.endpoint != null) good.put(index, result.endpoint); return true;
     }
@@ -55,13 +58,14 @@ public final class ScanCheckpoint {
     public synchronized ProxyEndpoint verified(int index){return good.get(index);}
     public synchronized void forgetVerified(String key,long time){
         for(Map.Entry<Integer,ProxyEndpoint> entry:new ArrayList<>(good.entrySet()))
-            if(entry.getValue().key().equals(key)&&Math.max(entry.getValue().testedAt,entry.getValue().latencyAt)<=time){good.remove(entry.getKey());finishedAt.put(entry.getKey(),time);break;}
+            if(entry.getValue().key().equals(key)&&Math.max(entry.getValue().testedAt,entry.getValue().latencyAt)<=time){good.remove(entry.getKey());dirty.set(entry.getKey());finishedAt.put(entry.getKey(),time);break;}
     }
     public synchronized List<Integer> completedIndices(){List<Integer> out=new ArrayList<>();for(int i=completed.nextSetBit(0);i>=0;i=completed.nextSetBit(i+1))out.add(i);return out;}
     public synchronized ScanCheckpoint copy(){ScanCheckpoint out=new ScanCheckpoint(new ArrayList<>(candidates),mode,fingerprint,slow,types);out.completed.or(completed);out.good.putAll(good);out.finishedAt.putAll(finishedAt);out.failures.putAll(failures);return out;}
-    public void writeRows(BufferedWriter writer)throws Exception {
+    public void writeRows(BufferedWriter writer)throws Exception {writeRows(writer,"");}
+    public void writeRows(BufferedWriter writer,String journalId)throws Exception {
         ScanCheckpoint copy=copy();JSONObject header=new JSONObject();
-        header.put("format",3);header.put("mode",mode);header.put("fingerprint",fingerprint);header.put("slow",slow);header.put("types",types);header.put("total",total());
+        header.put("journalId",journalId);header.put("format",3);header.put("mode",mode);header.put("fingerprint",fingerprint);header.put("slow",slow);header.put("types",types);header.put("total",total());
         header.put("done",copy.done());
         writer.write(header.toString());writer.newLine();
         for(int i=0;i<copy.total();i++) {
@@ -102,12 +106,33 @@ public final class ScanCheckpoint {
 
     public synchronized Set<String> failedBatchKeys(){
         Set<String> keys=new HashSet<>();if(!mode.equals("CATALOG"))return keys;
-        for(int start=0;start<total();start+=BATCH_SIZE){int end=Math.min(total(),start+BATCH_SIZE);if(completed.nextClearBit(start)<end)continue;
+        for(int start=prunedThrough;start<total();start+=BATCH_SIZE){int end=Math.min(total(),start+BATCH_SIZE);if(completed.nextClearBit(start)<end)break;
             for(int i=start;i<end;i++)if(candidates.get(i)!=null&&!good.containsKey(i))keys.add(candidates.get(i).key());}
         return keys;
     }
     public synchronized void compactFailed(Set<String> keys){
-        for(int i=completed.nextSetBit(0);i>=0;i=completed.nextSetBit(i+1))if(candidates.get(i)!=null&&!good.containsKey(i)&&keys.contains(candidates.get(i).key())){candidates.set(i,null);finishedAt.remove(i);failures.remove(i);}
+        for(int i=completed.nextSetBit(0);i>=0;i=completed.nextSetBit(i+1))if(candidates.get(i)!=null&&!good.containsKey(i)&&keys.contains(candidates.get(i).key())){candidates.set(i,null);dirty.set(i);finishedAt.remove(i);failures.remove(i);}
+    }
+    public synchronized void recoverPruned(Set<String> keys){
+        if(!mode.equals("CATALOG"))return;
+        for(int i=0;i<total();i++)if(candidates.get(i)!=null&&keys.contains(candidates.get(i).key())){candidates.set(i,null);completed.set(i);finishedAt.remove(i);failures.remove(i);good.remove(i);dirty.set(i);}
+    }
+    public synchronized JSONArray changes()throws Exception {
+        JSONArray rows=new JSONArray();for(int i=dirty.nextSetBit(0);i>=0;i=dirty.nextSetBit(i+1)){
+            JSONObject row=new JSONObject().put("index",i);
+            if(candidates.get(i)==null)row.put("pruned",true);
+            else {row.put("finished",finishedAt.getOrDefault(i,0L));if(failures.containsKey(i))row.put("failure",failures.get(i).name());if(good.containsKey(i))row.put("proxy",good.get(i).json());}
+            rows.put(row);
+        }return rows;
+    }
+    public synchronized void clearChanges(){dirty.clear();while(prunedThrough<total()){int end=Math.min(total(),prunedThrough+BATCH_SIZE);if(completed.nextClearBit(prunedThrough)<end)break;prunedThrough=end;}}
+    public synchronized void replay(JSONArray rows)throws Exception {
+        for(int j=0;j<rows.length();j++){JSONObject row=rows.getJSONObject(j);int i=row.getInt("index");if(i<0||i>=total())throw new IOException("Invalid delta index");
+            if(row.optBoolean("pruned")){candidates.set(i,null);completed.set(i);finishedAt.remove(i);failures.remove(i);good.remove(i);continue;}
+            if(candidates.get(i)==null)throw new IOException("Delta for pruned row");long time=row.getLong("finished");if(time<=0)throw new IOException("Invalid delta time");completed.set(i);finishedAt.put(i,time);good.remove(i);failures.remove(i);
+            if(row.has("failure"))failures.put(i,Socks5Probe.Failure.valueOf(row.getString("failure")));
+            if(row.has("proxy")){ProxyEndpoint p=ProxyEndpoint.fromJson(row.getJSONObject("proxy"));if(!p.key().equals(candidates.get(i).key()))throw new IOException("Wrong delta identity");good.put(i,p);}
+        }
     }
     public JSONObject json() throws JSONException {return copy().snapshotJson();}
     private JSONObject snapshotJson() throws JSONException {

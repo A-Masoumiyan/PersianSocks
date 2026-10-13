@@ -512,4 +512,12 @@
     <string name="ui_update_015" formatted="false">"برای نصب APK این برنامه، اندروید به اجازهٔ «نصب برنامه‌های ناشناخته» برای PersianSocks نیاز دارد. تصمیم با توست؛ Play Protect فعال می‌ماند."</string>
     <string name="ui_update_016" formatted="false">"بازکردن تنظیمات"</string>
     <string name="ui_update_017" formatted="false">"بررسی دوباره"</string>
+    <string name="ui_v28_limit" formatted="false">"عدد بین ۱۰۰ تا ۱۰۰۰۰۰ وارد کن."</string>
+    <string name="ui_v28_sources" formatted="false">"منابع داخلی خودکار استفاده می‌شوند. برای افزودن منبع دلخواه، نوع پروکسی را تیک بزن و هر لینک را در یک خط وارد کن."</string>
+    <string name="ui_v28_type" formatted="false">"حداقل یک نوع را انتخاب کن."</string>
+    <string name="ui_v28_source_error" formatted="false">"لینک HTTPS معتبر وارد کن؛ حداکثر ۲۰ منبع."</string>
+    <string name="ui_v28_update" formatted="false">"آپدیت:"</string>
+    <string name="ui_v28_speed_time" formatted="false">"زمان آخرین دانلود موفق: "</string>
+    <string name="ui_v28_vpn_error" formatted="false">"آخرین خطای VPN این پروکسی: "</string>
+    <string name="ui_v28_evidence" formatted="false">"تست سرعت فقط مسیر سرور دانلود را در زمان همان آزمون بررسی می‌کند. برای تأیید VPN، مسیر واقعی تونل جداگانه بررسی می‌شود؛ موفقیت قبلی تضمین اتصال فعلی نیست."</string>
 </resources>
