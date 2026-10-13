@@ -2,7 +2,7 @@ name: Update Windows release notes
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/update-windows-notes.yml', '.github/windows-0.4.0-notes.md']
+    paths: ['.github/workflows/update-windows-notes.yml', '.github/windows-0.5.0-notes.md']
   workflow_dispatch:
 permissions:
   contents: write
@@ -11,20 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Append verified Windows 0.4.0 notes
+      - name: Update verified Windows 0.5.0 notes
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          gh api "repos/$GH_REPO/releases/tags/v0.19.0" > "$RUNNER_TEMP/release.json"
-          python3 - <<'PY'
-          import json,os
-          from pathlib import Path
-          root=Path(os.environ["RUNNER_TEMP"])
-          body=json.loads((root/"release.json").read_text())["body"] or ""
-          notes=Path(".github/windows-0.4.0-notes.md").read_text()
-          marker="## ویندوز ۰٫۴٫۰ — پنجرهٔ بومی و تست سرعت"
-          body=body.split(marker)[0].rstrip()
-          (root/"windows-notes.md").write_text(body+"\n\n"+notes)
-          PY
-          gh release edit v0.19.0 --notes-file "$RUNNER_TEMP/windows-notes.md"
+        run: gh release edit windows-v0.5.0 --notes-file .github/windows-0.5.0-notes.md
