@@ -1,2 +1,3 @@
 Build requested 2026-10-13. One-time Android 0.22.0 debug verification only. Do not publish as signed release.
 Second authorized build attempt: direct Android SDK manager setup.
+Third build attempt: bootstrap Android CLI tools from Google's repository.
