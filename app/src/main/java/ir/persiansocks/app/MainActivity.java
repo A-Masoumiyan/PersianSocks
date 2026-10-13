@@ -667,13 +667,13 @@ public final class MainActivity extends Activity {
                 .setChecked(!smoothResults && sort == option);
             if(option==ProxyResults.Sort.DOWNLOAD)
                 // Immediately after 'Fast download', not at the end of the menu.
-                popup.getMenu().add(2, 101, option.ordinal() * 2 + 1, "پینگ کم / دانلود سریع")
+                popup.getMenu().add(1, 101, option.ordinal() * 2 + 1, "پینگ کم / دانلود سریع")
                     .setCheckable(true).setChecked(smoothResults);
         }
         popup.getMenu().setGroupCheckable(1, true, true);
         popup.setOnMenuItemClickListener(item -> {
             if(item.getItemId()==101){
-                smoothResults=!smoothResults;
+                smoothResults=true;
                 getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("smooth-results",smoothResults).apply();
             }else{
                 sort = ProxyResults.Sort.values()[item.getItemId() - 1];
@@ -787,8 +787,8 @@ public final class MainActivity extends Activity {
             public void onProgress(String message) { ui.post(() -> { if (collecting && token == collectGeneration) listStatus.setText(message); }); }
             public void onFailed(String message) { ui.post(() -> { if (token == collectGeneration) { collecting = false; updateActions(); status.setText(message); } }); }
             public void onFinished(List<ProxyEndpoint> received, String report) {
-                try{scanFiles.saveCatalog(received);}catch(Exception ex){onFailed("ذخیرهٔ لیست ناموفق: "+ex.getMessage());return;}
-                final int count=received.size();
+                try{scanFiles.mergeCatalog(received);}catch(Exception ex){onFailed("ذخیرهٔ لیست ناموفق: "+ex.getMessage());return;}
+                final int count;try{count=scanFiles.catalogCount();}catch(Exception ex){onFailed("خواندن لیست ناموفق");return;}
                 ui.post(()->{if(!collecting||token!=collectGeneration||isDestroyed())return;
                     collecting=false;catalogCount=count;
                     getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("collection-report",report).apply();
@@ -860,13 +860,13 @@ public final class MainActivity extends Activity {
             }
         };
         try {
-            if(work.mode.equals("LATENCY"))preparedScanner.start(work,scanFiles::save,(p,slow,cancel,sockets)->{
+            if(work.mode.equals("LATENCY"))preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},(p,slow,cancel,sockets)->{
                 ProxyEndpoint current=healthy.find(p.key());
                 if(current==null)return Socks5Probe.inspect(p,slow,cancel,sockets,network::socket,network::resolve);
                 Socks5Probe.Result measured=Socks5Probe.inspectTarget(current,SingleProxyTest.latencyTarget(current,latencyFilter),slow,cancel,sockets,network::socket,network::resolve);
                 return measured.endpoint==null?measured:new Socks5Probe.Result(current.withLatency(measured.endpoint.latencyMs),Socks5Probe.Failure.NONE,true,true);
             },listener);
-            else preparedScanner.start(work,scanFiles::save,network::socket,network::resolve,listener);
+            else preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},network::socket,network::resolve,listener);
         }catch(Exception ex){scanning=false;status.setText("شروع اسکن ناموفق: "+ex.getMessage());render();}
     }
     private void reloadSaved() {

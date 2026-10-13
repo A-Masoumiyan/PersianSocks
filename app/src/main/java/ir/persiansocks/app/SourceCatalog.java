@@ -3,6 +3,9 @@ package ir.persiansocks.app;
 public final class SourceCatalog {
     private SourceCatalog() {}
     public static final ProxyScanner.Source[] DEFAULT = {
+        new ProxyScanner.Source("IPLocate", "https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/socks5.txt", "https://cdn.jsdelivr.net/gh/iplocate/free-proxy-list@main/protocols/socks5.txt"),
+        new ProxyScanner.Source("vakhov", "https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks5.txt", "https://cdn.jsdelivr.net/gh/vakhov/fresh-proxy-list@master/socks5.txt"),
+        new ProxyScanner.Source("rdavydov", "https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks5.txt", "https://cdn.jsdelivr.net/gh/rdavydov/proxy-list@main/proxies/socks5.txt"),
         new ProxyScanner.Source("Roosterkid", "https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt", "https://cdn.jsdelivr.net/gh/roosterkid/openproxylist@main/SOCKS5_RAW.txt"),
         new ProxyScanner.Source("prxchk", "https://raw.githubusercontent.com/prxchk/proxy-list/main/socks5.txt", "https://cdn.jsdelivr.net/gh/prxchk/proxy-list@main/socks5.txt"),
         new ProxyScanner.Source("Zaeem20", "https://raw.githubusercontent.com/Zaeem20/FREE_PROXIES_LIST/master/socks5.txt", "https://cdn.jsdelivr.net/gh/Zaeem20/FREE_PROXIES_LIST@master/socks5.txt"),
