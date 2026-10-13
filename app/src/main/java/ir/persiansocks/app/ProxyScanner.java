@@ -10,7 +10,7 @@ import java.util.regex.*;
 
 /** Downloads published lists; never enumerates address ranges. */
 public final class ProxyScanner {
-    public static final int MAX_TESTS = 20000;
+    public static final int MAX_TESTS = 100000;
     public static final class Source {
         public final String name, url, mirror;
         public final ProxyEndpoint.Type type;

@@ -35,9 +35,9 @@ public final class VpnTileService extends TileService {
         tile.setIcon(Icon.createWithResource(this,R.drawable.ic_qs_vpn));
         int phase=ProxyVpnService.phase();boolean scanning=ProxyVpnService.autoScanning();
         tile.setState(phase==ProxyVpnService.CONNECTED?Tile.STATE_ACTIVE:Tile.STATE_INACTIVE);
-        tile.setSubtitle(QuickControlState.subtitle(phase,scanning));
-        tile.setContentDescription("PersianSocks، "+QuickControlState.subtitle(phase,scanning)+
-            "، "+QuickControlState.toggleLabel(phase,scanning));
+        tile.setSubtitle(AppLanguage.display(QuickControlState.subtitle(phase,scanning)));
+        tile.setContentDescription(AppLanguage.t(R.string.ui_283)+AppLanguage.display(QuickControlState.subtitle(phase,scanning))+
+            AppLanguage.t(R.string.ui_284)+AppLanguage.display(QuickControlState.toggleLabel(phase,scanning)));
         tile.updateTile();
     }
     @Override public void onClick(){

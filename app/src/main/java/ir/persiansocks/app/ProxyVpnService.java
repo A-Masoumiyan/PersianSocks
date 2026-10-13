@@ -55,7 +55,7 @@ public final class ProxyVpnService extends VpnService {
     private static java.lang.ref.WeakReference<ProxyVpnService> instance=new java.lang.ref.WeakReference<>(null);
     public static boolean stopForTlsChange(){
         ProxyVpnService service=instance.get();
-        if(service!=null){service.finishConnection("اتصال به‌دلیل تغییر تنظیم TLS قطع شد",false);return true;}
+        if(service!=null){service.finishConnection(AppLanguage.t(R.string.ui_extra_009),false);return true;}
         return false;
     }
     public static int phase() { return phase; }
@@ -68,7 +68,7 @@ public final class ProxyVpnService extends VpnService {
     public static int autoProgress() { return autoTotal<=0?-1:(int)(100L*autoDone/autoTotal); }
     public static void cancelAutoScanFromUi(){
         ProxyVpnService service=instance.get();
-        if(service!=null&&autoScanning)service.finishConnection("اسکن خودکار متوقف شد",false);
+        if(service!=null&&autoScanning)service.finishConnection(AppLanguage.t(R.string.ui_extra_010),false);
     }
     private static final String CH = "persiansocks_vpn";
     private static final int ID = 901;
@@ -113,19 +113,19 @@ public final class ProxyVpnService extends VpnService {
         if (DISCONNECT.equals(intent.getAction())) {
             clearConnectionError();userRequested = false;
             closeTunnel();
-            announce("VPN قطع شد");
+            announce(AppLanguage.t(R.string.ui_extra_011));
             stopSelf();
             return START_NOT_STICKY;
         }
         if((CONNECT.equals(intent.getAction())||CONNECT_CACHED.equals(intent.getAction())||SCAN_CONNECT.equals(intent.getAction()))&&!VpnDisclosure.accepted(this)){
-            finishConnection("ابتدا توضیح استفاده از VPN را در برنامه تأیید کن");return START_NOT_STICKY;
+            finishConnection(AppLanguage.t(R.string.ui_extra_012));return START_NOT_STICKY;
         }
         if(CONNECT_CACHED.equals(intent.getAction())){
             clearConnectionError();final int token=++generation;userRequested=true;updatePhase(CONNECTING);
-            try{ensureChannel();Notification notification=notification("اتصال VPN");
+            try{ensureChannel();Notification notification=notification(AppLanguage.t(R.string.ui_extra_013));
                 if(Build.VERSION.SDK_INT>=34)startForeground(ID,notification,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
                 else startForeground(ID,notification);}
-            catch(Exception ex){finishConnection("شروع اتصال ناموفق بود: "+ex.getMessage());return START_NOT_STICKY;}
+            catch(Exception ex){finishConnection(AppLanguage.t(R.string.ui_extra_014)+ex.getMessage());return START_NOT_STICKY;}
             ProxyStore.IO.execute(()->{
                 try{ProxyStore.load(this);String filter=ScanInputs.filter(this);ProxyResults.Sort sort=ScanInputs.sort(this);
                     java.util.List<ProxyEndpoint> choices=ProxyResults.visible(ProxyStore.index().snapshot(),filter,sort,ScanInputs.protocol(this),ScanInputs.pingLimit(this));
@@ -133,14 +133,14 @@ public final class ProxyVpnService extends VpnService {
                         Intent next=new Intent(this,ProxyVpnService.class).setAction(choices.isEmpty()?SCAN_CONNECT:CONNECT);
                         if(!choices.isEmpty())next.putExtra(EXTRA_ENDPOINT,choices.get(0).key()).putExtra("filter",filter).putExtra("sort",sort.name());
                         onStartCommand(next,0,0);});}
-                catch(Exception ex){handler.post(()->{if(token==generation)finishConnection("خواندن پروکسی‌های ذخیره‌شده ناموفق بود");});}
+                catch(Exception ex){handler.post(()->{if(token==generation)finishConnection(AppLanguage.t(R.string.ui_extra_015));});}
             });return START_NOT_STICKY;
         }
         if (SCAN_CONNECT.equals(intent.getAction())) {
             clearConnectionError();
             if (autoScanning) return START_NOT_STICKY;
             if (VpnService.prepare(this) != null) {
-                finishConnection("برای اتصال از ویجت، ابتدا مجوز VPN را تأیید کن"); return START_NOT_STICKY;
+                finishConnection(AppLanguage.t(R.string.ui_extra_016)); return START_NOT_STICKY;
             }
             newSessionPending=true;
             userRequested=true;
@@ -151,9 +151,9 @@ public final class ProxyVpnService extends VpnService {
             clearConnectionError();
             String input = intent.getStringExtra(EXTRA_ENDPOINT);
             ProxyEndpoint e = ProxyEndpoint.parse(input);
-            if (e == null) { announce("آدرس پروکسی معتبر نیست"); stopSelf(); return START_NOT_STICKY; }
+            if (e == null) { announce(AppLanguage.t(R.string.ui_extra_017)); stopSelf(); return START_NOT_STICKY; }
             newSessionPending=true;
-            if(!DistributionPolicy.allows(e)){finishConnection("این نسخه فقط پروکسی با TLS معتبر می‌پذیرد");return START_NOT_STICKY;}
+            if(!DistributionPolicy.allows(e)){finishConnection(AppLanguage.t(R.string.ui_extra_018));return START_NOT_STICKY;}
             userRequested = true;
             requiredFilter = intent.getStringExtra("filter");
             if (requiredFilter == null) requiredFilter = "ALL";
@@ -173,22 +173,22 @@ public final class ProxyVpnService extends VpnService {
         autoScanning=true;autoDone=autoTotal=0;autoSelectionScheduled=false;lastScanAnnouncement=0;
         autoCheckpoint=null;autoFinishing=false;
         autoSelection=new AutoScanSelection(requiredFilter,requiredSort,ScanInputs.protocol(this),ScanInputs.pingLimit(this));
-        autoReport="اسکن و اتصال خودکار از کنترل گوشی\nفیلتر: "+ProxyResults.label(requiredFilter);
+        autoReport=AppLanguage.t(R.string.ui_extra_019)+ProxyResults.label(requiredFilter);
         updatePhase(CONNECTING);
         try {
             ensureChannel();
-            Notification n=notification("اسکن و اتصال خودکار…");
+            Notification n=notification(AppLanguage.t(R.string.ui_extra_020));
             if(Build.VERSION.SDK_INT>=34)startForeground(ID,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(ID,n);
-        }catch(Throwable error){finishConnection("امکان شروع اسکن پس‌زمینه نیست: "+error.getMessage());return;}
-        announce("اسکن خودکار برای «"+ProxyResults.label(requiredFilter)+"»");
+        }catch(Throwable error){finishConnection(AppLanguage.t(R.string.ui_extra_021)+error.getMessage());return;}
+        announce(AppLanguage.t(R.string.ui_extra_022)+ProxyResults.label(requiredFilter)+"»");
         final ProxyScanner.Options options = ScanInputs.options(this);
         ProxyStore.IO.execute(()->{
         try {
             ProxyStore.load(this);
             ScanFiles files = new ScanFiles(getFilesDir());
             java.util.List<ProxyEndpoint> candidates = files.catalog();
-            if (candidates.isEmpty()) { handler.post(()->{if(token==generation)finishConnection("اول لیست پروکسی‌ها را داخل برنامه دریافت کن");}); return; }
+            if (candidates.isEmpty()) { handler.post(()->{if(token==generation)finishConnection(AppLanguage.t(R.string.ui_extra_023));}); return; }
             if(!autoScanning||token!=generation)return;
             autoCheckpoint = new ScanCheckpoint(candidates, options, "CATALOG");files.activate(autoCheckpoint);
             final ScanCheckpoint scan=autoCheckpoint;
@@ -202,8 +202,8 @@ public final class ProxyVpnService extends VpnService {
                         if(autoSelection.haveBackups()){finishAutoScan(token);return;}
                         if(autoSelection.best()!=null&&!autoSelectionScheduled){autoSelectionScheduled=true;handler.postDelayed(()->finishAutoScan(token),5000);}
                     }
-                    autoReport = "اسکن خودکار لیست ذخیره‌شده\n" + done + " از " + total + "\nسالم تازه: " + good;
-                    scanAnnouncement("اسکن خودکار: " + done + " از " + total + " • سالم تازه: " + good);
+                    autoReport = AppLanguage.t(R.string.ui_extra_024) + done + AppLanguage.t(R.string.ui_extra_025) + total + AppLanguage.t(R.string.ui_extra_026) + good;
+                    scanAnnouncement(AppLanguage.t(R.string.ui_extra_027) + done + AppLanguage.t(R.string.ui_extra_025) + total + AppLanguage.t(R.string.ui_extra_028) + good);
                 }); }
                 public void onResult(int index,Socks5Probe.Result result) {
                     if(!autoScanning||token!=generation)return;
@@ -216,7 +216,7 @@ public final class ProxyVpnService extends VpnService {
                     autoCheckpoint = state; autoReport += "\n" + message; finishAutoScan(token);
                 }); }
             });
-        } catch (Exception ex) { handler.post(()->{if(token==generation)finishConnection("شروع اسکن خودکار ناموفق: " + ex.getMessage());}); }
+        } catch (Exception ex) { handler.post(()->{if(token==generation)finishConnection(AppLanguage.t(R.string.ui_extra_029) + ex.getMessage());}); }
         });
     }
     private void scanAnnouncement(String message){
@@ -241,14 +241,14 @@ public final class ProxyVpnService extends VpnService {
                 if(token!=generation||!autoScanning)return;
                 automaticScanner=null;autoScanning=false;autoFinishing=false;autoCheckpoint=null;
                 if(progress!=null){autoDone=progress.done();autoTotal=progress.total();}
-                getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("scan-report",autoReport+"\n"+autoDone+" از "+autoTotal).apply();
-                if(chosen==null){finishConnection("پروکسی تازه‌ای با فیلتر و پینگ انتخابی پیدا نشد");return;}
-                failover.reset(chosen.key());beginConnect(chosen);announce("در حال تأیید اتصال: "+chosen.key());
+                getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("scan-report",autoReport+"\n"+autoDone+AppLanguage.t(R.string.ui_extra_025)+autoTotal).apply();
+                if(chosen==null){finishConnection(AppLanguage.t(R.string.ui_extra_030));return;}
+                failover.reset(chosen.key());beginConnect(chosen);announce(AppLanguage.t(R.string.ui_extra_031)+chosen.key());
             });
         });
     }
     private void beginConnect(ProxyEndpoint proxy) {
-        if(!DistributionPolicy.allows(proxy)){finishConnection("پروکسی بدون رمزنگاری انتخاب نشد");return;}
+        if(!DistributionPolicy.allows(proxy)){finishConnection(AppLanguage.t(R.string.ui_extra_032));return;}
         closeTunnel();
         resetTrafficSession();
         int token = ++generation;
@@ -257,33 +257,33 @@ public final class ProxyVpnService extends VpnService {
         current = proxy.key();
         updatePhase(CONNECTING);
         lastProfile = proxy;
-        saveVpnReport("پروکسی: " + current + "\nمرحله: آزمون دوبارهٔ سرویس‌ها پیش از ساخت تونل");
+        saveVpnReport(AppLanguage.t(R.string.ui_extra_033) + current + AppLanguage.t(R.string.ui_extra_034));
         try {
             ensureChannel();
-            Notification n = notification("آزمون دوبارهٔ سرویس‌ها پیش از اتصال…");
+            Notification n = notification(AppLanguage.t(R.string.ui_extra_035));
             if (Build.VERSION.SDK_INT >= 34) startForeground(ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(ID, n);
-        } catch (Throwable t) { saveVpnReport("آغاز سرویس: " + t); announce("امکان آغاز VPN نیست: " + t.getMessage()); closeTunnel(); stopSelf(); return; }
-        announce("آزمون سرویس‌های فیلتر «" + ProxyResults.label(requiredFilter) + "»: " + current);
+        } catch (Throwable t) { saveVpnReport(AppLanguage.t(R.string.ui_extra_036) + t); announce(AppLanguage.t(R.string.ui_extra_037) + t.getMessage()); closeTunnel(); stopSelf(); return; }
+        announce(AppLanguage.t(R.string.ui_extra_038) + ProxyResults.label(requiredFilter) + "»: " + current);
         new Thread(() -> {
             Socks5Probe.Result checked = Socks5Probe.inspect(proxy, true, stop, probeSockets);
             handler.post(() -> {
                 if (token != generation || stop.get()) return;
                 if (checked.endpoint == null || !ProxyResults.accepts(checked.endpoint, requiredFilter)) {
-                    String msg = "اتصال آغاز نشد؛ سرویس‌ها دوباره تأیید نشدند: " + Socks5Probe.describe(checked.failure);
-                    if (checked.endpoint != null) msg = "پروکسی دیگر شرط فیلتر «" + ProxyResults.label(requiredFilter) + "» را ندارد";
+                    String msg = AppLanguage.t(R.string.ui_extra_039) + Socks5Probe.describe(checked.failure);
+                    if (checked.endpoint != null) msg = AppLanguage.t(R.string.ui_extra_040) + ProxyResults.label(requiredFilter) + AppLanguage.t(R.string.ui_extra_041);
                     failConnection(msg); return;
                 }
                 ProxyStore.index().accept(checked.endpoint);ProxyStore.save(this,ProxyStore.index());
                 lastProfile = checked.endpoint;
-                announce("پروکسی دوباره تأیید شد: " + checked.endpoint.passedServices(), checked.endpoint);
+                announce(AppLanguage.t(R.string.ui_extra_042) + checked.endpoint.passedServices(), checked.endpoint);
                 openTunnel(checked.endpoint, token);
             });
         }, "vpn-service-preflight").start();
     }
     private void openTunnel(ProxyEndpoint proxy, int thisGeneration) {
         ensureChannel();
-        Notification n = notification("در حال راه‌اندازی تونل…");
+        Notification n = notification(AppLanguage.t(R.string.ui_extra_043));
         try {
             if (Build.VERSION.SDK_INT >= 34) startForeground(ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(ID, n);
@@ -321,7 +321,7 @@ public final class ProxyVpnService extends VpnService {
                 .addDnsServer("198.18.0.2");
             SplitTunnelSettings.apply(this, b);
             tun = b.establish();
-            if (tun == null) throw new IllegalStateException("ایجاد رابط VPN توسط اندروید رد شد");
+            if (tun == null) throw new IllegalStateException(AppLanguage.t(R.string.ui_extra_044));
             String yaml = "tunnel:\n" +
                 "  mtu: 1400\n" +
                 "  ipv4: 198.18.0.1\n" +
@@ -351,13 +351,13 @@ public final class ProxyVpnService extends VpnService {
             // JNI creates its own worker thread and returns immediately.
             trafficMeter.beginEngine(System.nanoTime());
             if (!TProxyService.TProxyStartService(conf.getAbsolutePath(), fd))
-                throw new IllegalStateException("موتور تونل آغاز نشد");
-            announce("در حال برقراری اتصال: " + current);
+                throw new IllegalStateException(AppLanguage.t(R.string.ui_extra_045));
+            announce(AppLanguage.t(R.string.ui_extra_046) + current);
             pollRunning(thisGeneration, 0);
         } catch (Throwable t) {
             Log.e("PersianSocks", "Tunnel startup error", t);
-            saveVpnReport("راه‌اندازی تونل: " + t);
-            failConnection("اتصال برقرار نشد: " + t.getMessage());
+            saveVpnReport(AppLanguage.t(R.string.ui_extra_047) + t);
+            failConnection(AppLanguage.t(R.string.ui_extra_048) + t.getMessage());
         }
     }
     private void pollRunning(int token, int attempt) {
@@ -367,13 +367,13 @@ public final class ProxyVpnService extends VpnService {
             try { on = TProxyService.TProxyIsRunning(); }
             catch (Throwable t) { Log.e("PersianSocks", "Status failed", t); }
             if (on) {
-                announce("موتور تونل فعال شد؛ در حال تأیید ارتباط از داخل VPN…");
-                getSystemService(NotificationManager.class).notify(ID, notification("در حال تست واقعی تونل…"));
+                announce(AppLanguage.t(R.string.ui_extra_049));
+                getSystemService(NotificationManager.class).notify(ID, notification(AppLanguage.t(R.string.ui_extra_050)));
                 verifyNetwork(token, 0);
                 monitorRunning(token);
             } else if (attempt < 24) pollRunning(token, attempt + 1);
             else {
-                failConnection("موتور تونل راه‌اندازی نشد");
+                failConnection(AppLanguage.t(R.string.ui_extra_051));
             }
         }, 250);
     }
@@ -385,8 +385,8 @@ public final class ProxyVpnService extends VpnService {
         if (caps == null || !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
             if (attempt < 24) handler.postDelayed(() -> verifyNetwork(token, attempt + 1), 250);
             else {
-                saveVpnReport("شبکهٔ فعال اندروید به VPN تغییر نکرد؛ تست مستقیم به جای تونل پذیرفته نشد.");
-                failConnection("شبکهٔ VPN آماده نشد");
+                saveVpnReport(AppLanguage.t(R.string.ui_extra_052));
+                failConnection(AppLanguage.t(R.string.ui_extra_053));
             }
             return;
         }
@@ -401,19 +401,19 @@ public final class ProxyVpnService extends VpnService {
                 String stats = "";
                 try {
                     long[] s = TProxyService.TProxyGetStats();
-                    if (s != null && s.length >= 4) stats = "\nتونل: ارسال=" + s[1] + " بایت؛ دریافت=" + s[3] + " بایت";
+                    if (s != null && s.length >= 4) stats = AppLanguage.t(R.string.ui_extra_054) + s[1] + AppLanguage.t(R.string.ui_extra_055) + s[3] + AppLanguage.t(R.string.ui_extra_056);
                 } catch (Throwable ignored) {}
-                saveVpnReport("پروکسی: " + current + "\n" + result.report + stats);
+                saveVpnReport(AppLanguage.t(R.string.ui_extra_033) + current + "\n" + result.report + stats);
                 if (!result.accepts(requiredFilter)) {
-                    failConnection("اتصال از داخل VPN برای فیلتر انتخابی تأیید نشد"); return;
+                    failConnection(AppLanguage.t(R.string.ui_extra_057)); return;
                 }
                 lastProfile = result.profile(lastProfile);
                 ProxyStore.index().accept(lastProfile);ProxyStore.save(this,ProxyStore.index());
                 verifiedServices = lastProfile.passedServices();
                 failover.connected(current);
                 updatePhase(CONNECTED);
-                announce("VPN تأیید شد: " + verifiedServices + " • " + current, lastProfile);
-                getSystemService(NotificationManager.class).notify(ID, notification("متصل • " + verifiedServices));
+                announce(AppLanguage.t(R.string.ui_extra_058) + verifiedServices + " • " + current, lastProfile);
+                getSystemService(NotificationManager.class).notify(ID, notification(AppLanguage.t(R.string.ui_extra_059) + verifiedServices));
                 scheduleHealthCheck(token);
             });
         }, "vpn-real-path-check").start();
@@ -443,7 +443,7 @@ public final class ProxyVpnService extends VpnService {
         }catch(Throwable ex){trafficSnapshot=trafficMeter.stopped();}
         publishTraffic();
         long now=android.os.SystemClock.elapsedRealtime();if(now-lastTrafficSave>=10000){persistTraffic();lastTrafficSave=now;}
-        if(notify&&phase==CONNECTED)getSystemService(NotificationManager.class).notify(ID,notification("متصل • "+verifiedServices+" • "+current));
+        if(notify&&phase==CONNECTED)getSystemService(NotificationManager.class).notify(ID,notification(AppLanguage.t(R.string.ui_extra_059)+verifiedServices+" • "+current));
     }
     private void persistTraffic(){
         TrafficMeter.Snapshot t=trafficSnapshot;if(t==null)return;
@@ -451,13 +451,13 @@ public final class ProxyVpnService extends VpnService {
     }
     private void publishTraffic(){sendBroadcast(new Intent(STATE).setPackage(getPackageName()).putExtra("traffic-only",true));}
     private void saveVpnReport(String report) {
-        if (recoveryLog.length() > 0) report += "\n\nتعویض خودکار:\n" + recoveryLog;
+        if (recoveryLog.length() > 0) report += AppLanguage.t(R.string.ui_extra_060) + recoveryLog;
         File log = new File(getFilesDir(), "native-tunnel.log");
         if (tun != null && log.exists()) {
             try (java.io.RandomAccessFile f = new java.io.RandomAccessFile(log, "r")) {
                 long start = Math.max(0, f.length() - 8192); f.seek(start);
                 byte[] bytes = new byte[(int) (f.length() - start)]; f.readFully(bytes);
-                report += "\n\nآخرین پیام‌های موتور تونل:\n" + new String(bytes, StandardCharsets.UTF_8);
+                report += AppLanguage.t(R.string.ui_extra_061) + new String(bytes, StandardCharsets.UTF_8);
             } catch (Exception ignored) {}
         }
         getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putString("vpn-report", report).apply();
@@ -468,7 +468,7 @@ public final class ProxyVpnService extends VpnService {
             try {
                 if (TProxyService.TProxyIsRunning()) { sampleTraffic(true); monitorRunning(token); return; }
             } catch (Throwable t) { Log.e("PersianSocks", "Tunnel monitor failed", t); }
-            failConnection("موتور VPN متوقف شد");
+            failConnection(AppLanguage.t(R.string.ui_extra_062));
         }, 1000);
     }
     private boolean autoSwitch() {
@@ -506,15 +506,15 @@ public final class ProxyVpnService extends VpnService {
         catch (Exception ignored) {}
         final int token=generation;final String service=requiredFilter;final ProxyResults.Sort order=requiredSort;
         final ProxyResults.Protocol kind=ScanInputs.protocol(this);final ProxyResults.PingLimit limit=ScanInputs.pingLimit(this);
-        announce("در حال انتخاب جایگزین با پینگ مناسب…");
+        announce(AppLanguage.t(R.string.ui_extra_063));
         ProxyStore.IO.execute(()->{
             java.util.List<ProxyEndpoint> ranked=ProxyResults.visible(ProxyStore.index().snapshot(),service,order,kind,limit);
             handler.post(()->{
                 if(token!=generation||!userRequested)return;
                 ProxyEndpoint next=failover.nextRanked(ranked,failed,System.currentTimeMillis());
-                if(next==null){finishConnection("جایگزین تأییدشده‌ای با فیلتر و پینگ انتخابی باقی نماند؛ دوباره اسکن کن");return;}
-                recoveryLog.append("انتخاب جایگزین: ").append(next.key()).append('\n');beginConnect(next);
-                announce("تعویض خودکار: "+failed+" ← "+next.key()+"؛ در حال تأیید اتصال");
+                if(next==null){finishConnection(AppLanguage.t(R.string.ui_extra_064));return;}
+                recoveryLog.append(AppLanguage.t(R.string.ui_extra_065)).append(next.key()).append('\n');beginConnect(next);
+                announce(AppLanguage.t(R.string.ui_extra_066)+failed+" ← "+next.key()+AppLanguage.t(R.string.ui_extra_067));
             });
         });
     }
@@ -525,18 +525,18 @@ public final class ProxyVpnService extends VpnService {
         int token = ++generation;
         trafficSnapshot=trafficMeter.stopped();publishTraffic();
         updatePhase(CONNECTING);
-        announceError("اینترنت در دسترس نیست");
-        getSystemService(NotificationManager.class).notify(ID, notification("منتظر بازگشت اینترنت"));
+        announceError(AppLanguage.t(R.string.ui_extra_068));
+        getSystemService(NotificationManager.class).notify(ID, notification(AppLanguage.t(R.string.ui_extra_069)));
         waitForNetwork(token);
     }
     private void waitForNetwork(int token) {
         handler.postDelayed(() -> {
             if (token != generation || !userRequested) return;
-            if (!autoSwitch()) { finishConnection("تعویض خودکار غیرفعال شد؛ اتصال قطع شد"); return; }
+            if (!autoSwitch()) { finishConnection(AppLanguage.t(R.string.ui_extra_070)); return; }
             if (physicalNetworkAvailable()) {
                 ProxyEndpoint resume = ProxyEndpoint.parse(current);
                 if (resume != null) { failover.reset(current); beginConnect(resume); }
-                else finishConnection("برای اتصال دوباره یک پروکسی انتخاب کن");
+                else finishConnection(AppLanguage.t(R.string.ui_extra_071));
             } else waitForNetwork(token);
         }, 10000);
     }
@@ -552,7 +552,7 @@ public final class ProxyVpnService extends VpnService {
             Network network = manager.getActiveNetwork();
             NetworkCapabilities caps = network == null ? null : manager.getNetworkCapabilities(network);
             if (caps == null || !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                if (failover.health(false)) failConnection("شبکهٔ VPN دیگر فعال نیست");
+                if (failover.health(false)) failConnection(AppLanguage.t(R.string.ui_extra_072));
                 else scheduleHealthCheck(token);
                 return;
             }
@@ -567,10 +567,10 @@ public final class ProxyVpnService extends VpnService {
                     if (token != generation || stop.get() || !userRequested) return;
                     if (failover.health(result.accepts(requiredFilter))) {
                         saveVpnReport(result.report);
-                        failConnection("دو آزمون پی‌درپی از داخل VPN ناموفق بود"); return;
+                        failConnection(AppLanguage.t(R.string.ui_extra_073)); return;
                     }
-                    if (!result.accepts(requiredFilter)) announce("ارتباط پاسخ نداد؛ یک بار دیگر بررسی می‌شود");
-                    else announce("VPN تأیید شد: " + verifiedServices + " • " + current);
+                    if (!result.accepts(requiredFilter)) announce(AppLanguage.t(R.string.ui_extra_074));
+                    else announce(AppLanguage.t(R.string.ui_extra_058) + verifiedServices + " • " + current);
                     scheduleHealthCheck(token);
                 });
             }, "vpn-health-check").start();
@@ -582,7 +582,7 @@ public final class ProxyVpnService extends VpnService {
         PreparedScanner stoppedScanner=automaticScanner;automaticScanner=null;
         if(stoppedScanner!=null){stoppedScanner.requestStop();ProxyStore.IO.execute(()->{try{ScanCheckpoint saved=stoppedScanner.pause();if(saved!=null)ProxyStore.index().apply(saved);ProxyStore.save(this,ProxyStore.index());}catch(Exception ex){android.util.Log.e("PersianSocks","Stop save failed",ex);}});}
         if(autoScanning&&autoSelection!=null){
-            getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("scan-report",autoReport+"\nاسکن خودکار متوقف شد").apply();
+            getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("scan-report",autoReport+AppLanguage.t(R.string.ui_extra_075)).apply();
         }
         autoScanning=false;
         autoCheckpoint=null;
@@ -624,7 +624,7 @@ public final class ProxyVpnService extends VpnService {
     private void ensureChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel ch = new NotificationChannel(CH, "PersianSocks VPN", NotificationManager.IMPORTANCE_LOW);
-            ch.setDescription("اتصال پروکسی، سرعت دانلود و آپلود VPN");
+            ch.setDescription(AppLanguage.t(R.string.ui_extra_076));
             getSystemService(NotificationManager.class).createNotificationChannel(ch);
         }
     }
@@ -637,15 +637,15 @@ public final class ProxyVpnService extends VpnService {
             .setContentTitle("PersianSocks")
             .setContentText(phase==CONNECTED?trafficSnapshot.rates():txt)
             .setStyle(new Notification.BigTextStyle().bigText(txt+(phase==CONNECTED?"\n"+trafficSnapshot.rates()+
-                "\nمجموع دانلود: "+TrafficMeter.bytes(trafficSnapshot.downloaded)+" • آپلود: "+TrafficMeter.bytes(trafficSnapshot.uploaded):"")))
+                AppLanguage.t(R.string.ui_extra_077)+TrafficMeter.bytes(trafficSnapshot.downloaded)+AppLanguage.t(R.string.ui_extra_078)+TrafficMeter.bytes(trafficSnapshot.uploaded):"")))
             .setOnlyAlertOnce(true)
             .setSmallIcon(R.drawable.ic_qs_vpn)
             .setContentIntent(openPi)
             .setOngoing(true)
-            .addAction(new Notification.Action.Builder(null, autoScanning?"توقف اسکن":"قطع اتصال", stopPi).build())
+            .addAction(new Notification.Action.Builder(null, autoScanning?AppLanguage.t(R.string.ui_extra_079):AppLanguage.t(R.string.ui_extra_080), stopPi).build())
             .build();
     }
-    @Override public void onRevoke() { userRequested=false; closeTunnel(); announce("مجوز VPN لغو شد"); stopSelf(); super.onRevoke(); }
+    @Override public void onRevoke() { userRequested=false; closeTunnel(); announce(AppLanguage.t(R.string.ui_extra_081)); stopSelf(); super.onRevoke(); }
     @Override public void onDestroy() {
         userRequested=false;closeTunnel();
         if(instance.get()==this)instance.clear();

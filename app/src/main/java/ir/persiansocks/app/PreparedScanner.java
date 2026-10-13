@@ -17,7 +17,7 @@ public final class PreparedScanner {
     private static final class Run {
         final ScanCheckpoint state; final Persistence persistence;
         final AtomicBoolean cancelled = new AtomicBoolean(); final Set<Socket> sockets = ConcurrentHashMap.newKeySet();
-        final ExecutorService workers = Executors.newFixedThreadPool(30);
+        final ExecutorService workers = Executors.newFixedThreadPool(60);
         Thread coordinator;
         Run(ScanCheckpoint state, Persistence persistence) { this.state = state; this.persistence = persistence; }
         void close() {
@@ -56,7 +56,7 @@ public final class PreparedScanner {
             listener.onProgress(state.done(), state.total(), state.goodCount());
             CompletionService<Completed> tasks = new ExecutorCompletionService<>(run.workers);
             int submitted = 0, received = 0; int batchEnd=Math.min(ScanCheckpoint.BATCH_SIZE,pending.size()); long progressAt = 0, savedAt = System.nanoTime();
-            while (submitted < Math.min(60, batchEnd)) submit(tasks, run, probe, pending.get(submitted++));
+            while (submitted < Math.min(120, batchEnd)) submit(tasks, run, probe, pending.get(submitted++));
             while (received < pending.size() && !run.cancelled.get()) {
                 Future<Completed> task = tasks.poll(250, TimeUnit.MILLISECONDS); if (task == null) continue;
                 Completed completed = task.get(); received++;
@@ -70,7 +70,7 @@ public final class PreparedScanner {
                 }
                 long now=System.nanoTime();
                 if(now-savedAt>5_000_000_000L){run.persistence.save(state);savedAt=System.nanoTime();}
-                if(received==batchEnd){run.persistence.save(state);savedAt=System.nanoTime();batchEnd=Math.min(pending.size(),batchEnd+ScanCheckpoint.BATCH_SIZE);while(submitted<Math.min(batchEnd,received+60)&&!run.cancelled.get())submit(tasks,run,probe,pending.get(submitted++));}
+                if(received==batchEnd){run.persistence.save(state);savedAt=System.nanoTime();batchEnd=Math.min(pending.size(),batchEnd+ScanCheckpoint.BATCH_SIZE);while(submitted<Math.min(batchEnd,received+120)&&!run.cancelled.get())submit(tasks,run,probe,pending.get(submitted++));}
                 else if (submitted < batchEnd && !run.cancelled.get()) submit(tasks, run, probe, pending.get(submitted++));
             }
             run.persistence.save(state);

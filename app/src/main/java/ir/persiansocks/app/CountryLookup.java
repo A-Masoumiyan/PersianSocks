@@ -44,9 +44,10 @@ public final class CountryLookup {
         }
         return "";
     }
-    public static String display(String code) {
+    public static String display(String code) { return display(code,new Locale("fa")); }
+    public static String display(String code,Locale locale) {
         if (!code.matches("[A-Z]{2}")) return "نامشخص";
-        String name = new Locale("", code).getDisplayCountry(new Locale("fa"));
+        String name = new Locale("", code).getDisplayCountry(locale);
         String flag = new String(Character.toChars(0x1F1E6 + code.charAt(0) - 'A')) +
             new String(Character.toChars(0x1F1E6 + code.charAt(1) - 'A'));
         return flag + " " + name;

@@ -100,8 +100,8 @@ public final class ScanHarness {
         verify(merged.size()==500&&merged.get(1).address().equals(small.address()),"balanced 500 candidate selection, no old 80-item cutoff");
         verify(new HashSet<>(Arrays.asList(merged.get(0).address(),merged.get(1).address())).size()==2,"different source endpoints preserved");
         verify(ProxyScanner.mergeCandidates(Arrays.asList(small),Arrays.asList(Arrays.asList(small)),Arrays.asList(small),10).size()==1,"deduplicate manual, live and embedded addresses");
-        verify(new ProxyScanner.Options(50000,false).maxTests==20000,"enforce configurable 20,000 candidate bound");
-        verify(SourceCatalog.DEFAULT.length==20,"20 source definitions");
+        verify(new ProxyScanner.Options(200000,false).maxTests==100000,"enforce configurable 100,000 candidate bound");
+        verify(SourceCatalog.DEFAULT.length==23,"23 source definitions");
         ServiceTargets.Target facebook=ServiceTargets.custom("فیسبوک","www.facebook.com");
         ServiceTargets.configure(Arrays.asList(facebook));
         try(Mock m=new Mock("only-facebook")) {

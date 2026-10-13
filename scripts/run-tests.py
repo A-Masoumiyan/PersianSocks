@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 p=argparse.ArgumentParser()
@@ -11,6 +12,7 @@ p.add_argument('--jdk',required=True)
 p.add_argument('--json',required=True,help='org.json JVM jar, used only by tests')
 a=p.parse_args()
 root=Path(__file__).resolve().parents[1]
+subprocess.run([sys.executable,str(root/'tests/check-localization.py')],check=True)
 jdk=Path(a.jdk).resolve();json=Path(a.json).resolve()
 names=['ProxyEndpoint','ProxyTransport','ProxyResults','ServiceTargets','CountryLookup','Socks5Probe','ProxyScanner',
     'SourceCatalog','ProtectedSocksGateway','TunnelVerifier','AutoScanSelection','FailoverPolicy','QuickControlState','TrafficMeter','DownloadSpeedTest','DistributionPolicy','SingleProxyTest','ProxyHttpConnection','ProxyTestResult','ScanCheckpoint','ScanFiles','PreparedScanner','ProxyIndex','ProxyCacheFile','SplitTunnelPolicy','FilteredSpeedBatch']

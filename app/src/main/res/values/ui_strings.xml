@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_000" formatted="false">"هنوز اسکن جدیدی انجام نشده است."</string>
+    <string name="ui_001" formatted="false">"نمایش تنظیمات"</string>
+    <string name="ui_002" formatted="false">"نشان PersianSocks"</string>
+    <string name="ui_003" formatted="false">"●  آمادهٔ اتصال"</string>
+    <string name="ui_004" formatted="false">"پروکسی انتخاب نشده"</string>
+    <string name="ui_005" formatted="false">"یک پروکسی انتخاب کن و متصل شو"</string>
+    <string name="ui_006" formatted="false">"وضعیت اتصال"</string>
+    <string name="ui_007" formatted="false">"بستن"</string>
+    <string name="ui_008" formatted="false">"برای دیدن پیام کامل بزنید"</string>
+    <string name="ui_009" formatted="false">"تست اتصال"</string>
+    <string name="ui_010" formatted="false">"تست سرعت"</string>
+    <string name="ui_011" formatted="false">"↓ دانلود"</string>
+    <string name="ui_012" formatted="false">"↑ آپلود"</string>
+    <string name="ui_013" formatted="false">"مجموع: 0 B"</string>
+    <string name="ui_014" formatted="false">"دریافت لیست"</string>
+    <string name="ui_015" formatted="false">"اسکن  ▾"</string>
+    <string name="ui_016" formatted="false">"اسکن متوقف‌شده: "</string>
+    <string name="ui_017" formatted="false">" از "</string>
+    <string name="ui_018" formatted="false">"اول لیست پروکسی‌ها را دریافت کن"</string>
+    <string name="ui_019" formatted="false">" پروکسی آمادهٔ اسکن"</string>
+    <string name="ui_020" formatted="false">"پروکسی‌ها"</string>
+    <string name="ui_021" formatted="false">"۰ نتیجه"</string>
+    <string name="ui_022" formatted="false">"بازنشانی فیلترها"</string>
+    <string name="ui_023" formatted="false">"☆ ذخیره‌شده‌ها"</string>
+    <string name="ui_024" formatted="false">"سرویس: همه"</string>
+    <string name="ui_025" formatted="false">"انتخاب سرویس"</string>
+    <string name="ui_026" formatted="false">"نوع: همه"</string>
+    <string name="ui_027" formatted="false">"نوع پروکسی"</string>
+    <string name="ui_028" formatted="false">"پینگ: همه"</string>
+    <string name="ui_029" formatted="false">"محدودیت پینگ"</string>
+    <string name="ui_030" formatted="false">"کمترین تأخیر"</string>
+    <string name="ui_031" formatted="false">"مرتب‌سازی"</string>
+    <string name="ui_032" formatted="false">"تست سرعت همهٔ نتایج فیلترشده"</string>
+    <string name="ui_033" formatted="false">"بستن سایدبار"</string>
+    <string name="ui_034" formatted="false">"تنظیمات"</string>
+    <string name="ui_035" formatted="false">"بستن  ×"</string>
+    <string name="ui_036" formatted="false">"پنهان کردن سایدبار"</string>
+    <string name="ui_037" formatted="false">"اتصال"</string>
+    <string name="ui_038" formatted="false">"فقط پروکسی TLS"</string>
+    <string name="ui_039" formatted="false">"تعویض خودکار هنگام قطع"</string>
+    <string name="ui_040" formatted="false">"اسپلیت تونل • انتخاب برنامه‌ها"</string>
+    <string name="ui_041" formatted="false">"اسکن"</string>
+    <string name="ui_042" formatted="false">"تعداد، نوع و مهلت اسکن"</string>
+    <string name="ui_043" formatted="false">"بازسنجی ۲۰ سریع‌ترین"</string>
+    <string name="ui_044" formatted="false">"منابع و پروکسی"</string>
+    <string name="ui_045" formatted="false">"مدیریت منابع"</string>
+    <string name="ui_046" formatted="false">"افزودن پروکسی دستی"</string>
+    <string name="ui_047" formatted="false">"دامنه‌های تست"</string>
+    <string name="ui_048" formatted="false">"ابزارها و گزارش"</string>
+    <string name="ui_049" formatted="false">"افزودن به پنل سریع"</string>
+    <string name="ui_050" formatted="false">"افزودن ویجت گوشی"</string>
+    <string name="ui_051" formatted="false">"گزارش اسکن و اتصال"</string>
+    <string name="ui_052" formatted="false">"گزارش خطای برنامه"</string>
+    <string name="ui_053" formatted="false">"حریم خصوصی"</string>
+    <string name="ui_054" formatted="false">"دربارهٔ برنامه"</string>
+    <string name="ui_055" formatted="false">"خطای ثبت‌شده‌ای نیست."</string>
+    <string name="ui_056" formatted="false">"خواندن گزارش ناموفق بود"</string>
+    <string name="ui_057" formatted="false">"کپی گزارش"</string>
+    <string name="ui_058" formatted="false">"+ دامنهٔ تست"</string>
+    <string name="ui_059" formatted="false">"فقط پروکسی‌های TLS"</string>
+    <string name="ui_060" formatted="false">"این نسخه فقط اتصال TLS با گواهی معتبر را می‌پذیرد."</string>
+    <string name="ui_061" formatted="false">"پیش‌فرض خاموش است. روشن‌کردن آن، اسکن و اتصال را به TLS معتبر محدود می‌کند. تغییر این گزینه، اسکن و اتصال جاری را متوقف می‌کند."</string>
+    <string name="ui_062" formatted="false">"تعویض خودکار پروکسی"</string>
+    <string name="ui_063" formatted="false">"در صورت قطع اتصال، جایگزین طبق فیلتر فعلی انتخاب می‌شود."</string>
+    <string name="ui_064" formatted="false">"تنظیمات اتصال"</string>
+    <string name="ui_065" formatted="false">"ذخیره"</string>
+    <string name="ui_066" formatted="false">"تنظیمات اتصال ذخیره شد"</string>
+    <string name="ui_067" formatted="false">"لغو"</string>
+    <string name="ui_068" formatted="false">"+ افزودن دامنهٔ جدید"</string>
+    <string name="ui_069" formatted="false">"حذف دامنه"</string>
+    <string name="ui_070" formatted="false">"حداکثر ۸ دامنهٔ دلخواه؛ برای افزودن، یکی را حذف کن"</string>
+    <string name="ui_071" formatted="false">"نام سرویس، مثلاً فیسبوک"</string>
+    <string name="ui_072" formatted="false">"facebook.com یا https://www.facebook.com/"</string>
+    <string name="ui_073" formatted="false">"HTTPS با گواهی معتبر و پاسخ ۲۰۰ تا ۳۹۹ بررسی می‌شود. پس از ثبت، نتایج موجود دوباره تست می‌شوند."</string>
+    <string name="ui_074" formatted="false">"افزودن دامنهٔ تست"</string>
+    <string name="ui_075" formatted="false">"ثبت و تست"</string>
+    <string name="ui_076" formatted="false">"این نشانی قبلاً اضافه شده"</string>
+    <string name="ui_077" formatted="false">"دامنه اضافه شد؛ لیست را دریافت و اسکن کن"</string>
+    <string name="ui_078" formatted="false">"کشور، موقعیت تقریبی سرور پروکسی است.\n"</string>
+    <string name="ui_079" formatted="false">"DB-IP Country Lite، اکتبر ۲۰۲۶\nمجوز CC BY 4.0\nhttps://creativecommons.org/licenses/by/4.0/\n"</string>
+    <string name="ui_080" formatted="false">"دادهٔ CSV به جدول IPv4 فشرده تبدیل شده است.\n\nموتور تونل: hev-socks5-tunnel، مجوز MIT"</string>
+    <string name="ui_081" formatted="false">"پینگ کم / دانلود سریع"</string>
+    <string name="ui_082" formatted="false">"دانلود سریع"</string>
+    <string name="ui_083" formatted="false">"بیشترین سرویس"</string>
+    <string name="ui_084" formatted="false">"جدیدترین تست"</string>
+    <string name="ui_085" formatted="false">"اولویت UDP"</string>
+    <string name="ui_086" formatted="false">"پینگ کم"</string>
+    <string name="ui_087" formatted="false">"توقف اسکن"</string>
+    <string name="ui_088" formatted="false">"توقف دریافت"</string>
+    <string name="ui_089" formatted="false">"لیست ذخیره‌شده: "</string>
+    <string name="ui_090" formatted="false">" پروکسی"</string>
+    <string name="ui_091" formatted="false">"●  متصل"</string>
+    <string name="ui_092" formatted="false">"اسکن: "</string>
+    <string name="ui_093" formatted="false">" • تنظیمات"</string>
+    <string name="ui_094" formatted="false">"اتصال VPN فعلی: "</string>
+    <string name="ui_095" formatted="false">"انتخاب نشده"</string>
+    <string name="ui_096" formatted="false">"توقف سرعت"</string>
+    <string name="ui_097" formatted="false">"توقف تست"</string>
+    <string name="ui_098" formatted="false">"توقف تست سرعت • "</string>
+    <string name="ui_099" formatted="false">"توقف آماده‌سازی…"</string>
+    <string name="ui_100" formatted="false">"دریافت لیست؛ "</string>
+    <string name="ui_101" formatted="false">" پروکسی ذخیره‌شده"</string>
+    <string name="ui_102" formatted="false">"در حال ذخیرهٔ پیشرفت…"</string>
+    <string name="ui_103" formatted="false">"اسکن متوقف شد"</string>
+    <string name="ui_104" formatted="false">"متوقف: "</string>
+    <string name="ui_105" formatted="false">" • ادامه ذخیره شد"</string>
+    <string name="ui_106" formatted="false">"ذخیرهٔ پیشرفت ناموفق: "</string>
+    <string name="ui_107" formatted="false">"ادامهٔ اسکن ("</string>
+    <string name="ui_108" formatted="false">"اسکن لیست از ابتدا"</string>
+    <string name="ui_109" formatted="false">"اسکن مجدد همهٔ سالم‌ها ("</string>
+    <string name="ui_110" formatted="false">"دریافت متوقف شد؛ لیست قبلی حفظ شد"</string>
+    <string name="ui_111" formatted="false">"ابتدا اسکن را متوقف کن"</string>
+    <string name="ui_112" formatted="false">"در حال دریافت لیست…"</string>
+    <string name="ui_113" formatted="false">"ذخیرهٔ لیست ناموفق: "</string>
+    <string name="ui_114" formatted="false">"خواندن لیست ناموفق"</string>
+    <string name="ui_115" formatted="false">" پروکسی دریافت شد؛ آمادهٔ اسکن"</string>
+    <string name="ui_116" formatted="false">"امکان قطع سرویس نیست: "</string>
+    <string name="ui_117" formatted="false">"آماده‌سازی اسکن…"</string>
+    <string name="ui_118" formatted="false">"پروکسی سالمی ذخیره نشده"</string>
+    <string name="ui_119" formatted="false">"اول «دریافت لیست» را بزن"</string>
+    <string name="ui_120" formatted="false">"ابتدا عملیات جاری را متوقف کن"</string>
+    <string name="ui_121" formatted="false">"پروکسی سالمی با فیلتر فعلی نیست"</string>
+    <string name="ui_122" formatted="false">"بازسنجی سریع‌ترین پروکسی‌ها…"</string>
+    <string name="ui_123" formatted="false">"پروکسی سازگاری برای اسکن نیست"</string>
+    <string name="ui_124" formatted="false">"تنظیمات تست تغییر کرده؛ اسکن را از ابتدا شروع کن"</string>
+    <string name="ui_125" formatted="false">"بررسی "</string>
+    <string name="ui_126" formatted="false">" • سالم تازه: "</string>
+    <string name="ui_127" formatted="false">"\nسالم تازه: "</string>
+    <string name="ui_128" formatted="false">"ذخیرهٔ نهایی ناموفق؛ پیشرفت اسکن حفظ شد"</string>
+    <string name="ui_129" formatted="false">"شروع اسکن ناموفق: "</string>
+    <string name="ui_130" formatted="false">"بازیابی ناموفق: "</string>
+    <string name="ui_131" formatted="false">"ادامهٔ اسکن: "</string>
+    <string name="ui_132" formatted="false">"این پروکسی قبلاً ذخیره شده"</string>
+    <string name="ui_133" formatted="false">"ذخیرهٔ پروکسی ناموفق بود"</string>
+    <string name="ui_134" formatted="false">"به ذخیره‌شده‌ها اضافه شد"</string>
+    <string name="ui_135" formatted="false">"حذف از ذخیره‌شده‌ها"</string>
+    <string name="ui_136" formatted="false">"فقط این پروکسی از فهرست ذخیره‌شده حذف شود؟"</string>
+    <string name="ui_137" formatted="false">"حذف"</string>
+    <string name="ui_138" formatted="false">"حذف ذخیره نشد"</string>
+    <string name="ui_139" formatted="false">"مرتب‌سازی: "</string>
+    <string name="ui_140" formatted="false">"سرویس: "</string>
+    <string name="ui_141" formatted="false">"فیلتر سرویس: "</string>
+    <string name="ui_142" formatted="false">"نوع: "</string>
+    <string name="ui_143" formatted="false">"فیلتر نوع پروکسی: "</string>
+    <string name="ui_144" formatted="false">"پینگ: "</string>
+    <string name="ui_145" formatted="false">"همه"</string>
+    <string name="ui_146" formatted="false">"میلی‌ثانیه"</string>
+    <string name="ui_147" formatted="false">"محدودیت پینگ: "</string>
+    <string name="ui_148" formatted="false">"← همهٔ پروکسی‌ها"</string>
+    <string name="ui_149" formatted="false">"★ ذخیره‌شده‌ها ("</string>
+    <string name="ui_150" formatted="false">"بازگشت به همهٔ پروکسی‌ها"</string>
+    <string name="ui_151" formatted="false">"نمایش پروکسی‌های ذخیره‌شده"</string>
+    <string name="ui_152" formatted="false">" نتیجه"</string>
+    <string name="ui_153" formatted="false">"هنوز پروکسی‌ای ذخیره نکردی"</string>
+    <string name="ui_154" formatted="false">"به فهرست اصلی برگرد و ستارهٔ کنار پروکسی را بزن."</string>
+    <string name="ui_155" formatted="false">"نتیجه‌ای با این فیلترها نیست"</string>
+    <string name="ui_156" formatted="false">"در حال بارگذاری…"</string>
+    <string name="ui_157" formatted="false">"در حال جستجو…"</string>
+    <string name="ui_158" formatted="false">"هنوز نتیجه‌ای نیست"</string>
+    <string name="ui_159" formatted="false">"در منوی مرتب‌سازی، «پینگ کم / دانلود سریع» را خاموش کن و تست سرعت بگیر؛ سپس دوباره روشنش کن."</string>
+    <string name="ui_160" formatted="false">"از سایدبار فیلترها را تغییر بده."</string>
+    <string name="ui_161" formatted="false">"لیست را دریافت و اسکن کن؛ پروکسی‌های نامعتبر حذف می‌شوند."</string>
+    <string name="ui_162" formatted="false">"منتخب"</string>
+    <string name="ui_163" formatted="false">"تست‌ها و جزئیات پروکسی"</string>
+    <string name="ui_164" formatted="false">"سرعت دانلود:"</string>
+    <string name="ui_165" formatted="false">"پینگ:"</string>
+    <string name="ui_166" formatted="false">"قبلاً به ذخیره‌شده‌ها اضافه شده"</string>
+    <string name="ui_167" formatted="false">"افزودن به ذخیره‌شده‌ها"</string>
+    <string name="ui_168" formatted="false">"؛ کشیدن به چپ: تست سرعت؛ کشیدن به راست: پینگ"</string>
+    <string name="ui_169" formatted="false">" تأیید شد"</string>
+    <string name="ui_170" formatted="false">" تأیید نشد"</string>
+    <string name="ui_171" formatted="false">" تست نشده"</string>
+    <string name="ui_172" formatted="false">"در حال تست…"</string>
+    <string name="ui_173" formatted="false">"انتخاب پروکسی"</string>
+    <string name="ui_174" formatted="false">"تست اتصال فقط این پروکسی"</string>
+    <string name="ui_175" formatted="false">"تأخیر مجدد"</string>
+    <string name="ui_176" formatted="false">"تست سرعت دانلود (تا ۲۰ MB)"</string>
+    <string name="ui_177" formatted="false">"جزئیات"</string>
+    <string name="ui_178" formatted="false">"توقف تست این پروکسی"</string>
+    <string name="ui_179" formatted="false">"\n\nکشور: "</string>
+    <string name="ui_180" formatted="false">"\nپینگ: "</string>
+    <string name="ui_181" formatted="false">"تست‌نشده"</string>
+    <string name="ui_182" formatted="false">"\nپینگ، زمان پاسخ HTTPS از مسیر این پروکسی است."</string>
+    <string name="ui_183" formatted="false">"UDP اعلام‌شده توسط منبع؛ تضمین اتصال UDP نیست"</string>
+    <string name="ui_184" formatted="false">"فقط TCP تأییدشده"</string>
+    <string name="ui_185" formatted="false">"تأیید شد"</string>
+    <string name="ui_186" formatted="false">"تأیید نشد"</string>
+    <string name="ui_187" formatted="false">"تست نشده"</string>
+    <string name="ui_188" formatted="false">"\nسرعت دانلود ثبت‌شده: "</string>
+    <string name="ui_189" formatted="false">"\nحجم ثبت‌شدهٔ تست سرعت: "</string>
+    <string name="ui_190" formatted="false">"\n\nخطای آخرین تست سرعت: "</string>
+    <string name="ui_191" formatted="false">"\n\nخطای آخرین تست اتصال/پینگ: "</string>
+    <string name="ui_192" formatted="false">"جزئیات پروکسی"</string>
+    <string name="ui_193" formatted="false">"انتخاب"</string>
+    <string name="ui_194" formatted="false">"IP:PORT یا http://IP:PORT یا https://HOST:PORT"</string>
+    <string name="ui_195" formatted="false">"HTTPS (TLS به پروکسی)"</string>
+    <string name="ui_196" formatted="false">"برای HTTPS می‌توانی نام میزبان بدهی؛ گواهی باید معتبر باشد. پروکسی‌های نیازمند رمز فعلاً پشتیبانی نمی‌شوند."</string>
+    <string name="ui_197" formatted="false">"این نسخه فقط HTTPS با TLS معتبر می‌پذیرد"</string>
+    <string name="ui_198" formatted="false">"IP:PORT، http://IP:PORT یا https://HOST:PORT معتبر وارد کن"</string>
+    <string name="ui_199" formatted="false">"در حال تست پروکسی دستی…"</string>
+    <string name="ui_200" formatted="false">"پروکسی دستی سالم بود"</string>
+    <string name="ui_201" formatted="false">"تست دستی ناموفق؛ پروکسی در نتایج ذخیره نشد"</string>
+    <string name="ui_202" formatted="false">"اول یک پروکسی سالم انتخاب کن"</string>
+    <string name="ui_203" formatted="false">"اول تست سرویس‌ها را انجام بده"</string>
+    <string name="ui_204" formatted="false">"اتصال آغاز نشد؛ اجازهٔ عبور ترافیک داده نشد"</string>
+    <string name="ui_205" formatted="false">"گزارش دریافت لیست:\n"</string>
+    <string name="ui_206" formatted="false">"هنوز لیستی دریافت نشده"</string>
+    <string name="ui_207" formatted="false">"\n\nگزارش اتصال VPN:\n"</string>
+    <string name="ui_208" formatted="false">"هنوز تست تونل انجام نشده است."</string>
+    <string name="ui_209" formatted="false">"گزارش آخرین اسکن"</string>
+    <string name="ui_210" formatted="false">"گزارش کپی شد"</string>
+    <string name="ui_211" formatted="false">"تعداد تست: ۱۰۰ تا ۱۰۰٬۰۰۰، یا Max برای همهٔ پروکسی‌های دریافت‌شده پس از حذف تکراری‌ها."</string>
+    <string name="ui_212" formatted="false">"Max (همهٔ نتایج)"</string>
+    <string name="ui_213" formatted="false">"نوع پروکسی برای اسکن"</string>
+    <string name="ui_214" formatted="false">"HTTP و HTTPS"</string>
+    <string name="ui_215" formatted="false">"نوع اسکن: فقط HTTPS با TLS معتبر به خود پروکسی. سرور هم باید این اتصال رمزنگاری‌شده را پشتیبانی کند."</string>
+    <string name="ui_216" formatted="false">"یکی یا هر دو را انتخاب کن. HTTPS مقصد با CONNECT و HTTPS با TLS به خود پروکسی پشتیبانی می‌شود."</string>
+    <string name="ui_217" formatted="false">"مهلت بیشتر برای شبکهٔ کند"</string>
+    <string name="ui_218" formatted="false">"تغییر این تنظیمات برای «اسکن از ابتدا» است؛ ادامهٔ اسکن از تنظیمات همان نوبت استفاده می‌کند."</string>
+    <string name="ui_219" formatted="false">"تا ۶۰ تست همزمان. در حالت معمولی مهلت TCP برابر ۲.۵ ثانیه است؛ در حالت کند ۶ ثانیه. همهٔ سرویس‌های ثبت‌شده با HTTPS امتحان می‌شوند."</string>
+    <string name="ui_220" formatted="false">"تنظیمات اسکن"</string>
+    <string name="ui_221" formatted="false">"نوعی انتخاب نشد؛ هر دو ذخیره شدند"</string>
+    <string name="ui_222" formatted="false">"برای اسکن بعدی ذخیره شد"</string>
+    <string name="ui_223" formatted="false">"منابع داخلی:\n"</string>
+    <string name="ui_224" formatted="false">"\nHTTPS با TLS:\n"</string>
+    <string name="ui_225" formatted="false">"در هر خط HTTPS و سپس لینک فهرست سرورهای TLS را وارد کن. منبع باید واقعاً TLS به خود پروکسی داشته باشد؛ گواهی هر سرور بررسی می‌شود. حداکثر ۲۰ منبع."</string>
+    <string name="ui_226" formatted="false">"در هر خط نوع و لینک منبع را وارد کن: SOCKS5 یا HTTP یا HTTPS، سپس فاصله و لینک https://؛ بدون نوع، SOCKS5 در نظر گرفته می‌شود. حداکثر ۲۰ منبع."</string>
+    <string name="ui_227" formatted="false">"منابع پروکسی"</string>
+    <string name="ui_228" formatted="false">"منابع ذخیره شدند"</string>
+    <string name="ui_229" formatted="false">"مجوز VPN صادر نشد"</string>
+    <string name="ui_230" formatted="false">"پروکسی منتخب دیگر معتبر نیست"</string>
+    <string name="ui_231" formatted="false">"یک پروکسی با TLS معتبر انتخاب کن"</string>
+    <string name="ui_232" formatted="false">"امکان آغاز سرویس VPN نیست: "</string>
+    <string name="ui_233" formatted="false">"فقط پروکسی‌های TLS انتخاب می‌شوند"</string>
+    <string name="ui_234" formatted="false">"الزام TLS خاموش شد؛ SOCKS5 و HTTP هم قابل استفاده‌اند"</string>
+    <string name="ui_235" formatted="false">"؛ اتصال قبلی قطع شد"</string>
+    <string name="ui_236" formatted="false">"مجموع: "</string>
+    <string name="ui_237" formatted="false">"اول یک پروکسی انتخاب کن"</string>
+    <string name="ui_238" formatted="false">"یک تست در حال اجراست؛ اول آن را متوقف کن"</string>
+    <string name="ui_239" formatted="false">"این پروکسی با تنظیم TLS فعلی سازگار نیست"</string>
+    <string name="ui_240" formatted="false">"تست متوقف شد"</string>
+    <string name="ui_241" formatted="false">"پینگ به "</string>
+    <string name="ui_242" formatted="false">" با HTTPS اندازه‌گیری شد"</string>
+    <string name="ui_243" formatted="false">"تست اتصال: موفق"</string>
+    <string name="ui_244" formatted="false">"تست اتصال: "</string>
+    <string name="ui_245" formatted="false">"پروکسی پاسخ نداد؛ از اسکن حذف شد ولی در ذخیره‌شده‌ها باقی ماند"</string>
+    <string name="ui_246" formatted="false">"پروکسی پاسخ نداد و از نتایج حذف شد"</string>
+    <string name="ui_247" formatted="false">"نتیجه‌ای مطابق فیلترها نیست"</string>
+    <string name="ui_248" formatted="false">"تست سرعت نتایج فیلترشده"</string>
+    <string name="ui_249" formatted="false">"تمام "</string>
+    <string name="ui_250" formatted="false">" نتیجهٔ مطابق فیلترهای فعلی به‌ترتیب تست می‌شوند؛ حتی کارت‌های پایین فهرست.\nحداکثر مصرف: "</string>
+    <string name="ui_251" formatted="false">" (۲۰ MB برای هر پروکسی).\nتغییر فیلتر پس از شروع، صف تست را تغییر نمی‌دهد."</string>
+    <string name="ui_252" formatted="false">"انصراف"</string>
+    <string name="ui_253" formatted="false">"شروع تست"</string>
+    <string name="ui_254" formatted="false">"اسپلیت تونل"</string>
+    <string name="ui_255" formatted="false">"برگشت"</string>
+    <string name="ui_256" formatted="false">"انتخاب کن کدام برنامه‌ها از VPN عبور کنند. تغییرها با اتصال بعدی اعمال می‌شوند."</string>
+    <string name="ui_257" formatted="false">"همهٔ برنامه‌ها از VPN عبور کنند"</string>
+    <string name="ui_258" formatted="false">"فقط انتخاب‌شده‌ها از VPN عبور کنند"</string>
+    <string name="ui_259" formatted="false">"انتخاب‌شده‌ها از VPN عبور نکنند"</string>
+    <string name="ui_260" formatted="false">"نمایش همهٔ برنامه‌ها (شامل سیستمی)"</string>
+    <string name="ui_261" formatted="false">"جست‌وجوی نام برنامه"</string>
+    <string name="ui_262" formatted="false">"در حال خواندن برنامه‌ها…"</string>
+    <string name="ui_263" formatted="false">"لغو انتخاب‌ها"</string>
+    <string name="ui_264" formatted="false">"برنامه‌ای پیدا نشد"</string>
+    <string name="ui_265" formatted="false">"ذخیرهٔ تنظیمات"</string>
+    <string name="ui_266" formatted="false">"خواندن برنامه‌ها ناموفق بود؛ صفحه را دوباره باز کن."</string>
+    <string name="ui_267" formatted="false">" برنامه • "</string>
+    <string name="ui_268" formatted="false">" انتخاب‌شده"</string>
+    <string name="ui_269" formatted="false">"حداقل یک برنامه انتخاب کن"</string>
+    <string name="ui_270" formatted="false">"ذخیره شد؛ با اتصال بعدی اعمال می‌شود"</string>
+    <string name="ui_271" formatted="false">"، انتخاب‌شده"</string>
+    <string name="ui_272" formatted="false">"امکان اجرای فرمان نیست: "</string>
+    <string name="ui_273" formatted="false">"اجازهٔ عبور ترافیک از VPN"</string>
+    <string name="ui_274" formatted="false">"می‌پذیرم"</string>
+    <string name="ui_275" formatted="false">"نمی‌پذیرم"</string>
+    <string name="ui_276" formatted="false">"حریم خصوصی و شیوهٔ اتصال"</string>
+    <string name="ui_277" formatted="false">"سیاست آنلاین"</string>
+    <string name="ui_278" formatted="false">"امکان بازکردن نشانی نیست"</string>
+    <string name="ui_279" formatted="false">"فیلتر: "</string>
+    <string name="ui_280" formatted="false">" • انتخاب خودکار"</string>
+    <string name="ui_281" formatted="false">"در حال دریافت منابع • فیلتر: "</string>
+    <string name="ui_282" formatted="false">"در حال آماده‌سازی…"</string>
+    <string name="ui_283" formatted="false">"PersianSocks، "</string>
+    <string name="ui_284" formatted="false">"، "</string>
+    <string name="ui_285" formatted="false">"تلگرام"</string>
+    <string name="ui_286" formatted="false">"یوتیوب"</string>
+    <string name="ui_287" formatted="false">"اینستاگرام"</string>
+    <string name="ui_288" formatted="false">"کامل"</string>
+    <string name="ui_289" formatted="false">"همهٔ انواع"</string>
+    <string name="ui_290" formatted="false">"بدون محدودیت"</string>
+    <string name="ui_291" formatted="false">"زیر ۵۰۰ میلی‌ثانیه"</string>
+    <string name="ui_292" formatted="false">"زیر ۱۰۰۰ میلی‌ثانیه"</string>
+    <string name="ui_293" formatted="false">"زیر ۱۵۰۰ میلی‌ثانیه"</string>
+    <string name="ui_294" formatted="false">"زیر ۲۰۰۰ میلی‌ثانیه"</string>
+    <string name="ui_295" formatted="false">"بیشترین سرویس تأییدشده"</string>
+    <string name="ui_296" formatted="false">"اولویت UDP، سپس تأخیر"</string>
+    <string name="ui_297" formatted="false">"زبان برنامه"</string>
+    <string name="ui_298" formatted="false">"تغییر زبان پس از پایان عملیات فعلی انجام می‌شود."</string>
+    <string name="ui_299" formatted="false">"اسکن کامل"</string>
+    <string name="ui_300" formatted="false">"اسکن ناتمام"</string>
+    <string name="ui_301" formatted="false">"اسکن متوقف شد: "</string>
+    <string name="ui_302" formatted="false">"منبع دلخواه "</string>
+    <string name="ui_303" formatted="false">"اینترنت وای‌فای یا سیم‌کارت در دسترس نیست"</string>
+    <string name="ui_304" formatted="false">"شبکهٔ تست قطع شد"</string>
+    <string name="ui_305" formatted="false">"مسیر مستقل تست آماده نیست"</string>
+    <string name="ui_extra_000" formatted="false">"ابتدا اجازهٔ عبور ترافیک از VPN را تأیید کن"</string>
+    <string name="ui_extra_001" formatted="false">"دکمه به پنل سریع اضافه شد"</string>
+    <string name="ui_extra_002" formatted="false">"دکمه قبلاً اضافه شده"</string>
+    <string name="ui_extra_003" formatted="false">"از بخش ویرایش پنل سریع، PersianSocks را اضافه کن"</string>
+    <string name="ui_extra_004" formatted="false">"افزودن به پنل سریع"</string>
+    <string name="ui_extra_005" formatted="false">"پنل بالای گوشی را کامل باز کن، ویرایش دکمه‌ها را بزن و PersianSocks را به دکمه‌های فعال بکش."</string>
+    <string name="ui_extra_006" formatted="false">"باشه"</string>
+    <string name="ui_extra_007" formatted="false">"افزودن ویجت"</string>
+    <string name="ui_extra_008" formatted="false">"روی جای خالی صفحهٔ اصلی نگه دار، ویجت‌ها را باز کن و ویجت PersianSocks را انتخاب کن."</string>
+    <string name="ui_extra_009" formatted="false">"اتصال به‌دلیل تغییر تنظیم TLS قطع شد"</string>
+    <string name="ui_extra_010" formatted="false">"اسکن خودکار متوقف شد"</string>
+    <string name="ui_extra_011" formatted="false">"VPN قطع شد"</string>
+    <string name="ui_extra_012" formatted="false">"ابتدا توضیح استفاده از VPN را در برنامه تأیید کن"</string>
+    <string name="ui_extra_013" formatted="false">"اتصال VPN"</string>
+    <string name="ui_extra_014" formatted="false">"شروع اتصال ناموفق بود: "</string>
+    <string name="ui_extra_015" formatted="false">"خواندن پروکسی‌های ذخیره‌شده ناموفق بود"</string>
+    <string name="ui_extra_016" formatted="false">"برای اتصال از ویجت، ابتدا مجوز VPN را تأیید کن"</string>
+    <string name="ui_extra_017" formatted="false">"آدرس پروکسی معتبر نیست"</string>
+    <string name="ui_extra_018" formatted="false">"این نسخه فقط پروکسی با TLS معتبر می‌پذیرد"</string>
+    <string name="ui_extra_019" formatted="false">"اسکن و اتصال خودکار از کنترل گوشی\nفیلتر: "</string>
+    <string name="ui_extra_020" formatted="false">"اسکن و اتصال خودکار…"</string>
+    <string name="ui_extra_021" formatted="false">"امکان شروع اسکن پس‌زمینه نیست: "</string>
+    <string name="ui_extra_022" formatted="false">"اسکن خودکار برای «"</string>
+    <string name="ui_extra_023" formatted="false">"اول لیست پروکسی‌ها را داخل برنامه دریافت کن"</string>
+    <string name="ui_extra_024" formatted="false">"اسکن خودکار لیست ذخیره‌شده\n"</string>
+    <string name="ui_extra_025" formatted="false">" از "</string>
+    <string name="ui_extra_026" formatted="false">"\nسالم تازه: "</string>
+    <string name="ui_extra_027" formatted="false">"اسکن خودکار: "</string>
+    <string name="ui_extra_028" formatted="false">" • سالم تازه: "</string>
+    <string name="ui_extra_029" formatted="false">"شروع اسکن خودکار ناموفق: "</string>
+    <string name="ui_extra_030" formatted="false">"پروکسی تازه‌ای با فیلتر و پینگ انتخابی پیدا نشد"</string>
+    <string name="ui_extra_031" formatted="false">"در حال تأیید اتصال: "</string>
+    <string name="ui_extra_032" formatted="false">"پروکسی بدون رمزنگاری انتخاب نشد"</string>
+    <string name="ui_extra_033" formatted="false">"پروکسی: "</string>
+    <string name="ui_extra_034" formatted="false">"\nمرحله: آزمون دوبارهٔ سرویس‌ها پیش از ساخت تونل"</string>
+    <string name="ui_extra_035" formatted="false">"آزمون دوبارهٔ سرویس‌ها پیش از اتصال…"</string>
+    <string name="ui_extra_036" formatted="false">"آغاز سرویس: "</string>
+    <string name="ui_extra_037" formatted="false">"امکان آغاز VPN نیست: "</string>
+    <string name="ui_extra_038" formatted="false">"آزمون سرویس‌های فیلتر «"</string>
+    <string name="ui_extra_039" formatted="false">"اتصال آغاز نشد؛ سرویس‌ها دوباره تأیید نشدند: "</string>
+    <string name="ui_extra_040" formatted="false">"پروکسی دیگر شرط فیلتر «"</string>
+    <string name="ui_extra_041" formatted="false">"» را ندارد"</string>
+    <string name="ui_extra_042" formatted="false">"پروکسی دوباره تأیید شد: "</string>
+    <string name="ui_extra_043" formatted="false">"در حال راه‌اندازی تونل…"</string>
+    <string name="ui_extra_044" formatted="false">"ایجاد رابط VPN توسط اندروید رد شد"</string>
+    <string name="ui_extra_045" formatted="false">"موتور تونل آغاز نشد"</string>
+    <string name="ui_extra_046" formatted="false">"در حال برقراری اتصال: "</string>
+    <string name="ui_extra_047" formatted="false">"راه‌اندازی تونل: "</string>
+    <string name="ui_extra_048" formatted="false">"اتصال برقرار نشد: "</string>
+    <string name="ui_extra_049" formatted="false">"موتور تونل فعال شد؛ در حال تأیید ارتباط از داخل VPN…"</string>
+    <string name="ui_extra_050" formatted="false">"در حال تست واقعی تونل…"</string>
+    <string name="ui_extra_051" formatted="false">"موتور تونل راه‌اندازی نشد"</string>
+    <string name="ui_extra_052" formatted="false">"شبکهٔ فعال اندروید به VPN تغییر نکرد؛ تست مستقیم به جای تونل پذیرفته نشد."</string>
+    <string name="ui_extra_053" formatted="false">"شبکهٔ VPN آماده نشد"</string>
+    <string name="ui_extra_054" formatted="false">"\nتونل: ارسال="</string>
+    <string name="ui_extra_055" formatted="false">" بایت؛ دریافت="</string>
+    <string name="ui_extra_056" formatted="false">" بایت"</string>
+    <string name="ui_extra_057" formatted="false">"اتصال از داخل VPN برای فیلتر انتخابی تأیید نشد"</string>
+    <string name="ui_extra_058" formatted="false">"VPN تأیید شد: "</string>
+    <string name="ui_extra_059" formatted="false">"متصل • "</string>
+    <string name="ui_extra_060" formatted="false">"\n\nتعویض خودکار:\n"</string>
+    <string name="ui_extra_061" formatted="false">"\n\nآخرین پیام‌های موتور تونل:\n"</string>
+    <string name="ui_extra_062" formatted="false">"موتور VPN متوقف شد"</string>
+    <string name="ui_extra_063" formatted="false">"در حال انتخاب جایگزین با پینگ مناسب…"</string>
+    <string name="ui_extra_064" formatted="false">"جایگزین تأییدشده‌ای با فیلتر و پینگ انتخابی باقی نماند؛ دوباره اسکن کن"</string>
+    <string name="ui_extra_065" formatted="false">"انتخاب جایگزین: "</string>
+    <string name="ui_extra_066" formatted="false">"تعویض خودکار: "</string>
+    <string name="ui_extra_067" formatted="false">"؛ در حال تأیید اتصال"</string>
+    <string name="ui_extra_068" formatted="false">"اینترنت در دسترس نیست"</string>
+    <string name="ui_extra_069" formatted="false">"منتظر بازگشت اینترنت"</string>
+    <string name="ui_extra_070" formatted="false">"تعویض خودکار غیرفعال شد؛ اتصال قطع شد"</string>
+    <string name="ui_extra_071" formatted="false">"برای اتصال دوباره یک پروکسی انتخاب کن"</string>
+    <string name="ui_extra_072" formatted="false">"شبکهٔ VPN دیگر فعال نیست"</string>
+    <string name="ui_extra_073" formatted="false">"دو آزمون پی‌درپی از داخل VPN ناموفق بود"</string>
+    <string name="ui_extra_074" formatted="false">"ارتباط پاسخ نداد؛ یک بار دیگر بررسی می‌شود"</string>
+    <string name="ui_extra_075" formatted="false">"\nاسکن خودکار متوقف شد"</string>
+    <string name="ui_extra_076" formatted="false">"اتصال پروکسی، سرعت دانلود و آپلود VPN"</string>
+    <string name="ui_extra_077" formatted="false">"\nمجموع دانلود: "</string>
+    <string name="ui_extra_078" formatted="false">" • آپلود: "</string>
+    <string name="ui_extra_079" formatted="false">"توقف اسکن"</string>
+    <string name="ui_extra_080" formatted="false">"قطع اتصال"</string>
+    <string name="ui_extra_081" formatted="false">"مجوز VPN لغو شد"</string>
+    <string name="ui_extra_082" formatted="false">"تست نشده"</string>
+    <string name="ui_extra_083" formatted="false">"متوقف"</string>
+    <string name="ui_extra_084" formatted="false">"متوقف شد"</string>
+    <string name="ui_extra_085" formatted="false">"قطع"</string>
+    <string name="ui_extra_086" formatted="false">"قطع شد"</string>
+    <string name="ui_extra_087" formatted="false">"مهلت"</string>
+    <string name="ui_extra_088" formatted="false">"مهلت تمام شد"</string>
+    <string name="ui_extra_089" formatted="false">"گواهی"</string>
+    <string name="ui_extra_090" formatted="false">"خطای TLS"</string>
+    <string name="ui_extra_091" formatted="false">"شبکه"</string>
+    <string name="ui_extra_092" formatted="false">"عدم دسترسی"</string>
+    <string name="ui_extra_093" formatted="false">"پاسخ"</string>
+    <string name="ui_extra_094" formatted="false">"بدنه"</string>
+    <string name="ui_extra_095" formatted="false">"پاسخ نامعتبر"</string>
+    <string name="ui_extra_096" formatted="false">"ناموفق"</string>
+    <string name="ui_extra_098" formatted="false">"تلگرام"</string>
+    <string name="ui_extra_099" formatted="false">"یوتیوب"</string>
+    <string name="ui_extra_100" formatted="false">"اینستاگرام"</string>
+    <string name="ui_extra_101" formatted="false">"دامنه یا نشانی HTTPS معتبر وارد کن"</string>
+    <string name="ui_extra_102" formatted="false">"نامشخص"</string>
+    <string name="ui_extra_103" formatted="false">"دریافت منابع: "</string>
+    <string name="ui_extra_104" formatted="false">"دریافت لیست ناموفق: "</string>
+    <string name="ui_extra_105" formatted="false">": در انتظار دریافت"</string>
+    <string name="ui_extra_106" formatted="false">"منابع: "</string>
+    <string name="ui_extra_107" formatted="false">" • آدرس یکتا: "</string>
+    <string name="ui_extra_108" formatted="false">"اسکن کامل: "</string>
+    <string name="ui_extra_109" formatted="false">" تست • حداقل یک سرویس تأیید شد: "</string>
+    <string name="ui_extra_110" formatted="false">" • پاسخ پروکسی: "</string>
+    <string name="ui_extra_111" formatted="false">"\nخطای اسکن: "</string>
+    <string name="ui_extra_112" formatted="false">"اسکن متوقف شد: "</string>
+    <string name="ui_extra_113" formatted="false">" آدرس"</string>
+    <string name="ui_extra_114" formatted="false">"بدون آدرس معتبر"</string>
+    <string name="ui_extra_115" formatted="false">" آدرس (مسیر جایگزین)"</string>
+    <string name="ui_extra_116" formatted="false">"؛ مسیر جایگزین: بدون آدرس"</string>
+    <string name="ui_extra_117" formatted="false">"؛ مسیر جایگزین: "</string>
+    <string name="ui_extra_118" formatted="false">"منابع دریافت‌شده: "</string>
+    <string name="ui_extra_119" formatted="false">"\nسقف این اسکن: "</string>
+    <string name="ui_extra_120" formatted="false">"Max (همهٔ نتایج)"</string>
+    <string name="ui_extra_121" formatted="false">"\nمهلت تست: "</string>
+    <string name="ui_extra_122" formatted="false">"شبکهٔ کند"</string>
+    <string name="ui_extra_123" formatted="false">"معمولی"</string>
+    <string name="ui_extra_124" formatted="false">"\nفهرست داخلی: "</string>
+    <string name="ui_extra_125" formatted="false">" آدرس؛ نمونهٔ ۲۰۲۶-۱۰-۱۲، تست‌نشده"</string>
+    <string name="ui_extra_126" formatted="false">"\nبررسی: "</string>
+    <string name="ui_extra_127" formatted="false">"\nTCP پاسخ داد: "</string>
+    <string name="ui_extra_128" formatted="false">"\nپروکسی پاسخ داد: "</string>
+    <string name="ui_extra_129" formatted="false">"\nحداقل یک سرویس تأیید شد: "</string>
+    <string name="ui_extra_130" formatted="false">"\n\nعلت شکست تست‌ها:\n"</string>
+    <string name="ui_extra_131" formatted="false">"\nهیچ‌کدام از تلگرام، یوتیوب یا اینستاگرام تأیید نشد. از این نتیجه به‌تنهایی نمی‌شود خرابی سرورها را از محدودیت شبکه جدا کرد.\n"</string>
+    <string name="ui_extra_132" formatted="false">"\nوضعیت منابع:\n"</string>
+    <string name="ui_extra_133" formatted="false">"\nتلگرام، یوتیوب و اینستاگرام همگی آزمایش می‌شوند. حداقل یک پاسخ ۲۰۰ تا ۳۹۹ با گواهی معتبر لازم است. تأیید UDP فقط پذیرش فرمان است."</string>
+    <string name="ui_extra_134" formatted="false">"تنظیمات تست تغییر کرده؛ اسکن را از ابتدا شروع کن"</string>
+    <string name="ui_extra_135" formatted="false">"اسکن "</string>
+    <string name="ui_extra_136" formatted="false">"کامل"</string>
+    <string name="ui_extra_137" formatted="false">"ناتمام"</string>
+    <string name="ui_error_000" formatted="false">"این نسخه فقط پروکسی با TLS معتبر را می‌پذیرد"</string>
+    <string name="ui_error_001" formatted="false">"مهلت اتصال TCP تمام شد"</string>
+    <string name="ui_error_002" formatted="false">"اتصال TCP رد شد"</string>
+    <string name="ui_error_003" formatted="false">"پاسخ پروکسی نرسید"</string>
+    <string name="ui_error_004" formatted="false">"نیاز به نام کاربری یا رمز"</string>
+    <string name="ui_error_005" formatted="false">"پروتکل پروکسی معتبر نیست"</string>
+    <string name="ui_error_006" formatted="false">"پروکسی مقصد را نپذیرفت"</string>
+    <string name="ui_error_007" formatted="false">"مهلت HTTPS تمام شد"</string>
+    <string name="ui_error_008" formatted="false">"خطای TLS یا گواهی"</string>
+    <string name="ui_error_009" formatted="false">"پاسخ HTTPS معتبر نبود"</string>
+    <string name="ui_error_010" formatted="false">"HTTPS تأیید شد"</string>
+    <string name="ui_error_011" formatted="false">"خطای ارتباط یا قطع اتصال"</string>
+    <string name="ui_error_012" formatted="false">"شبکهٔ تست در دسترس نیست"</string>
+    <string name="ui_error_013" formatted="false">"تست متوقف شد"</string>
+    <string name="ui_error_014" formatted="false">"سرور تست پاسخ معتبر نداد"</string>
+    <string name="ui_error_015" formatted="false">"پاسخ فشرده برای تست سرعت پذیرفته نشد"</string>
+    <string name="ui_error_016" formatted="false">"شبکهٔ تست تغییر کرد؛ تست را دوباره اجرا کن"</string>
+    <string name="ui_error_017" formatted="false">"داده‌ای برای اندازه‌گیری نرسید"</string>
+    <string name="ui_error_018" formatted="false">"مهلت تست تمام شد"</string>
+    <string name="ui_error_019" formatted="false">"آزمون HTTPS از داخل شبکهٔ VPN:\n"</string>
+    <string name="ui_error_020" formatted="false">"پاسخ نرسید"</string>
+    <string name="ui_error_021" formatted="false">": تأیید شد\n"</string>
+    <string name="ui_controls_000" formatted="false">"اتصال"</string>
+    <string name="ui_controls_001" formatted="false">"لغو"</string>
+    <string name="ui_controls_002" formatted="false">"در حال اسکن"</string>
+    <string name="ui_controls_003" formatted="false">"متصل"</string>
+    <string name="ui_controls_004" formatted="false">"در حال اتصال"</string>
+    <string name="ui_controls_005" formatted="false">"لغو اتصال"</string>
+    <string name="ui_controls_006" formatted="false">"اسکن و اتصال خودکار"</string>
+    <string name="ui_controls_007" formatted="false">"برنامه"</string>
+    <string name="ui_controls_008" formatted="false">"اسکن و اتصال خودکار با فیلتر انتخابی"</string>
+</resources>

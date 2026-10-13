@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">PersianSocks</string>
+    <string name="widget_description">Automatically scan and connect to a proxy matching the selected filter</string>
+</resources>

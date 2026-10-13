@@ -44,7 +44,7 @@ public final class QuickControls {
             activity.startService(new Intent(activity,ProxyVpnService.class).setAction(ProxyVpnService.DISCONNECT));
             return;
         }
-        if(!VpnDisclosure.accepted(activity))throw new IllegalStateException("ابتدا اجازهٔ عبور ترافیک از VPN را تأیید کن");
+        if(!VpnDisclosure.accepted(activity))throw new IllegalStateException(AppLanguage.t(R.string.ui_extra_000));
         ensureCatalog(activity);
 
         Intent intent=new Intent(activity,ProxyVpnService.class);
@@ -71,17 +71,17 @@ public final class QuickControls {
                 StatusBarManager manager=activity.getSystemService(StatusBarManager.class);
                 manager.requestAddTileService(new ComponentName(activity,VpnTileService.class),"PersianSocks",
                     Icon.createWithResource(activity,R.drawable.ic_qs_vpn),activity.getMainExecutor(),result->{
-                        String message=result==StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED?"دکمه به پنل سریع اضافه شد":
-                            result==StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED?"دکمه قبلاً اضافه شده":
-                            "از بخش ویرایش پنل سریع، PersianSocks را اضافه کن";
+                        String message=result==StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED?AppLanguage.t(R.string.ui_extra_001):
+                            result==StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED?AppLanguage.t(R.string.ui_extra_002):
+                            AppLanguage.t(R.string.ui_extra_003);
                         Toast.makeText(activity,message,Toast.LENGTH_LONG).show();
                     });
                 return;
             }catch(Exception error){android.util.Log.w("PersianSocks","Add tile",error);}
         }
-        new AlertDialog.Builder(activity, R.style.AppDialogTheme).setTitle("افزودن به پنل سریع")
-            .setMessage("پنل بالای گوشی را کامل باز کن، ویرایش دکمه‌ها را بزن و PersianSocks را به دکمه‌های فعال بکش.")
-            .setPositiveButton("باشه",null).show();
+        new AlertDialog.Builder(activity, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_extra_004))
+            .setMessage(AppLanguage.t(R.string.ui_extra_005))
+            .setPositiveButton(AppLanguage.t(R.string.ui_extra_006),null).show();
     }
     public static void requestWidget(Activity activity) {
         AppWidgetManager manager=activity.getSystemService(AppWidgetManager.class);
@@ -89,8 +89,8 @@ public final class QuickControls {
             if(manager.isRequestPinAppWidgetSupported()&&manager.requestPinAppWidget(
                 new ComponentName(activity,VpnWidgetProvider.class),null,null))return;
         }catch(Exception error){android.util.Log.w("PersianSocks","Pin widget",error);}
-        new AlertDialog.Builder(activity, R.style.AppDialogTheme).setTitle("افزودن ویجت")
-            .setMessage("روی جای خالی صفحهٔ اصلی نگه دار، ویجت‌ها را باز کن و ویجت PersianSocks را انتخاب کن.")
-            .setPositiveButton("باشه",null).show();
+        new AlertDialog.Builder(activity, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_extra_007))
+            .setMessage(AppLanguage.t(R.string.ui_extra_008))
+            .setPositiveButton(AppLanguage.t(R.string.ui_extra_006),null).show();
     }
 }
