@@ -30,7 +30,8 @@ public final class PreparedScanner {
         final int index; final Socks5Probe.Result result;
         Completed(int index, Socks5Probe.Result result) { this.index = index; this.result = result; }
     }
-    private static volatile boolean connecting;
+    private static volatile boolean connecting,foreground;
+    public static void foreground(boolean value){foreground=value;}
     private static final java.util.concurrent.atomic.AtomicInteger active=new java.util.concurrent.atomic.AtomicInteger();
     public static void connectionPending(boolean value){connecting=value;}
     private volatile Run current;
@@ -92,7 +93,7 @@ public final class PreparedScanner {
     private static void submit(CompletionService<Completed> tasks, Run run, Probe probe, int index) {
         tasks.submit(() -> {
             boolean entered=false;
-            try{while(!run.cancelled.get()) {int n=active.get();if(n<(connecting?4:24)&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
+            try{while(!run.cancelled.get()) {int n=active.get();if(n<(connecting?4:foreground?24:8)&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
                 return new Completed(index,entered?probe.inspect(run.state.candidate(index),run.state.slow,run.cancelled,run.sockets):new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false));
             }finally{if(entered)active.decrementAndGet();}
         });

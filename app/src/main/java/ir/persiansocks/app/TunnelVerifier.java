@@ -53,10 +53,10 @@ public final class TunnelVerifier {
                     java.util.Arrays.sort(addresses,(a,b)->Integer.compare(a instanceof Inet4Address?0:1,b instanceof Inet4Address?0:1));
                     for(int i=0;i<Math.min(addresses.length,quick?1:2)&&!cancelled.get();i++) {
                         Socket socket=transport.create();active.add(socket);
-                        ScheduledFuture<?> budget=deadlines.schedule(()->{try{socket.close();}catch(Exception ignored){}},quick?7:13,TimeUnit.SECONDS);
+                        ScheduledFuture<?> budget=deadlines.schedule(()->{try{socket.close();}catch(Exception ignored){}},quick?7:30,TimeUnit.SECONDS);
                         try(Socket owned=socket) {
                             socket.connect(new InetSocketAddress(addresses[i],443),quick?3000:5000);
-                            ServiceTargets.exchange(socket,target,quick?4000:6000);success=true;break;
+                            ServiceTargets.exchange(socket,target,quick?4000:25000);success=true;break;
                         }catch(Exception ex){error=ex.getClass().getSimpleName()+": "+String.valueOf(ex.getMessage());}
                         finally{budget.cancel(false);active.remove(socket);}
                     }

@@ -109,6 +109,7 @@ public final class MainActivity extends Activity {
     private CheckBox sidebarTls,sidebarAuto;
     private Button sidebarScan;
     private Button sidebarToggle, sidebarClose;
+    private volatile boolean foregroundVisible=true;
     private AppUpdater appUpdater;
     private SiteIcons siteIcons;
     private FrameLayout page, sidebarOverlay;
@@ -192,7 +193,7 @@ public final class MainActivity extends Activity {
             requestPermissions(new String[]{ Manifest.permission.POST_NOTIFICATIONS }, 18);
     }
     @Override protected void onStart() {
-        super.onStart();ui.removeCallbacks(ipTicker);ui.post(ipTicker);
+        super.onStart();foregroundVisible=true;PreparedScanner.foreground(true);ui.removeCallbacks(ipTicker);ui.post(ipTicker);
         ScanInputs.initializePolicy(this);
         IntentFilter f = new IntentFilter(ProxyVpnService.STATE);
         registerReceiver(vpnState, f, ProxyVpnService.INTERNAL_PERMISSION, null, Context.RECEIVER_NOT_EXPORTED);
@@ -204,8 +205,10 @@ public final class MainActivity extends Activity {
         updateTraffic();
         QuickControls.refresh(this,true);
         if(appUpdater!=null)appUpdater.start();
+        if(scanning&&checkpoint!=null){status.setText(AppLanguage.t(R.string.ui_125)+checkpoint.done()+AppLanguage.t(R.string.ui_017)+checkpoint.total()+AppLanguage.t(R.string.ui_126)+checkpoint.goodCount());scanProgress.setProgress((int)(100L*checkpoint.done()/Math.max(1,checkpoint.total())));}
+        render();
     }
-    @Override protected void onStop() { ui.removeCallbacks(ipTicker);if(ipCheck!=null){ipCheck.cancel();ipCheck=null;ipRoute="";}super.onStop(); unregisterReceiver(vpnState); }
+    @Override protected void onStop() { foregroundVisible=false;PreparedScanner.foreground(false);ui.removeCallbacks(ipTicker);if(ipCheck!=null){ipCheck.cancel();ipCheck=null;ipRoute="";}super.onStop(); unregisterReceiver(vpnState); }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putBoolean("sidebar-open", sidebarVisible);
         super.onSaveInstanceState(state);
@@ -723,9 +726,11 @@ public final class MainActivity extends Activity {
     }
     private void selectBest() { userSelected=false; renderedRevision=-1; scheduleRender(); }
     private void scheduleRender() {
+        if(!foregroundVisible)return;
         if(redrawQueued.compareAndSet(false,true))ui.postDelayed(()->{redrawQueued.set(false);if(!isDestroyed())render();},1000);
     }
     private void updateActions() {
+        if(!foregroundVisible)return;
         if (scanToggle == null) return;
         boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto;
         scanToggle.setText(AppLanguage.display(anyScan ? AppLanguage.t(R.string.ui_087) : AppLanguage.t(R.string.ui_015)));
@@ -857,7 +862,7 @@ public final class MainActivity extends Activity {
                     healthy.reject(work.candidate(index).key(),work.finishedAt(index));
             }
             public void onProgress(int done,int total,int good){ui.post(()->{
-                if(!scanning||token!=scanGeneration||isDestroyed())return;
+                if(!scanning||token!=scanGeneration||isDestroyed()||!foregroundVisible)return;
                 status.setText(AppLanguage.t(R.string.ui_125)+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_126)+good);
                 scanProgress.setProgress(total==0?0:(int)(100L*done/total));
                 scanReport=work.mode+"\n"+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_127)+good;scheduleRender();});}
@@ -939,7 +944,7 @@ public final class MainActivity extends Activity {
         return speeds;
     }
     private void render() {
-        if(results==null||isDestroyed())return;
+        if(results==null||isDestroyed()||!foregroundVisible)return;
         testResults.keySet().removeIf(key->healthy.rejected(key)&&!favorites.containsKey(key));
         manual.removeIf(p->healthy.rejected(p.key()));
         if(selected!=null&&healthy.rejected(selected.key())&&!favorites.containsKey(selected.key())){selected=null;userSelected=false;}
