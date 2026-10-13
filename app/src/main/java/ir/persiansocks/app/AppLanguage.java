@@ -20,6 +20,9 @@ public final class AppLanguage {
     public static String code(Context context) { return "en".equals(context.getSharedPreferences("persiansocks",0).getString("app-language","fa"))?"en":"fa"; }
     public static Locale locale() { return new Locale(application==null?"fa":code(application)); }
     public static int direction() { return "en".equals(locale().getLanguage())?View.LAYOUT_DIRECTION_LTR:View.LAYOUT_DIRECTION_RTL; }
+    public static int gravity() { return direction()==View.LAYOUT_DIRECTION_RTL?android.view.Gravity.RIGHT:android.view.Gravity.LEFT; }
+    public static int textDirection() { return direction()==View.LAYOUT_DIRECTION_RTL?View.TEXT_DIRECTION_RTL:View.TEXT_DIRECTION_LTR; }
+    public static String isolate(String value) { return "\u2066"+value+"\u2069"; }
     private static Context withLocale(Context context, String code) {
         Configuration config=new Configuration(context.getResources().getConfiguration());
         Locale locale=new Locale(code);config.setLocales(new LocaleList(locale));config.setLayoutDirection(locale);

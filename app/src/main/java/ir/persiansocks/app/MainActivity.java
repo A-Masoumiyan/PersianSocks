@@ -236,6 +236,8 @@ public final class MainActivity extends Activity {
         root.setLayoutDirection(AppLanguage.direction());
         scroller.addHeaderView(root,null,false);
         page.addView(scroller, new FrameLayout.LayoutParams(-1, -1));
+        page.setLayoutDirection(AppLanguage.direction());
+        scroller.setLayoutDirection(AppLanguage.direction());
         setContentView(page);
         page.setOnApplyWindowInsetsListener((v, insets) -> {
             int left, top, right, bottom;
@@ -258,9 +260,10 @@ public final class MainActivity extends Activity {
         sidebarToggle.setOnClickListener(v -> setSidebarVisible(!sidebarVisible));
         top.addView(sidebarToggle, new LinearLayout.LayoutParams(dp(48), dp(48)));
         LinearLayout title = new LinearLayout(this); title.setOrientation(LinearLayout.VERTICAL);
+        title.setLayoutDirection(AppLanguage.direction());title.setGravity(AppLanguage.gravity());
         TextView brand = text("PersianSocks", 22, Color.WHITE, true);
         brand.setTextDirection(View.TEXT_DIRECTION_LTR);
-        title.addView(brand);
+        title.addView(brand,new LinearLayout.LayoutParams(-1,-2));
         title.addView(text("v" + AppLanguage.version(this) + (DistributionPolicy.play() ? " • TLS" : ""), 11, SECONDARY, false));
         LinearLayout.LayoutParams titleCell = new LinearLayout.LayoutParams(0, -2, 1);
         titleCell.setMarginStart(dp(10)); top.addView(title, titleCell);
@@ -391,16 +394,18 @@ public final class MainActivity extends Activity {
 
     private LinearLayout metricColumn(String label) {
         LinearLayout column = new LinearLayout(this); column.setOrientation(LinearLayout.VERTICAL);
+        column.setLayoutDirection(AppLanguage.direction());column.setGravity(AppLanguage.gravity());
         column.addView(text(label, 11, SECONDARY, false)); return column;
     }
     private LinearLayout filterColumn(String label, Button choice) {
         LinearLayout column = new LinearLayout(this); column.setOrientation(LinearLayout.VERTICAL);
+        column.setLayoutDirection(AppLanguage.direction());column.setGravity(AppLanguage.gravity());
         column.addView(text(label, 11, SECONDARY, false)); column.addView(choice, sized(dp(48), dp(4)));
         return column;
     }
     private Button dropdownButton(String label, String description) {
         Button choice = button(label + "  ▾", false); choice.setTextSize(13);
-        choice.setGravity(Gravity.START | Gravity.CENTER_VERTICAL); choice.setPadding(dp(12), 0, dp(12), 0);
+        choice.setGravity(AppLanguage.gravity() | Gravity.CENTER_VERTICAL); choice.setPadding(dp(12), 0, dp(12), 0);
         choice.setSingleLine(true); choice.setEllipsize(android.text.TextUtils.TruncateAt.END);
         choice.setContentDescription(description); return choice;
     }
@@ -408,6 +413,7 @@ public final class MainActivity extends Activity {
     private LinearLayout horizontal() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setLayoutDirection(AppLanguage.direction());
         row.setGravity(Gravity.CENTER_VERTICAL);
         return row;
     }
@@ -436,7 +442,7 @@ public final class MainActivity extends Activity {
         sidebar.setBackgroundColor(SURFACE); sidebar.setElevation(dp(16));
         sidebar.setClickable(true); // Consume taps inside the drawer, including empty space.
         // Physical RIGHT is intentional: END would place an RTL drawer on the left.
-        FrameLayout.LayoutParams drawerCell = new FrameLayout.LayoutParams(dp(320), -1, Gravity.START);
+        FrameLayout.LayoutParams drawerCell = new FrameLayout.LayoutParams(dp(320), -1, AppLanguage.gravity());
         sidebarOverlay.addView(sidebar, drawerCell);
         sidebarOverlay.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> {
             int width = Math.min(dp(320), Math.max(1, (int)((r-l)*.86f)));
@@ -482,7 +488,7 @@ public final class MainActivity extends Activity {
     }
     private Button sidebarAction(LinearLayout parent,String label,Runnable action) {
         Button choice = button(label,false); choice.setTextSize(13);
-        choice.setGravity(Gravity.START|Gravity.CENTER_VERTICAL); choice.setPadding(dp(12),0,dp(12),0);
+        choice.setGravity(AppLanguage.gravity()|Gravity.CENTER_VERTICAL); choice.setPadding(dp(12),0,dp(12),0);
         choice.setOnClickListener(v -> { setSidebarVisible(false); action.run(); });
         parent.addView(choice,sized(dp(48),dp(6)));return choice;
     }
@@ -967,7 +973,7 @@ public final class MainActivity extends Activity {
         protocolButton.setContentDescription(AppLanguage.t(R.string.ui_143) + kindLabel);
         protocolButton.setTextColor(protocol == ProxyResults.Protocol.ALL ? Color.WHITE : PRIMARY);
         protocolButton.setBackground(background(SURFACE, dp(12), protocol == ProxyResults.Protocol.ALL ? STROKE : Color.rgb(44, 100, 91)));
-        pingButton.setText(AppLanguage.t(R.string.ui_144)+(pingLimit==ProxyResults.PingLimit.NONE?AppLanguage.t(R.string.ui_145):AppLanguage.display(pingLimit.label).replace(AppLanguage.t(R.string.ui_146),"ms"))+"  ▾");
+        pingButton.setText(AppLanguage.t(R.string.ui_144)+(pingLimit==ProxyResults.PingLimit.NONE?AppLanguage.t(R.string.ui_145):AppLanguage.display(pingLimit.label))+"  ▾");
         pingButton.setContentDescription(AppLanguage.t(R.string.ui_147) + AppLanguage.display(pingLimit.label));
         pingButton.setTextColor(pingLimit == ProxyResults.PingLimit.NONE ? Color.WHITE : PRIMARY);
         pingButton.setBackground(background(SURFACE,dp(12),pingLimit == ProxyResults.PingLimit.NONE ? STROKE : Color.rgb(44,100,91)));
@@ -1089,7 +1095,7 @@ public final class MainActivity extends Activity {
             favoriteButton.setContentDescription(showFavorites?AppLanguage.t(R.string.ui_135):saved?AppLanguage.t(R.string.ui_166):AppLanguage.t(R.string.ui_167));
             row.setContentDescription(p.address()+AppLanguage.t(R.string.ui_168));
             String country=p.countryCode.isEmpty()?CountryLookup.lookup(p.host):p.countryCode;
-            detail.setText(AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())+"  •  "+p.type.name()));detail.setTextColor(active?PRIMARY:SECONDARY);
+            detail.setText(AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())+"  •  "+AppLanguage.isolate(p.type.name())));detail.setTextColor(active?PRIMARY:SECONDARY);
             String shape=ScanCheckpoint.fingerprint();
             if(!shape.equals(targetSet)){
                 targetSet=shape;services.removeAllViews();serviceViews.clear();LinearLayout line=null;int count=0;
@@ -1349,8 +1355,8 @@ public final class MainActivity extends Activity {
         TrafficMeter.Snapshot t=ProxyVpnService.traffic(this);
         trafficDown.setText(TrafficMeter.bytes(t.downPerSecond)+"/s");
         trafficUp.setText(TrafficMeter.bytes(t.upPerSecond)+"/s");
-        trafficDownTotal.setText(AppLanguage.t(R.string.ui_236)+TrafficMeter.bytes(t.downloaded));
-        trafficUpTotal.setText(AppLanguage.t(R.string.ui_236)+TrafficMeter.bytes(t.uploaded));
+        trafficDownTotal.setText(AppLanguage.t(R.string.ui_236)+AppLanguage.isolate(TrafficMeter.bytes(t.downloaded)));
+        trafficUpTotal.setText(AppLanguage.t(R.string.ui_236)+AppLanguage.isolate(TrafficMeter.bytes(t.uploaded)));
     }
     private boolean prepareSingleTest(ProxyEndpoint proxy) {
         if (proxy == null) { Toast.makeText(this, AppLanguage.t(R.string.ui_237), Toast.LENGTH_SHORT).show(); return false; }
@@ -1518,7 +1524,7 @@ public final class MainActivity extends Activity {
     }
     private static String isolated(String value) { return "\u2066" + value + "\u2069"; }
     private LinearLayout resultColumn(String label,TextView value){
-        LinearLayout pair=horizontal();pair.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
+        LinearLayout pair=horizontal();pair.setGravity(AppLanguage.gravity()|Gravity.CENTER_VERTICAL);
         pair.addView(text(label,10,SECONDARY,false));LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(-2,-2);cell.setMarginStart(dp(4));pair.addView(value,cell);return pair;
     }
 
@@ -1528,7 +1534,7 @@ public final class MainActivity extends Activity {
     }
     private void setMetricValue(TextView text, String value) {
         boolean number = value.contains("MB/s") || value.endsWith(" ms");
-        text.setTextSize(number ? 13 : 11); text.setTextDirection(number ? View.TEXT_DIRECTION_LTR : View.TEXT_DIRECTION_RTL);
+        text.setTextSize(number ? 13 : 11); text.setTextDirection(number ? View.TEXT_DIRECTION_LTR : AppLanguage.textDirection());
         text.setText(AppLanguage.display(value));
     }
     private void loadTestResults() {
@@ -1580,6 +1586,7 @@ public final class MainActivity extends Activity {
     private LinearLayout panel() {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
+        c.setLayoutDirection(AppLanguage.direction());
         c.setPadding(dp(18), dp(18), dp(18), dp(18));
         c.setBackground(background(SURFACE, dp(20), STROKE));
         return c;
@@ -1587,8 +1594,10 @@ public final class MainActivity extends Activity {
     private TextView text(String s, int size, int color, boolean bold) {
         TextView t = new TextView(this);
         t.setText(AppLanguage.display(s)); t.setTextSize(size); t.setTextColor(color);
-        t.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-        t.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+        t.setGravity(AppLanguage.gravity() | Gravity.CENTER_VERTICAL);
+        t.setLayoutDirection(AppLanguage.direction());
+        t.setTextAlignment(View.TEXT_ALIGNMENT_GRAVITY);
+        t.setTextDirection(AppLanguage.textDirection());
         t.setFontFeatureSettings("kern");
         t.setLineSpacing(dp(2), 1);
         if (bold) t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);

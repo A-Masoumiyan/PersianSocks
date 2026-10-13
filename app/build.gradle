@@ -8,8 +8,8 @@ android {
         buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(project.findProperty('privacyPolicyUrl') ?: '')
         minSdk 29
         targetSdk 36
-        versionCode 25
-        versionName '0.24.0'
+        versionCode 26
+        versionName '0.24.1'
     }
     buildFeatures { buildConfig true }
     flavorDimensions 'distribution'
