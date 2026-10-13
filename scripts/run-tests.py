@@ -14,7 +14,7 @@ a=p.parse_args()
 root=Path(__file__).resolve().parents[1]
 subprocess.run([sys.executable,str(root/'tests/check-localization.py')],check=True)
 jdk=Path(a.jdk).resolve();json=Path(a.json).resolve()
-names=['DnsMessage','IconPolicy','UpdateRelease','ProbeFailurePolicy','PublicIpEvidence','ProxyEndpoint','ProxyTransport','ProxyResults','ServiceTargets','CountryLookup','Socks5Probe','ProxyScanner',
+names=['IconRetryPolicy','DnsMessage','IconPolicy','UpdateRelease','ProbeFailurePolicy','PublicIpEvidence','ProxyEndpoint','ProxyTransport','ProxyResults','ServiceTargets','CountryLookup','Socks5Probe','ProxyScanner',
     'SourceCatalog','ProtectedSocksGateway','TunnelVerifier','AutoScanSelection','FailoverPolicy','QuickControlState','TrafficMeter','DownloadSpeedTest','DistributionPolicy','SingleProxyTest','ProxyHttpConnection','ProxyTestResult','ScanCheckpoint','ScanFiles','PreparedScanner','ProxyIndex','ProxyCacheFile','SplitTunnelPolicy','FilteredSpeedBatch']
 with tempfile.TemporaryDirectory(prefix='persiansocks-tests-') as tmp:
     work=Path(tmp);classes=work/'classes';classes.mkdir();tls=work/'tls.p12'

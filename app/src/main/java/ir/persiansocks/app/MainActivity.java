@@ -74,7 +74,7 @@ public final class MainActivity extends Activity {
     private PublicIpCheck ipCheck;
     private String ipRoute="";
     private long ipCheckedAt;
-    private final Runnable ipTicker=new Runnable(){public void run(){if(isDestroyed())return;refreshPublicIp(false);ui.postDelayed(this,15000);}};
+    private final Runnable ipTicker=new Runnable(){public void run(){if(isDestroyed())return;refreshPublicIp(false);if(siteIcons!=null)siteIcons.sync();ui.postDelayed(this,15000);}};
     private LinearLayout filterRow, limitRow;
     private ProxyEndpoint selected;
     private ListView results;
@@ -155,7 +155,7 @@ public final class MainActivity extends Activity {
             if(intent.hasExtra("connection-error"))connectionError=intent.getStringExtra("connection-error");
             if(connectionError==null)connectionError="";
             if(state!=null&&auto)status.setText(AppLanguage.display(state));
-            updateActions();updateTraffic();
+            updateActions();updateTraffic();if(siteIcons!=null)siteIcons.sync();
         }
     };
 

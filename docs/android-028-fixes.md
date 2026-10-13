@@ -34,3 +34,9 @@ Primary references:
 - https://github.com/heiher/hev-socks5-tunnel/discussions/246 (maintainer explanation of passing domains using mapped DNS)
 
 The 0.28.1 final pass caps scanning to eight workers when MainActivity is not foregrounded, skips offscreen renders/UI action refreshes, and refreshes progress on foreground return. Scanning continues, using the same probes/timeouts. A controlled concurrency harness verifies foreground, background and VPN-setup caps; this is not a device thermal/battery measurement.
+
+### 0.28.1 domain icon recovery
+
+Failed icon requests no longer block that hostname for the rest of the session. Missing icons retry after one minute, or immediately when the network/verified proxy route changes. One low-priority worker is used, with no duplicate queued passes; successful cached icons are not downloaded again. The app can fetch the actual site's HTML and declared CDN favicon using a proxy that passed that target (or the connected endpoint), with the same HTTPS certificate checks. A direct request remains a fallback for icon data only, never for VPN verification. Large HTML pages retain the first 128 KiB for favicon extraction instead of discarding the page. Gzip responses are decoded with the same decompressed size bounds; incomplete scripts/comments cannot supply icon links. Deleted domains lose cache and retry state.
+
+Host tests include cooldown, new route, removal/re-addition, truncated HTML and large page handling (23 DNS/icon checks). Live HTTPS fetching returned actual Telegram PNG, YouTube ICO, Instagram WebP and Facebook ICO. Android screen rendering and this user's network have not been exercised on a phone.
