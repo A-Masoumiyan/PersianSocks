@@ -108,6 +108,7 @@ public final class MainActivity extends Activity {
     private CheckBox sidebarTls,sidebarAuto;
     private Button sidebarScan;
     private Button sidebarToggle, sidebarClose;
+    private AppUpdater appUpdater;
     private FrameLayout page, sidebarOverlay;
     private View mainScroller;
     private LinearLayout sidebar;
@@ -199,6 +200,7 @@ public final class MainActivity extends Activity {
         updateActions();
         updateTraffic();
         QuickControls.refresh(this,true);
+        if(appUpdater!=null)appUpdater.start();
     }
     @Override protected void onStop() { ui.removeCallbacks(ipTicker);if(ipCheck!=null){ipCheck.cancel();ipCheck=null;ipRoute="";}super.onStop(); unregisterReceiver(vpnState); }
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -214,6 +216,7 @@ public final class MainActivity extends Activity {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(sidebarBack);
             sidebarBack = null;
         }
+        if(appUpdater!=null)appUpdater.close();
         if(ipCheck!=null)ipCheck.cancel();
         stopFilteredSpeed();
         cancelSingleTests();
@@ -461,10 +464,12 @@ public final class MainActivity extends Activity {
         });
         LinearLayout heading = horizontal();
         heading.addView(text(AppLanguage.t(R.string.ui_034), 17, Color.WHITE, true), new LinearLayout.LayoutParams(0,-2,1));
-        sidebarClose = button(AppLanguage.t(R.string.ui_035), false);
+        Button update=button(AppLanguage.t(R.string.ui_update_000),false);update.setTextSize(11);heading.addView(update,new LinearLayout.LayoutParams(dp(96),dp(48)));
+        appUpdater=new AppUpdater(this,update);
+        sidebarClose = button("×", false);sidebarClose.setTextSize(25);
         sidebarClose.setContentDescription(AppLanguage.t(R.string.ui_036));
         sidebarClose.setOnClickListener(v -> setSidebarVisible(false));
-        LinearLayout.LayoutParams closeCell = new LinearLayout.LayoutParams(dp(82),dp(48));
+        LinearLayout.LayoutParams closeCell = new LinearLayout.LayoutParams(dp(48),dp(48));
         closeCell.setMarginStart(dp(8)); heading.addView(sidebarClose, closeCell);
         sidebar.addView(heading);
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(false);

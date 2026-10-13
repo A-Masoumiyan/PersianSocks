@@ -1,6 +1,6 @@
 # وضعیت امنیت و ثبت Google — ۱۳ اکتبر ۲۰۲۶
 
-نسخهٔ امنیتی 0.26.0، versionCode 28، بستهٔ `ir.persiansocks.app`، minSdk 29 و targetSdk 36 است. این نسخهٔ personal را نباید تأییدشدهٔ Google Play یا دارای تضمین حذف درخواست اسکن معرفی کرد.
+نسخهٔ فعلی 0.27.0، versionCode 29، بستهٔ `ir.persiansocks.app`، minSdk 29 و targetSdk 36 است. این نسخهٔ personal را نباید تأییدشدهٔ Google Play یا دارای تضمین حذف درخواست اسکن معرفی کرد.
 
 ## تفاوت پیام‌ها
 
@@ -42,3 +42,5 @@ SHA-256 گواهی: `1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee6
 - https://developer.android.com/developer-verification/guides/faq
 
 این مسیر تضمین «بدون اسکن برای همهٔ کاربران» ندارد؛ نتیجهٔ امنِ یک اسکن نیز تأیید دائمی همهٔ نسخه‌های بعدی نیست.
+
+نسخهٔ personal برای آپدیت درون برنامه REQUEST_INSTALL_PACKAGES دارد و فقط با اقدام کاربر فایل بررسی‌شده را به نصب‌کنندهٔ اندروید می‌دهد؛ این مجوز و provider در پروفایل Play حذف می‌شوند. شرح: [in-app-updates.md](docs/in-app-updates.md).
