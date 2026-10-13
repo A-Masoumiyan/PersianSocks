@@ -177,8 +177,9 @@ public final class MainActivity extends Activity {
         super.onStart();
         ScanInputs.initializePolicy(this);
         IntentFilter f = new IntentFilter(ProxyVpnService.STATE);
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(vpnState, f, Context.RECEIVER_NOT_EXPORTED);
-        else registerReceiver(vpnState, f);
+        // This overload exists since API 26. The signature permission protects older OS versions
+        // that ignore the inlined NOT_EXPORTED flag; Android 13+ enforces both protections.
+        registerReceiver(vpnState, f, ProxyVpnService.INTERNAL_PERMISSION, null, Context.RECEIVER_NOT_EXPORTED);
         vpnRequestPending = false;
         observedAutoScan=ProxyVpnService.autoScanning();
         if(!scanning)reloadSaved();

@@ -6,6 +6,7 @@ def releasePassword = rootProject.file('signing/password.txt')
 android {
     namespace 'ir.persiansocks.app'
     compileSdk 36
+    buildToolsVersion '35.0.0'
     defaultConfig {
         applicationId 'ir.persiansocks.app'
         buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(project.findProperty('privacyPolicyUrl') ?: '')
@@ -77,6 +78,16 @@ def verifyRelease = tasks.register('verifyReleaseInputs') {
 tasks.configureEach {
     if (name == 'preBuild') dependsOn verifyNative
     if (name.matches('pre.*ReleaseBuild')) dependsOn verifyRelease
+}
+def verifyPlayPermission = tasks.register('verifyPlayPermissionApproval') {
+    doLast {
+        if (project.findProperty('playQueryAllPackagesApproved') != 'true') {
+            throw new GradleException('Play release requires confirmed QUERY_ALL_PACKAGES approval; supply playQueryAllPackagesApproved=true only after Google approval')
+        }
+    }
+}
+tasks.configureEach {
+    if (name == 'prePlayReleaseBuild') dependsOn verifyPlayPermission
 }
 
 dependencies {

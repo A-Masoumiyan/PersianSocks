@@ -34,7 +34,12 @@ def verify_signing(root, jdk):
         raise RuntimeError('Signing certificate differs from the pinned official release certificate')
     return key, password
 
-def verify_inputs(root, jdk, policy_url):
+def verify_play_permission(profile, approved):
+    if profile == 'play' and not approved:
+        raise RuntimeError('Play release requires confirmed QUERY_ALL_PACKAGES approval from Google')
+
+def verify_inputs(root, jdk, policy_url, profile='personal', play_permission_approved=False):
+    verify_play_permission(profile, play_permission_approved)
     verify_signing(root, jdk)
     validate_privacy_url(policy_url)
     verify_native(root)

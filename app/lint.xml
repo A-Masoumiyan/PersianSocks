@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Preserve complete installed-app selection. Keep the policy finding visible:
+         Play releases are separately blocked until permission approval is attested.
+         See docs/android-security-review-2026-10-13.md. -->
+    <issue id="QueryAllPackagesPermission" severity="warning" />
+</lint>

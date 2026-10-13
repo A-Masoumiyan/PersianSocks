@@ -14,8 +14,8 @@ public final class VpnTileService extends TileService {
         super.onStartListening();
         if(!listening){
             IntentFilter filter=new IntentFilter(ProxyVpnService.STATE);
-            if(Build.VERSION.SDK_INT>=33)registerReceiver(changes,filter,Context.RECEIVER_NOT_EXPORTED);
-            else registerReceiver(changes,filter);
+            // Signature permission protects API 29-32; NOT_EXPORTED additionally applies on 33+.
+            registerReceiver(changes,filter,ProxyVpnService.INTERNAL_PERMISSION,null,Context.RECEIVER_NOT_EXPORTED);
             listening=true;
         }
         updateTile();
@@ -46,7 +46,12 @@ public final class VpnTileService extends TileService {
     }
     private void openCommand(){
         if(Build.VERSION.SDK_INT>=34)startActivityAndCollapse(QuickControls.command(this,QuickControls.TOGGLE,411));
-        else startActivityAndCollapse(new Intent(this,ControlActivity.class).setAction(QuickControls.TOGGLE)
+        else openLegacyCommand();
+    }
+    // The PendingIntent overload only exists on API 34+. Older OS versions still need Intent.
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
+    private void openLegacyCommand(){
+        startActivityAndCollapse(new Intent(this,ControlActivity.class).setAction(QuickControls.TOGGLE)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS));
     }
 }

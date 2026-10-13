@@ -17,6 +17,10 @@ spec=importlib.util.spec_from_file_location('release_security',root/'scripts/rel
 security=importlib.util.module_from_spec(spec);spec.loader.exec_module(security)
 
 class ReleaseSecurityTests(unittest.TestCase):
+    def test_play_release_without_permission_approval_is_refused(self):
+        with self.assertRaisesRegex(RuntimeError,'approval from Google'):
+            security.verify_play_permission('play',False)
+        security.verify_play_permission('personal',False)
     def test_missing_key_does_not_create_one(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(RuntimeError,'Original release key'):

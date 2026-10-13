@@ -35,6 +35,7 @@ public final class ProxyVpnService extends VpnService {
     public static final String DISCONNECT = "ir.persiansocks.app.DISCONNECT";
     public static final String SCAN_CONNECT = "ir.persiansocks.app.SCAN_CONNECT";
     public static final String STATE = "ir.persiansocks.app.STATE";
+    public static final String INTERNAL_PERMISSION = "ir.persiansocks.app.permission.INTERNAL_STATE";
     public static final String EXTRA_ENDPOINT = "endpoint";
     public static final String EXTRA_MESSAGE = "message";
     public static final String EXTRA_PHASE = "phase";
@@ -451,7 +452,7 @@ public final class ProxyVpnService extends VpnService {
         TrafficMeter.Snapshot t=trafficSnapshot;if(t==null)return;
         getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putLong("traffic-down",t.downloaded).putLong("traffic-up",t.uploaded).apply();
     }
-    private void publishTraffic(){sendBroadcast(new Intent(STATE).setPackage(getPackageName()).putExtra("traffic-only",true));}
+    private void publishTraffic(){sendBroadcast(new Intent(STATE).setPackage(getPackageName()).putExtra("traffic-only",true),INTERNAL_PERMISSION);}
     private void saveVpnReport(String report) {
         if (recoveryLog.length() > 0) report += "\n\nتعویض خودکار:\n" + recoveryLog;
         File log = new File(getFilesDir(), "native-tunnel.log");
@@ -606,7 +607,7 @@ public final class ProxyVpnService extends VpnService {
         phase = next;
         activeEndpoint = next == DISCONNECTED ? "" : current;
         Intent i = new Intent(STATE).setPackage(getPackageName()).putExtra(EXTRA_PHASE, phase).putExtra("connection-error",getSharedPreferences("persiansocks",MODE_PRIVATE).getString("connection-error",""));
-        sendBroadcast(i);
+        sendBroadcast(i,INTERNAL_PERMISSION);
         QuickControls.refresh(this,true);
     }
     private void clearConnectionError(){getSharedPreferences("persiansocks",MODE_PRIVATE).edit().remove("connection-error").apply();}
@@ -620,7 +621,7 @@ public final class ProxyVpnService extends VpnService {
         i.putExtra(EXTRA_MESSAGE, message);
         i.putExtra(EXTRA_PHASE, phase);i.putExtra("connection-error",getSharedPreferences("persiansocks",MODE_PRIVATE).getString("connection-error",""));
         if (profile != null) i.putExtra("verified-proxy", profile.json().toString());
-        sendBroadcast(i);
+        sendBroadcast(i,INTERNAL_PERMISSION);
         getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putString("state", message).apply();
         QuickControls.refresh(this,!autoScanning);
     }

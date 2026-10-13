@@ -18,6 +18,7 @@ p.add_argument('--sdk', required=True)
 p.add_argument('--jdk', required=True)
 p.add_argument('--aapt2', help='Optional Google Maven AAPT2 binary')
 p.add_argument('--unsigned', action='store_true', help='Diagnostic compilation only; never a publishable release')
+p.add_argument('--play-query-all-packages-approved', action='store_true', help='Attest Google permission approval; only after actual Play Console approval')
 a = p.parse_args()
 root = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('release_security', root / 'scripts/release-security.py')
@@ -25,7 +26,7 @@ security = importlib.util.module_from_spec(spec);spec.loader.exec_module(securit
 if a.unsigned:
     security.verify_native(root)
 else:
-    security.verify_inputs(root, Path(a.jdk).resolve(), a.privacy_policy_url)
+    security.verify_inputs(root, Path(a.jdk).resolve(), a.privacy_policy_url, a.profile, a.play_query_all_packages_approved)
 sdk, jdk = Path(a.sdk).resolve(), Path(a.jdk).resolve()
 bt = sdk / 'build-tools/35.0.0'
 gradle = (root / 'app/build.gradle').read_text()
@@ -41,7 +42,7 @@ for folder in ['generated', 'classes', 'dex']:
 config = work / 'generated/ir/persiansocks/app/BuildConfig.java'
 config.parent.mkdir(parents=True, exist_ok=True)
 config.write_text('package ir.persiansocks.app; public final class BuildConfig { public static final boolean PLAY_DISTRIBUTION = ' + ('true' if a.profile == 'play' else 'false') + '; public static final String PRIVACY_POLICY_URL = ' + json.dumps(a.privacy_policy_url) + '; }\n')
-(work / 'profile.json').write_text(json.dumps({'profile': a.profile, 'privacyPolicyUrl': a.privacy_policy_url}))
+(work / 'profile.json').write_text(json.dumps({'profile': a.profile, 'privacyPolicyUrl': a.privacy_policy_url, 'playPermissionApproved': a.play_query_all_packages_approved}))
 env = os.environ.copy()
 env['JAVA_HOME'] = str(jdk)
 env['PATH'] = str(jdk / 'bin') + os.pathsep + env['PATH']
