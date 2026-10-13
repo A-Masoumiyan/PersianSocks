@@ -96,10 +96,10 @@ public final class ProtocolTrafficHarness {
                 public boolean udp(DatagramSocket s){throw new AssertionError("HTTP has no UDP");}
                 public InetAddress resolve(String h)throws Exception{return InetAddress.getByName(h);}
             })){
-                ProxyEndpoint tunneled=Socks5Probe.check(new ProxyEndpoint("127.0.0.1",gate.port(),-1,false));
+                ProxyEndpoint tunneled=GatewayTestSupport.check(gate);
                 check(tunneled!=null&&tunneled.full()&&!tunneled.udpAdvertised&&protections.get()==3,"Native-style loopback SOCKS is relayed through protected "+server.endpoint().type);
                 try(Socket client=new Socket("127.0.0.1",gate.port())){
-                    client.setSoTimeout(2000);client.getOutputStream().write(new byte[]{5,1,0});client.getInputStream().readNBytes(2);
+                    client.setSoTimeout(2000);GatewayTestSupport.authenticate(client,gate);
                     client.getOutputStream().write(new byte[]{5,3,0,1,0,0,0,0,0,0});
                     byte[] reply=client.getInputStream().readNBytes(10);
                     check(reply.length==10&&reply[1]==7,"HTTP-family UDP association is explicitly rejected");

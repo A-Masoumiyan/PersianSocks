@@ -41,7 +41,7 @@ public final class OptionalTlsHarness {
         }
         DistributionPolicy.setUserTlsOnly(false);
         try(PlaySecurityHarness.EchoTlsProxy server=new PlaySecurityHarness.EchoTlsProxy("TLSv1.3");PlaySecurityHarness.WireTap tap=new PlaySecurityHarness.WireTap(server.listener.getLocalPort());ProtectedSocksGateway gate=new ProtectedSocksGateway(tap.endpoint(),PlaySecurityHarness.protector(new AtomicInteger()));Socket client=new Socket()){
-            PlaySecurityHarness.nativeConnect(client,gate.port(),"example.com",80);String marker="TLS-OFF-"+UUID.randomUUID();
+            PlaySecurityHarness.nativeConnect(client,gate,"example.com",80);String marker="TLS-OFF-"+UUID.randomUUID();
             client.getOutputStream().write(("GET /"+marker+" HTTP/1.1\r\nHost: example.com\r\n\r\n").getBytes(StandardCharsets.US_ASCII));client.getOutputStream().flush();
             check(PlaySecurityHarness.header(client.getInputStream()).startsWith("HTTP/1.1 200"),"Native-style gateway still supports encrypted proxy with optional mode off");
             check(server.payload.get().contains(marker)&&!new String(tap.bytes(tap.outbound),StandardCharsets.ISO_8859_1).contains(marker),"Off setting does not downgrade an explicitly selected HTTPS proxy");

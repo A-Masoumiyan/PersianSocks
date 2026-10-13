@@ -177,13 +177,13 @@ public final class ScanHarness {
                 public boolean udp(DatagramSocket s){udpProtected.incrementAndGet();return true;}
                 public InetAddress resolve(String host)throws Exception{return InetAddress.getByName(host);}
             })) {
-                ProxyEndpoint result=Socks5Probe.check(new ProxyEndpoint("127.0.0.1",gate.port(),-1,false));
+                ProxyEndpoint result=GatewayTestSupport.check(gate);
                 verify(result!=null&&result.serviceMask==7,"TLS/HTTPS for all services through protected SOCKS gateway");
                 verify(tcpProtected.get()>=4,"every upstream TCP socket goes through protection hook");
                 try(Socket control=new Socket("127.0.0.1",gate.port());DatagramSocket client=new DatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(),0))) {
                     control.setSoTimeout(3000);client.setSoTimeout(3000);
                     OutputStream out=control.getOutputStream();InputStream in=control.getInputStream();
-                    out.write(new byte[]{5,1,0});out.flush();bytes(in,2);
+                    GatewayTestSupport.authenticate(control,gate);
                     out.write(new byte[]{5,3,0,1,0,0,0,0,0,0});out.flush();
                     byte[] reply=in.readNBytes(10);verify(reply.length==10&&reply[1]==0,"gateway rewrites UDP association to loopback");
                     int port=((reply[8]&255)<<8)|(reply[9]&255);
@@ -197,7 +197,7 @@ public final class ScanHarness {
             try(ProtectedSocksGateway denied=new ProtectedSocksGateway(m.endpoint(),new ProtectedSocksGateway.Protector(){
                 public boolean tcp(Socket s){return false;}public boolean udp(DatagramSocket s){return false;}
                 public InetAddress resolve(String h)throws Exception{return InetAddress.getByName(h);}
-            })) {verify(Socks5Probe.check(new ProxyEndpoint("127.0.0.1",denied.port(),-1,false))==null,"failed protection cannot yield a healthy proxy");}
+            })) {verify(GatewayTestSupport.check(denied)==null,"failed protection cannot yield a healthy proxy");}
         }
         verify(probe("long-header").endpoint!=null,"large valid service headers accepted within bounded limits");
         SSLContext defaultTrust=SSLContext.getInstance("TLS");defaultTrust.init(null,null,null);SSLContext.setDefault(defaultTrust);

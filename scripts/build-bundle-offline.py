@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Package a signed AAB using the validated APK build's code and Google Maven AAPT2."""
 import argparse
+import importlib.util
 from pathlib import Path
 import json
 import os
@@ -16,6 +17,10 @@ root=Path(__file__).resolve().parents[1]
 sdk,jdk,aapt,bundle=map(lambda x:Path(x).resolve(),[a.sdk,a.jdk,a.aapt2,a.bundletool])
 apkwork=root/('app/build/manual-release-'+a.profile)
 if json.loads((apkwork/'profile.json').read_text())['profile']!=a.profile:raise RuntimeError('Wrong APK compilation profile')
+profile=json.loads((apkwork/"profile.json").read_text())
+spec=importlib.util.spec_from_file_location("release_security",root/"scripts/release-security.py")
+security=importlib.util.module_from_spec(spec);spec.loader.exec_module(security)
+security.verify_inputs(root,jdk,profile.get("privacyPolicyUrl",""),a.profile,profile.get("playPermissionApproved",False))
 work=root/('app/build/manual-bundle-'+a.profile);work.mkdir(parents=True,exist_ok=True)
 gradle=(root/'app/build.gradle').read_text()
 version=re.search(r"versionName '([^']+)'",gradle).group(1)
