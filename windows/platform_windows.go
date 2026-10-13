@@ -42,6 +42,9 @@ func preparePlatform() bool {
 	if err == syscall.Errno(183) {
 		syscall.CloseHandle(syscall.Handle(mutex))
 		base, _ := os.UserConfigDir()
+		if custom := os.Getenv("PERSIANSOCKS_DATA"); custom != "" {
+			base = custom
+		}
 		b, readErr := os.ReadFile(filepath.Join(base, "PersianSocks", "UI.url"))
 		if readErr == nil && strings.HasPrefix(string(b), "http://127.0.0.1:") {
 			openUI(string(b))
@@ -59,22 +62,9 @@ func preparePlatform() bool {
 func hideCommand(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 }
-func openUI(url string) {
-	candidates := []string{filepath.Join(os.Getenv("ProgramFiles(x86)"), "Microsoft", "Edge", "Application", "msedge.exe"), filepath.Join(os.Getenv("ProgramFiles"), "Microsoft", "Edge", "Application", "msedge.exe")}
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			cmd := exec.Command(p, "--app="+url, "--new-window")
-			hideCommand(cmd)
-			if cmd.Start() == nil {
-				return
-			}
-		}
-	}
-	shell32.NewProc("ShellExecuteW").Call(0, uintptr(unsafe.Pointer(wide("open"))), uintptr(unsafe.Pointer(wide(url))), 0, 0, 1)
-}
 func physicalNetwork() (Physical, error) {
 	script := `$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $ids=@(Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | Select-Object -ExpandProperty ifIndex); $route=Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' | Where-Object { $_.InterfaceIndex -in $ids } | Sort-Object @{Expression={$_.RouteMetric + (Get-NetIPInterface -InterfaceIndex $_.InterfaceIndex -AddressFamily IPv4).InterfaceMetric}} | Select-Object -First 1; if(!$route){throw 'No physical default route'}; $cfg=Get-NetIPConfiguration -InterfaceIndex $route.InterfaceIndex; @{index=[int]$route.InterfaceIndex;name=$cfg.InterfaceAlias;ip=($cfg.IPv4Address | Select-Object -First 1).IPAddress;dns=@((Get-DnsClientServerAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4).ServerAddresses)} | ConvertTo-Json -Compress`
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(platformCommandContext, 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
 	hideCommand(cmd)

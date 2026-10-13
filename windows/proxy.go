@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -287,44 +288,70 @@ type Target struct {
 
 var targets = []Target{{"telegram", "تلگرام", "https://web.telegram.org/k/"}, {"youtube", "یوتیوب", "https://www.youtube.com/"}, {"instagram", "اینستاگرام", "https://www.instagram.com/robots.txt"}}
 
+// Probe at most three destinations concurrently; aggregate in input order so
+// FULL/custom-service filtering and minimum valid HTTPS latency are unchanged.
 func (p Probe) inspect(ctx context.Context, e Endpoint, timeout int, ts []Target) (Endpoint, error) {
 	e.Services = nil
 	e.Checked = nil
 	e.Ping = 0
-	var last error
-	for _, t := range ts {
-		e.Checked = append(e.Checked, t.ID)
-		if ctx.Err() != nil {
-			return e, ctx.Err()
-		}
-		c, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
-		start := time.Now()
-		r, conn, err := p.request(c, e, t.URL)
-		if err == nil {
-			if r.StatusCode >= 200 && r.StatusCode < 400 {
-				ms := time.Since(start).Milliseconds()
-				if ms < 1 {
-					ms = 1
+	type outcome struct {
+		ping int64
+		err  error
+	}
+	results := make([]outcome, len(ts))
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	for worker := 0; worker < min(3, len(ts)); worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				if ctx.Err() != nil {
+					results[i].err = ctx.Err()
+					continue
 				}
-				if e.Ping == 0 || ms < e.Ping {
-					e.Ping = ms
+				c, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+				start := time.Now()
+				r, conn, err := p.request(c, e, ts[i].URL)
+				if err == nil {
+					if r.StatusCode >= 200 && r.StatusCode < 400 {
+						results[i].ping = max(1, time.Since(start).Milliseconds())
+					} else {
+						err = fmt.Errorf("HTTPS %d", r.StatusCode)
+					}
+					r.Body.Close()
+					conn.Close()
 				}
-				e.Services = append(e.Services, t.ID)
-			} else {
-				err = fmt.Errorf("HTTPS %d", r.StatusCode)
+				cancel()
+				results[i].err = err
 			}
-			r.Body.Close()
-			conn.Close()
-		}
-		cancel()
-		last = err
-		var op *net.OpError
-		if errors.As(err, &op) && op.Op == "dial" && len(e.Services) == 0 {
-			break
+		}()
+	}
+dispatch:
+	for i := range ts {
+		select {
+		case jobs <- i:
+		case <-ctx.Done():
+			break dispatch
 		}
 	}
+	close(jobs)
+	wg.Wait()
 	if ctx.Err() != nil {
 		return e, ctx.Err()
+	}
+	var last error
+	for i, t := range ts {
+		e.Checked = append(e.Checked, t.ID)
+		if results[i].err == nil && results[i].ping > 0 {
+			e.Services = append(e.Services, t.ID)
+			if e.Ping == 0 || results[i].ping < e.Ping {
+				e.Ping = results[i].ping
+			}
+		}
+		if results[i].err != nil {
+			last = results[i].err
+		}
 	}
 	if len(e.Services) == 0 {
 		if last == nil {
@@ -340,9 +367,12 @@ func (p Probe) inspect(ctx context.Context, e Endpoint, timeout int, ts []Target
 	return e, nil
 }
 func (p Probe) speed(ctx context.Context, e Endpoint, progress ...func(float64, int64)) (float64, int64, error) {
+	return p.speedAt(ctx, e, "https://speed.cloudflare.com/__down?bytes=20000000&ts="+strconv.FormatInt(time.Now().UnixNano(), 10), progress...)
+}
+func (p Probe) speedAt(ctx context.Context, e Endpoint, destination string, progress ...func(float64, int64)) (float64, int64, error) {
 	c, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	r, conn, err := p.request(c, e, "https://speed.cloudflare.com/__down?bytes=20000000&ts="+strconv.FormatInt(time.Now().UnixNano(), 10))
+	r, conn, err := p.request(c, e, destination)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -388,7 +418,11 @@ func (p Probe) speed(ctx context.Context, e Endpoint, progress ...func(float64, 
 	if n == 0 {
 		return 0, 0, errors.New("داده‌ای دریافت نشد")
 	}
-	return float64(n) / 1e6 / time.Since(start).Seconds(), n, nil
+	average := float64(n) / 1e6 / time.Since(start).Seconds()
+	if len(progress) > 0 {
+		progress[0](average, n)
+	}
+	return average, n, nil
 }
 func country(host string) string {
 	ip := net.ParseIP(host).To4()

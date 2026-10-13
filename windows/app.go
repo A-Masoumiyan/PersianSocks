@@ -25,7 +25,9 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.4.0"
+const version = "0.5.0"
+const scanEngineVersion = 2
+const maxScanWorkers = 48
 
 type Source struct {
 	Name     string `json:"name"`
@@ -55,6 +57,7 @@ type Checkpoint struct {
 	Targets  []Target   `json:"targets"`
 }
 type Disk struct {
+	ScanEngine int                   `json:"scanEngine"`
 	Raw        []Endpoint            `json:"raw"`
 	Results    map[string]Endpoint   `json:"results"`
 	Checkpoint *Checkpoint           `json:"checkpoint,omitempty"`
@@ -91,6 +94,8 @@ type App struct {
 	speedBatchCancel  context.CancelFunc
 	speedBatchDone    int
 	speedBatchTotal   int
+	speedBatch        SpeedBatch
+	speedRunner       speedProbe
 	shutdown          func()
 	connectMu         sync.Mutex
 	attemptVersion    map[string]uint64
@@ -119,11 +124,11 @@ type App struct {
 }
 
 func defaultSettings() Settings {
-	return Settings{Workers: 12, Timeout: 8, Max: 5000, Failover: true, ScanTypes: []string{"SOCKS5", "HTTP", "HTTPS"}, SplitMode: "all"}
+	return Settings{Workers: 24, Timeout: 8, Max: 5000, Failover: true, ScanTypes: []string{"SOCKS5", "HTTP", "HTTPS"}, SplitMode: "all"}
 }
 func validateSettings(s Settings) error {
-	if s.Workers < 1 || s.Workers > 24 || s.Timeout < 3 || s.Timeout > 30 || s.Max < 0 || s.Max > 100000 {
-		return errors.New("تعداد کارگر ۱ تا ۲۴، مهلت ۳ تا ۳۰ ثانیه و سقف ۰ تا ۱۰۰۰۰۰ است؛ صفر یعنی همه")
+	if s.Workers < 1 || s.Workers > maxScanWorkers || s.Timeout < 3 || s.Timeout > 30 || s.Max < 0 || s.Max > 100000 {
+		return errors.New("تعداد کارگر ۱ تا ۴۸، مهلت ۳ تا ۳۰ ثانیه و سقف ۰ تا ۱۰۰۰۰۰ است؛ صفر یعنی همه")
 	}
 	if _, err := customTargets(s.CustomTargets); err != nil {
 		return err
@@ -188,13 +193,21 @@ func customTargets(raw string) ([]Target, error) {
 	return ts, nil
 }
 func newApp(dir string) *App {
-	a := &App{dir: dir, disk: Disk{Results: map[string]Endpoint{}, Settings: defaultSettings()}, test: map[string]bool{}, attemptVersion: map[string]uint64{}, vpnState: "off", lastSeen: time.Now()}
+	a := &App{dir: dir, disk: Disk{ScanEngine: scanEngineVersion, Results: map[string]Endpoint{}, Settings: defaultSettings()}, test: map[string]bool{}, attemptVersion: map[string]uint64{}, vpnState: "off", lastSeen: time.Now()}
 	os.MkdirAll(dir, 0700)
 	if b, err := os.ReadFile(filepath.Join(dir, "state.json")); err == nil && len(b) < 512_000_000 {
 		var d Disk
 		if json.Unmarshal(b, &d) == nil && d.Results != nil && validateSettings(d.Settings) == nil {
 			a.disk = d
 		}
+	}
+	migrated := a.disk.ScanEngine < scanEngineVersion
+	if migrated {
+		a.disk.Settings.Workers = min(maxScanWorkers, a.disk.Settings.Workers*2)
+		if cp := a.disk.Checkpoint; cp != nil {
+			cp.Settings.Workers = min(maxScanWorkers, cp.Settings.Workers*2)
+		}
+		a.disk.ScanEngine = scanEngineVersion
 	}
 	cp := a.disk.Checkpoint
 	if cp != nil && (len(cp.Input) != len(cp.Done) || validateSettings(cp.Settings) != nil || len(cp.Targets) == 0) {
@@ -213,6 +226,9 @@ func newApp(dir string) *App {
 	a.disk.Traffic.UpRate = 0
 	a.tasks = map[string]*TestTask{}
 	a.cooldown = map[string]time.Time{}
+	if migrated {
+		a.saveChecked()
+	}
 	return a
 }
 func (a *App) save() error {
@@ -581,7 +597,10 @@ func (a *App) snapshot(r *http.Request) any {
 	if result, ok := a.disk.Tests[key]; ok {
 		measurements[key] = result
 	}
-	return map[string]any{"speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": a.speedBatchDone, "total": a.speedBatchTotal}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
+	batch := a.speedBatch
+	batch.Done = a.speedBatchDone
+	batch.Total = a.speedBatchTotal
+	return map[string]any{"desktop": desktopState(), "speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": batch.Done, "total": batch.Total, "bytes": batch.Bytes, "failed": batch.Failed, "skipped": batch.Skipped, "current": batch.Current, "filter": batch.Filter, "canceled": batch.Canceled}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
 }
 
 type Action struct {
@@ -609,32 +628,11 @@ func (a *App) act(v Action) error {
 	case "speedFiltered":
 		return a.startFilteredSpeed()
 	case "stopSpeedFiltered":
-		a.mu.Lock()
-		if a.speedBatchCancel != nil {
-			a.speedBatchCancel()
-		}
-		for _, t := range a.tasks {
-			if t.Kind == "speed" {
-				t.cancel()
-			}
-		}
-		a.mu.Unlock()
+		a.stopFilteredSpeed()
+	case "stopOperations":
+		a.stopOperations()
 	case "uiClosed":
-		a.mu.Lock()
-		seen := a.lastSeen
-		exit := a.disk.Settings.ExitOnClose
-		a.mu.Unlock()
-		if exit {
-			go func() {
-				time.Sleep(2 * time.Second)
-				a.mu.Lock()
-				shouldExit := a.disk.Settings.ExitOnClose && !a.lastSeen.After(seen)
-				a.mu.Unlock()
-				if shouldExit && a.shutdown != nil {
-					a.shutdown()
-				}
-			}()
-		}
+		a.windowClosed()
 	case "test", "speed", "ping":
 		return a.testOne(v.Key, v.Action)
 	case "connect":
@@ -888,6 +886,7 @@ func main() {
 	var once sync.Once
 	a.shutdown = func() {
 		once.Do(func() {
+			stopPlatformCommands()
 			a.mu.Lock()
 			if a.speedBatchCancel != nil {
 				a.speedBatchCancel()
@@ -911,6 +910,7 @@ func main() {
 			a.saveChecked()
 			os.Remove(filepath.Join(a.dir, "UI.url"))
 			server.Close()
+			stopDesktopUI()
 			close(done)
 		})
 	}
@@ -928,7 +928,7 @@ func main() {
 		a.mu.Unlock()
 	}()
 	if os.Getenv("PERSIANSOCKS_NO_BROWSER") == "" {
-		openUI(a.origin + "/#" + a.token)
+		startDesktopUI(a, done)
 	} else {
 		fmt.Println(a.origin + "/#" + a.token)
 	}

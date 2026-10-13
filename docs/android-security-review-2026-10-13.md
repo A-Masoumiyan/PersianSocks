@@ -6,6 +6,8 @@ Status: changes and host validation completed; **not approved for release**. No 
 
 On 2026-10-13 the GitHub releases/latest API returned [v0.21.0](https://github.com/A-Masoumiyan/PersianSocks/releases/tag/v0.21.0), commit `a0bd2f3ac121f1dd550ab7b94a007b9bae435b06`, Android versionCode 22. Work starts at that tag, not the default branch: the default branch had regressed Android to 0.18.0 and lacked the release's download-ranking features. The candidate restores/preserves the 0.21.0 feature set and declares versionName 0.22.0 / versionCode 23. Windows is outside this change.
 
+At final recheck, releases/latest changed to windows-v0.5.0, which bundles the same Android 0.21.0 APK. The releases collection still identifies 0.21.0 as the newest Android version. The branch was synchronized with main `37372be6a7c269b36bdff086e82df10699ec7594`; all Windows files, existing release workflows and non-Android release artifacts were preserved from main, and no APK assets or publication workflows were added by this PR.
+
 ## Play Protect diagnosis
 
 [Issue #1](https://github.com/A-Masoumiyan/PersianSocks/issues/1) has no exact warning text, screenshot, affected APK hash, or device scan verdict. No device is connected to ADB. Therefore the actual cause and whether the warning is an unknown-app scan prompt or a harmful-app classification remain **undetermined**. These fixes address observed security problems; they are not evidence that Google has removed a warning. Play Protect has not been disabled or bypassed.

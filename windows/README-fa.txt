@@ -1,4 +1,4 @@
-PersianSocks Windows 0.2.0 • Windows 10/11 x64
+PersianSocks Windows 0.5.0 • Windows 10/11 x64
 
 فایل EXE را مستقیم اجرا کن و درخواست Administrator را تأیید کن.
 موتور اتصال و درایور داخل فایل‌اند؛ نصب Go یا استخراج ZIP لازم نیست.
@@ -13,13 +13,30 @@ PersianSocks Windows 0.2.0 • Windows 10/11 x64
 تست اتصال، پینگ و سرعت هر پروکسی و توقف تست؛ سرعت حداکثر ۲۰ MB دانلود می‌کند.
 آمار زندهٔ موتور، پرچم آفلاین کشور، گزارش‌ها، خروجی سالم‌ها و تعویض خودکار طبق فیلتر فعلی.
 
-بستن رابط، برنامه و اتصال را نمی‌بندد. از آیکون کنار ساعت یا ویجت دسکتاپ کنترل کن.
+در حالت پیش‌فرض، بستن پنجره برنامه و اتصال را نمی‌بندد. از آیکون کنار ساعت یا ویجت دسکتاپ کنترل کن.
 برای بستن کامل، «قطع اتصال و خروج» را بزن. داده‌ها در %APPDATA%\\PersianSocks ذخیره می‌شوند.
 اگر شبکه تغییر کرد، اسکن و اتصال را متوقف و شبکه را دوباره شناسایی کن.
 
-۲۰ تست روی Windows Server 2025 با race detector پاس شدند؛ عبور واقعی موتور از هر سه نوع پروکسی
-و ساخت کنترل سریع هم تأیید شدند. مسیر سراسری Wintun و اسپلیت تونل واقعی هنوز آزمایش نشده‌اند.
-https://github.com/A-Masoumiyan/PersianSocks/actions/runs/38317551801
+تست‌های خودکار شامل توقف مستقل تست‌ها، تمام صفحات فیلترشده، ادامهٔ عملیات با بستن پنجره،
+بازکردن همان پنجره، خروج کامل و ذخیرهٔ تنظیمات‌اند. اتصال سراسری Wintun و مسیر واقعی
+برنامه‌ها در اسپلیت تونل هنوز روی دستگاه کاربر آزمایش نشده‌اند.
+
+پنجرهٔ اصلی از Microsoft WebView2 Runtime استفاده می‌کند؛ معمولاً روی ویندوز ۱۱ نصب است.
+اگر پیام نبودن آن را دیدی، WebView2 Runtime را از سایت Microsoft نصب کن.
+تست سرعت گروهی کنار فیلترهاست؛ همهٔ صفحات، صف ثابت، شمارندهٔ حجم و خطا و توقف دارد.
+توقف تست گروهی تست مستقل دیگری را قطع نمی‌کند. هر تست حداکثر ۲۰ MB مصرف دارد.
+ضربدر در حالت پیش‌فرض پنجره را در Tray مخفی می‌کند. گزینهٔ خروج کامل در سایدبار ذخیره می‌شود.
+منوی تیرهٔ Tray شامل بازکردن پنجره، اتصال، قطع، توقف عملیات و خروج کامل است.
 
 ساخت از سورس: Go 1.25+ و build.ps1. موتور sing-box 1.14.3، Wintun 0.14.1 و فایل‌های کشور
 با دانلودهای رسمی و SHA256 مشخص بسته‌بندی می‌شوند. مجوزها و سورس موتور داخل runtime قرار دارند.
+
+Windows 0.5.0: default scan workers doubled to 24, maximum 48. Legacy settings and
+checkpoints upgrade once. Up to three TLS destinations run concurrently while
+classification and timeout requirements remain unchanged. The controlled throughput
+comparison is part of scan_speed_test.go. Live and final speed values use the same
+byte/time average; downloaded MB is explicitly separate from MB/s. Old speed values
+are hidden while measuring. Letter service badges removed from cards; service
+filters and details retained. Power is red while disconnected and orange in transit.
+Default browser context menus and source/devtools shortcuts are disabled throughout
+the panel. Native WebView2 host restores the same window on repeated launches.

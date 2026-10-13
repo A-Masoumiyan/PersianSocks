@@ -34,3 +34,8 @@ func stopCore(cmd *exec.Cmd, done chan error) {
 		<-done
 	}
 }
+
+func startDesktopUI(a *App, done <-chan struct{}) { openUI(a.origin + "/#" + a.token) }
+
+func stopDesktopUI()             {}
+func desktopState() DesktopState { return DesktopState{} }

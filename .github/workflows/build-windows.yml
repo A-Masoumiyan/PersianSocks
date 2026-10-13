@@ -1,8 +1,8 @@
 name: Build and publish Windows
 on:
   push:
-    branches: [main, codex/filtered-speed-release-019]
-    paths: ['windows/**', '.github/workflows/build-windows.yml']
+    branches: [main]
+    paths: ['windows/**', '.github/workflows/build-windows.yml', '.github/desktop-smoke.ps1']
   workflow_dispatch:
 permissions:
   contents: write
@@ -21,6 +21,18 @@ jobs:
       - name: Build verified self-contained EXE
         shell: pwsh
         run: ./windows/build.ps1
+      - name: Ensure official WebView2 runtime
+        shell: pwsh
+        run: |
+          $existing = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft\EdgeWebView\Application" -Filter msedgewebview2.exe -Recurse -ErrorAction SilentlyContinue
+          if (!$existing) {
+            $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup
+            $signature = Get-AuthenticodeSignature $setup
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft Corporation') { throw 'Runtime signature invalid' }
+            $p = Start-Process $setup -ArgumentList '/silent','/install' -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw 'Runtime installation failed' }
+          }
       - name: Validate on Windows
         shell: pwsh
         run: |
@@ -28,35 +40,38 @@ jobs:
           Set-Location windows
           go test -race -buildvcs=false -v .
           if ($LASTEXITCODE -ne 0) { throw 'Windows tests failed' }
+      - name: Validate actual EXE close and restore
+        shell: pwsh
+        run: ./.github/desktop-smoke.ps1
       - name: Publish current Windows EXE
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          $tag = 'v0.19.0'
-          $name = 'PersianSocks-Windows-0.4.0-x64.exe'
-          $apk = 'publication/PersianSocks-0.19.0.apk'
-          if ((Get-FileHash -Algorithm SHA256 $apk).Hash.ToLowerInvariant() -ne (Get-Content publication/PersianSocks-0.19.0.sha256).Trim()) { throw 'APK digest mismatch' }
+          $tag = 'windows-v0.5.0'
+          $name = 'PersianSocks-Windows-0.5.0-x64.exe'
           Copy-Item windows/release/PersianSocks.exe $name
+          $apkName = 'PersianSocks-0.21.0.apk'
+          $android = gh api "repos/$env:GH_REPO/releases/tags/v0.21.0" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Existing Android release unavailable' }
+          $apk = $android.assets | Where-Object name -eq $apkName
+          if (!$apk -or !$apk.digest.StartsWith('sha256:')) { throw 'Android asset digest missing' }
+          gh release download v0.21.0 --pattern $apkName --clobber
+          if ($LASTEXITCODE -ne 0 -or (Get-FileHash -Algorithm SHA256 $apkName).Hash.ToLowerInvariant() -ne $apk.digest.Substring(7)) { throw 'Copied APK digest mismatch' }
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --draft --target $env:GITHUB_SHA --title 'ورژن جدید — PersianSocks | Android 0.19.0 · Windows 0.4.0' --notes-file .github/release-0.19.0.md $name $apk
+            gh release create $tag --target $env:GITHUB_SHA --title 'ورژن جدید — PersianSocks | Windows 0.5.0 · Android 0.21.0' --latest --notes-file .github/windows-0.5.0-notes.md $name $apkName
           } else {
-            gh release upload $tag $name $apk --clobber
+            gh release upload $tag $name $apkName --clobber
           }
-          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }
-          $releases = gh api "repos/$env:GH_REPO/releases" | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { throw 'Cannot read releases' }
-          $release = @($releases | Where-Object tag_name -eq $tag)[0]
-          if (!$release) { throw 'Uploaded draft not found' }
-          foreach ($file in @($name, $apk)) {
-            $asset = $release.assets | Where-Object name -eq (Split-Path $file -Leaf)
-            if (!$asset -or $asset.size -ne (Get-Item $file).Length) { throw 'Uploaded size mismatch' }
-          }
-          gh api --method PATCH "repos/$env:GH_REPO/releases/$($release.id)" -F draft=false -f make_latest=true | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
+          $release = gh api "repos/$env:GH_REPO/releases/tags/$tag" | ConvertFrom-Json
+          $asset = $release.assets | Where-Object name -eq $name
+          if (!$asset -or $asset.size -ne (Get-Item $name).Length) { throw 'Uploaded size mismatch' }
+          $copiedApk = $release.assets | Where-Object name -eq $apkName
+          if ($copiedApk.digest -ne $apk.digest) { throw 'Published APK changed' }
       - uses: actions/upload-artifact@v4
         with:
-          name: PersianSocks-Windows-0.4.0-x64
+          name: PersianSocks-Windows-0.5.0-x64
           path: windows/release/PersianSocks.exe
