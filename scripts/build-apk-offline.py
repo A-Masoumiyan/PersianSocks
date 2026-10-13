@@ -65,6 +65,11 @@ m.set('{%s}versionName' % ns, version)
 uses = ET.Element('uses-sdk', {'{%s}minSdkVersion' % ns: '29', '{%s}targetSdkVersion' % ns: target_sdk})
 m.insert(0, uses)
 m.find('application').set('{%s}extractNativeLibs' % ns, 'false')
+for permission in list(m.findall('uses-permission')):
+    if a.profile == 'play' and permission.get('{%s}name' % ns) == 'android.permission.REQUEST_INSTALL_PACKAGES': m.remove(permission)
+for provider in list(m.find('application').findall('provider')):
+    if a.profile == 'play': m.find('application').remove(provider)
+    else: provider.set('{%s}authorities' % ns, 'ir.persiansocks.app.updates')
 for entry in m.iter():
     if entry.get('{%s}value' % ns) == '${playDistribution}': entry.set('{%s}value' % ns,'true' if a.profile == 'play' else 'false')
 manifest.write(work / 'AndroidManifest.xml', encoding='utf-8', xml_declaration=True)
@@ -120,5 +125,5 @@ run(bt / 'apksigner', 'sign', '--ks', key, '--ks-key-alias', 'persiansocks',
     '--out', output, work / 'aligned.apk')
 run(bt / 'apksigner', 'verify', '--verbose', '--print-certs', output)
 run(bt / 'zipalign', '-c', '-P', '16', '4', output)
-run(__import__('sys').executable, root / 'scripts/audit-release-apk.py', output, '--sdk', sdk)
+run(__import__('sys').executable, root / 'scripts/audit-release-apk.py', output, '--sdk', sdk, '--profile', a.profile)
 print('APK:', output)

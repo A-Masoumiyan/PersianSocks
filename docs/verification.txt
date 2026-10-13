@@ -1,6 +1,6 @@
 {
-  "sha256": "9ecaf8e7aef7a564ce2f222b939fcdc59f23229e5639d7943d1bf495164a08b9",
-  "bytes": 3876873,
+  "sha256": "bb885140c1353b4f2c878d23f0bc610710da3f34afb48fd47421f94abacef4b4",
+  "bytes": 3893257,
   "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
   "permissions": [
     "android.permission.ACCESS_NETWORK_STATE",
@@ -9,15 +9,16 @@
     "android.permission.INTERNET",
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.QUERY_ALL_PACKAGES",
+    "android.permission.REQUEST_INSTALL_PACKAGES",
     "ir.persiansocks.app.permission.INTERNAL_STATE"
   ],
   "status": "release integrity checks passed; Google review not performed",
-  "version": "0.26.0",
-  "versionCode": 28,
+  "version": "0.27.0",
+  "versionCode": 29,
   "hostSuitesPassed": true,
-  "releaseGuardChecks": 6,
-  "negativeArchiveChecks": 4,
-  "bilingualStrings": 494,
+  "updateSelectionChecks": 30,
+  "bilingualStrings": 512,
   "deviceUITested": false,
+  "installerDeviceTested": false,
   "googleReviewPerformed": false
 }

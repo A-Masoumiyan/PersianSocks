@@ -45,7 +45,7 @@ def check_archive(apk):
             if archive.read(name) != data:
                 raise ValueError('Native library differs from pinned upstream')
 
-def audit(apk, sdk):
+def audit(apk, sdk, profile="personal"):
     security.verify_native(ROOT)
     check_archive(apk)
     bt = sdk/'build-tools/35.0.0'
@@ -57,8 +57,9 @@ def audit(apk, sdk):
         raise ValueError('Release signer differs from approved identity')
     run(bt/'zipalign', '-c', '-P', '16', '4', apk)
     permissions = set(re.findall(r"uses-permission: name='([^']+)'", run(bt/'aapt', 'dump', 'permissions', apk)))
-    if permissions != EXPECTED_PERMISSIONS:
-        raise ValueError('Release permission inventory changed: '+str(sorted(permissions ^ EXPECTED_PERMISSIONS)))
+    expected = EXPECTED_PERMISSIONS | ({"android.permission.REQUEST_INSTALL_PACKAGES"} if profile == "personal" else set())
+    if permissions != expected:
+        raise ValueError('Release permission inventory changed: '+str(sorted(permissions ^ expected)))
     badging = run(bt/'aapt', 'dump', 'badging', apk)
     if "package: name='ir.persiansocks.app'" not in badging or "targetSdkVersion:'36'" not in badging or 'application-debuggable' in badging:
         raise ValueError('Unexpected package, target SDK or debug APK')
@@ -70,5 +71,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('apk', type=Path)
     parser.add_argument('--sdk', required=True, type=Path)
+    parser.add_argument('--profile', choices=['personal','play'], default='personal')
     args = parser.parse_args()
-    print(json.dumps(audit(args.apk, args.sdk), indent=2))
+    print(json.dumps(audit(args.apk, args.sdk, args.profile), indent=2))
