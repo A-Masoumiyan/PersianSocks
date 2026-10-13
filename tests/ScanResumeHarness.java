@@ -65,7 +65,7 @@ public final class ScanResumeHarness {
         List<ProxyEndpoint> previous = new ArrayList<>(); for (ProxyEndpoint p : input) previous.add(verified(p, 999, 1));
         ProxyEndpoint other = verified(new ProxyEndpoint("1.1.1.1", 80, -1, false), 800, 1); previous.add(other);
         List<ProxyEndpoint> partial = restored.merge(previous);
-        check(partial.size() == 6 && partial.stream().noneMatch(p -> p.port == 3 && p.host.equals("8.8.8.8")), "Failed retests are removed while untested and unrelated healthy profiles stay available");
+        check(partial.size() == 7 && partial.stream().anyMatch(p -> p.port == 3 && p.host.equals("8.8.8.8")), "Transient failed retests preserve previous healthy profiles and unrelated entries");
         check(partial.stream().anyMatch(p -> p.port == 2 && p.latencyMs == 25), "A completed retest replaces its cached ping");
         Map<Integer, AtomicInteger> resumedCalls = new ConcurrentHashMap<>(); Listen resumed = new Listen();
         runner.start(restored, files::save, (p, slow, cancel, sockets) -> { resumedCalls.computeIfAbsent(p.port, k -> new AtomicInteger()).incrementAndGet(); return good(p); }, resumed);
@@ -99,7 +99,7 @@ public final class ScanResumeHarness {
         check(recheck.done() == 135 && recheck.goodCount() == 133, "Every healthy profile gets a new test and two newly failed profiles are excluded");
         List<ProxyEndpoint> oldHealthy = new ArrayList<>(); for (ProxyEndpoint p : healthy) oldHealthy.add(verified(p, 2000, 1));
         List<ProxyEndpoint> updated = recheck.merge(oldHealthy);
-        check(updated.size() == 133 && updated.stream().allMatch(p -> p.latencyMs == 25), "The refreshed healthy list consists of new ping values, not stale cache entries");
+        check(updated.size() == 135 && updated.stream().filter(p -> p.latencyMs == 25).count()==133, "Successful retests refresh ping; two transient failures retain prior results");
         List<ProxyEndpoint> protocols = Arrays.asList(input.get(0), input.get(0).withType(ProxyEndpoint.Type.HTTP), input.get(0).withType(ProxyEndpoint.Type.HTTPS));
         check(new ScanCheckpoint(protocols, new ProxyScanner.Options(100, false, false, 6), "CATALOG").total() == 2,
             "New scans honor selected proxy types while retaining protocol-specific identities");

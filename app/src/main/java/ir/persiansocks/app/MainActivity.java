@@ -67,7 +67,13 @@ public final class MainActivity extends Activity {
     private final LinkedHashMap<String,ProxyEndpoint> favorites = new LinkedHashMap<>();
     private boolean showFavorites;
     private long favoritesRevision;
-    private Button favoritesButton;
+    private Button favoritesButton,savedPingButton,savedSpeedButton;
+    private List<ProxyEndpoint> savedPingQueue;
+    private int savedPingPosition;
+    private PublicIpCheck ipCheck;
+    private String ipRoute="";
+    private long ipCheckedAt;
+    private final Runnable ipTicker=new Runnable(){public void run(){if(isDestroyed())return;refreshPublicIp(false);ui.postDelayed(this,15000);}};
     private LinearLayout filterRow, limitRow;
     private ProxyEndpoint selected;
     private ListView results;
@@ -182,7 +188,7 @@ public final class MainActivity extends Activity {
             requestPermissions(new String[]{ Manifest.permission.POST_NOTIFICATIONS }, 18);
     }
     @Override protected void onStart() {
-        super.onStart();
+        super.onStart();ui.removeCallbacks(ipTicker);ui.post(ipTicker);
         ScanInputs.initializePolicy(this);
         IntentFilter f = new IntentFilter(ProxyVpnService.STATE);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(vpnState, f, Context.RECEIVER_NOT_EXPORTED);
@@ -195,7 +201,7 @@ public final class MainActivity extends Activity {
         updateTraffic();
         QuickControls.refresh(this,true);
     }
-    @Override protected void onStop() { super.onStop(); unregisterReceiver(vpnState); }
+    @Override protected void onStop() { ui.removeCallbacks(ipTicker);if(ipCheck!=null){ipCheck.cancel();ipCheck=null;ipRoute="";}super.onStop(); unregisterReceiver(vpnState); }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putBoolean("sidebar-open", sidebarVisible);
         super.onSaveInstanceState(state);
@@ -209,6 +215,7 @@ public final class MainActivity extends Activity {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(sidebarBack);
             sidebarBack = null;
         }
+        if(ipCheck!=null)ipCheck.cancel();
         stopFilteredSpeed();
         cancelSingleTests();
         if(scanning)stopScan();
@@ -299,7 +306,7 @@ public final class MainActivity extends Activity {
             .setMessage(vpnStatus.getText()).setPositiveButton(AppLanguage.t(R.string.ui_007), null).show());
         vpnStatus.setTooltipText(AppLanguage.t(R.string.ui_008));
         hero.addView(vpnStatus, margin(dp(4), 0));
-        activeProfile = text("", 11, SECONDARY, false); activeProfile.setVisibility(View.GONE);
+        activeProfile = text("", 11, SECONDARY, false); activeProfile.setVisibility(View.VISIBLE);activeProfile.setOnClickListener(v->refreshPublicIp(true));
         hero.addView(activeProfile, margin(dp(4), 0));
 
         LinearLayout actions = horizontal();
@@ -368,7 +375,11 @@ public final class MainActivity extends Activity {
         favoritesButton=button(AppLanguage.t(R.string.ui_023),false);
         favoritesButton.setTextSize(13);
         favoritesButton.setOnClickListener(v->{showFavorites=!showFavorites;renderedRevision=-1;render();});
-        root.addView(favoritesButton,sized(dp(44),dp(4)));
+        LinearLayout savedActions=horizontal();savedActions.addView(favoritesButton,new LinearLayout.LayoutParams(0,dp(44),1));
+        savedPingButton=button(AppLanguage.t(R.string.ui_v25_008),false);savedPingButton.setOnClickListener(v->{if(savedPingQueue!=null)cancelSingleTests();else startSavedPings();render();});
+        savedSpeedButton=button(AppLanguage.t(R.string.ui_v25_009),false);savedSpeedButton.setOnClickListener(v->{if(speedBatch!=null)stopFilteredSpeed();else confirmSpeedBatch(new FilteredSpeedBatch(favoriteSnapshots()));render();});
+        savedActions.addView(savedPingButton,weighted(44,1,4));savedActions.addView(savedSpeedButton,weighted(44,1,0));
+        savedPingButton.setVisibility(View.GONE);savedSpeedButton.setVisibility(View.GONE);root.addView(savedActions,sized(dp(44),dp(4)));
         filterRow=horizontal();limitRow=horizontal();
         serviceButton=dropdownButton(AppLanguage.t(R.string.ui_024),AppLanguage.t(R.string.ui_025));serviceButton.setOnClickListener(v->serviceMenu());
         protocolButton=dropdownButton(AppLanguage.t(R.string.ui_026),AppLanguage.t(R.string.ui_027));protocolButton.setOnClickListener(v->protocolMenu());
@@ -667,7 +678,7 @@ public final class MainActivity extends Activity {
                 applyPendingLanguage();
             }).setNegativeButton(AppLanguage.t(R.string.ui_007),null).show();
     }
-    private boolean languageBusy() { return scanning||collecting||preparing||stopping||loading||speedBatch!=null||preparingSpeedBatch||singleTest!=null||speedTest!=null; }
+    private boolean languageBusy() { return scanning||collecting||preparing||stopping||loading||speedBatch!=null||preparingSpeedBatch||singleTest!=null||speedTest!=null||savedPingQueue!=null; }
     private void applyPendingLanguage() {
         if(isDestroyed()||pendingLanguage==null)return;
         if(languageBusy()){ui.postDelayed(this::applyPendingLanguage,500);return;}
@@ -750,9 +761,7 @@ public final class MainActivity extends Activity {
         if(sidebarScan!=null)sidebarScan.setText(AppLanguage.t(R.string.ui_092)+(scanAll?"Max":maxTests)+AppLanguage.t(R.string.ui_093));
         String current = active ? ProxyVpnService.activeEndpoint() : "";
         String address = selected != null ? selected.key() : current;
-        boolean other = !current.isEmpty() && !current.equals(address);
-        activeProfile.setVisibility(other ? View.VISIBLE : View.GONE);
-        activeProfile.setText(AppLanguage.display(other ? AppLanguage.t(R.string.ui_094) + current : ""));
+        refreshPublicIp(false);
         ProxyEndpoint displayed = address.isEmpty() ? null : ProxyEndpoint.parse(address);
         selection.setText(displayed == null ? (address.isEmpty() ? AppLanguage.t(R.string.ui_095) : address) : displayed.address());
         selectionProtocol.setText(displayed == null ? "—" : displayed.type.name());
@@ -867,7 +876,7 @@ public final class MainActivity extends Activity {
             public void onResult(int index,Socks5Probe.Result result){
                 if(!scanning||token!=scanGeneration)return;
                 if(result.endpoint!=null)healthy.accept(result.endpoint);
-                else if(result.failure!=Socks5Probe.Failure.CANCELLED && healthy.find(work.candidate(index).key())!=null)
+                else if(ProbeFailurePolicy.invalidates(result.failure) && healthy.find(work.candidate(index).key())!=null)
                     healthy.reject(work.candidate(index).key(),work.finishedAt(index));
             }
             public void onProgress(int done,int total,int good){ui.post(()->{
@@ -977,8 +986,14 @@ public final class MainActivity extends Activity {
         pingButton.setContentDescription(AppLanguage.t(R.string.ui_147) + AppLanguage.display(pingLimit.label));
         pingButton.setTextColor(pingLimit == ProxyResults.PingLimit.NONE ? Color.WHITE : PRIMARY);
         pingButton.setBackground(background(SURFACE,dp(12),pingLimit == ProxyResults.PingLimit.NONE ? STROKE : Color.rgb(44,100,91)));
-        favoritesButton.setText(AppLanguage.display(showFavorites?AppLanguage.t(R.string.ui_148):AppLanguage.t(R.string.ui_149)+favorites.size()+")"));
+        favoritesButton.setText(AppLanguage.display(showFavorites?AppLanguage.t(R.string.ui_v25_007):AppLanguage.t(R.string.ui_149)+favorites.size()+")"));
         favoritesButton.setContentDescription(showFavorites?AppLanguage.t(R.string.ui_150):AppLanguage.t(R.string.ui_151));
+        LinearLayout.LayoutParams savedBack=new LinearLayout.LayoutParams(showFavorites?dp(78):0,dp(44),showFavorites?0:1);savedBack.setMarginEnd(showFavorites?dp(4):0);favoritesButton.setLayoutParams(savedBack);
+        savedPingButton.setVisibility(showFavorites?View.VISIBLE:View.GONE);savedSpeedButton.setVisibility(showFavorites?View.VISIBLE:View.GONE);
+        savedPingButton.setText(savedPingQueue!=null?AppLanguage.t(R.string.ui_v25_010)+" "+savedPingPosition+"/"+savedPingQueue.size():AppLanguage.t(R.string.ui_v25_008));
+        savedSpeedButton.setText(speedBatch!=null?AppLanguage.t(R.string.ui_v25_010)+" "+speedBatch.done()+"/"+speedBatch.total():AppLanguage.t(R.string.ui_v25_009));
+        savedPingButton.setEnabled(savedPingQueue!=null||(singleTest==null&&speedTest==null&&speedBatch==null&&!preparingSpeedBatch));
+        savedSpeedButton.setEnabled(speedBatch!=null||(singleTest==null&&speedTest==null&&savedPingQueue==null&&!preparingSpeedBatch));
         filterRow.setVisibility(showFavorites?View.GONE:View.VISIBLE);
         limitRow.setVisibility(showFavorites?View.GONE:View.VISIBLE);
         filteredSpeedButton.setVisibility(showFavorites?View.GONE:View.VISIBLE);
@@ -1032,12 +1047,19 @@ public final class MainActivity extends Activity {
         final TextView down=metricValue("",SECONDARY),ping=metricValue("",Color.WHITE);
         final List<TextView> serviceViews=new ArrayList<>();
         final View divider=new View(MainActivity.this);
-        ProxyEndpoint endpoint;String targetSet="";
+        final FrameLayout swipeFrame=new FrameLayout(MainActivity.this);
+        final TextView pingHint=text(AppLanguage.t(R.string.ui_v25_013),15,PRIMARY,true),downloadHint=text(AppLanguage.t(R.string.ui_v25_014),15,Color.rgb(99,172,255),true);
+        ProxyEndpoint endpoint;String targetSet="";boolean swiping;
         Button favoriteButton;
         CardHolder(){
             wrapper.setOrientation(LinearLayout.VERTICAL);wrapper.setLayoutDirection(AppLanguage.direction());
             wrapper.setPadding(dp(12),dp(4),dp(12),dp(4));
-            row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(9),dp(6),dp(9),dp(6));wrapper.addView(row);
+            row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(9),dp(6),dp(9),dp(6));
+            swipeFrame.setClipChildren(true);wrapper.addView(swipeFrame,new LinearLayout.LayoutParams(-1,-2));
+            pingHint.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);pingHint.setPadding(dp(18),0,dp(18),0);pingHint.setBackground(background(Color.rgb(16,56,45),dp(14),PRIMARY));
+            downloadHint.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);downloadHint.setPadding(dp(18),0,dp(18),0);downloadHint.setBackground(background(Color.rgb(20,41,70),dp(14),Color.rgb(99,172,255)));
+            swipeFrame.addView(pingHint,new FrameLayout.LayoutParams(-1,-1));swipeFrame.addView(downloadHint,new FrameLayout.LayoutParams(-1,-1));
+            pingHint.setVisibility(View.GONE);downloadHint.setVisibility(View.GONE);swipeFrame.addView(row,new FrameLayout.LayoutParams(-1,-2));
             LinearLayout top=horizontal();address.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);address.setTextDirection(View.TEXT_DIRECTION_LTR);
             address.setMaxLines(1);address.setEllipsize(android.text.TextUtils.TruncateAt.END);
             address.setAutoSizeTextTypeUniformWithConfiguration(12,16,1,android.util.TypedValue.COMPLEX_UNIT_SP);
@@ -1057,37 +1079,40 @@ public final class MainActivity extends Activity {
             row.addView(divider,sized(dp(1),dp(6)));
             LinearLayout metrics=horizontal();metrics.addView(resultColumn(AppLanguage.t(R.string.ui_164),down),new LinearLayout.LayoutParams(0,-2,1.5f));
             LinearLayout.LayoutParams pingCell=new LinearLayout.LayoutParams(0,-2,1);pingCell.setMarginStart(dp(8));metrics.addView(resultColumn(AppLanguage.t(R.string.ui_165),ping),pingCell);row.addView(metrics,margin(dp(5),0));
-            row.setOnClickListener(v->{if(endpoint!=null){selected=endpoint;userSelected=true;render();}});
+            row.setOnClickListener(v->{if(endpoint!=null){chooseProxy(endpoint);}});
             row.setOnLongClickListener(v->{if(endpoint!=null)proxyDetails(endpoint);return true;});
             // Horizontal gestures only; vertical movement stays with the scrolling ListView.
             row.setOnTouchListener(new View.OnTouchListener(){
-                float startX,startY;boolean horizontal;
+                float startX,startY;boolean horizontal;ProxyEndpoint gestureProxy;
                 @Override public boolean onTouch(View v,android.view.MotionEvent event){
                     int action=event.getActionMasked();
                     if(action==android.view.MotionEvent.ACTION_DOWN){
-                        startX=event.getRawX();startY=event.getRawY();horizontal=false;return false;
+                        row.animate().cancel();row.setTranslationX(0);gestureProxy=endpoint;startX=event.getRawX();startY=event.getRawY();horizontal=false;swiping=false;return false;
                     }
                     float dx=event.getRawX()-startX,dy=event.getRawY()-startY;
                     if(action==android.view.MotionEvent.ACTION_MOVE &&
                         Math.abs(dx)>dp(24)&&Math.abs(dx)>Math.abs(dy)*1.3f){
-                        horizontal=true;v.getParent().requestDisallowInterceptTouchEvent(true);return true;
+                        horizontal=true;swiping=true;v.getParent().requestDisallowInterceptTouchEvent(true);
+                        float distance=Math.max(-dp(132),Math.min(dp(132),dx));row.setTranslationX(distance);
+                        pingHint.setVisibility(dx<0?View.VISIBLE:View.GONE);downloadHint.setVisibility(dx>0?View.VISIBLE:View.GONE);return true;
                     }
                     if(action==android.view.MotionEvent.ACTION_UP && horizontal){
-                        horizontal=false;
-                        if(Math.abs(dx)>dp(64)&&Math.abs(dx)>Math.abs(dy)*1.3f&&endpoint!=null){
-                            if(dx<0)startSpeedTest(endpoint);else startProxyProbe(endpoint,true);
+                        horizontal=false;swiping=false;
+                        if(Math.abs(dx)>dp(64)&&Math.abs(dx)>Math.abs(dy)*1.3f&&endpoint!=null&&gestureProxy!=null&&endpoint.key().equals(gestureProxy.key())){
+                            if(dx<0)startProxyProbe(gestureProxy,true);else startSpeedTest(gestureProxy);
                         }
-                        v.setPressed(false);return true;
+                        row.animate().translationX(0).setDuration(180).withEndAction(()->{pingHint.setVisibility(View.GONE);downloadHint.setVisibility(View.GONE);}).start();v.setPressed(false);return true;
                     }
-                    if(action==android.view.MotionEvent.ACTION_CANCEL){horizontal=false;return false;}
+                    if(action==android.view.MotionEvent.ACTION_CANCEL){horizontal=false;swiping=false;row.animate().translationX(0).setDuration(120).withEndAction(()->{pingHint.setVisibility(View.GONE);downloadHint.setVisibility(View.GONE);}).start();return false;}
                     return horizontal;
                 }
             });
         }
         void bind(ProxyEndpoint p){
+            if(endpoint==null||!endpoint.key().equals(p.key())||!swiping){row.animate().cancel();row.setTranslationX(0);pingHint.setVisibility(View.GONE);downloadHint.setVisibility(View.GONE);swiping=false;}
             endpoint=p;boolean active=selected!=null&&selected.key().equals(p.key());
             row.setBackground(background(active?Color.rgb(23,54,57):SURFACE,dp(14),active?PRIMARY:STROKE));
-            address.setText(p.address());badge.setVisibility(active?View.VISIBLE:View.GONE);
+            address.setText(p.address());badge.setVisibility(ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&p.key().equals(ProxyVpnService.activeEndpoint())?View.VISIBLE:View.GONE);
             boolean saved=favorites.containsKey(p.key());
             favoriteButton.setText(AppLanguage.display(showFavorites?AppLanguage.t(R.string.ui_137):saved?"★":"☆"));
             favoriteButton.setTextSize(showFavorites?11:19);
@@ -1130,7 +1155,7 @@ public final class MainActivity extends Activity {
         if (testingProxy != null && testingProxy.key().equals(p.key())) popup.getMenu().add(0, 6, 5, AppLanguage.t(R.string.ui_178));
         popup.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
-                case 1: userSelected = true; selected = p; render(); break;
+                case 1: chooseProxy(p); break;
                 case 2: startProxyProbe(p, false); break;
                 case 3: startProxyProbe(p, true); break;
                 case 4: startSpeedTest(p); break;
@@ -1217,6 +1242,65 @@ public final class MainActivity extends Activity {
                     });
                 }, "manual-socks-test").start();
             }).setNegativeButton(AppLanguage.t(R.string.ui_067), null).show();
+    }
+    private void chooseProxy(ProxyEndpoint proxy) {
+        selected=proxy;userSelected=true;ipRoute="";ipCheckedAt=0;
+        int phase=ProxyVpnService.phase();
+        if(phase!=ProxyVpnService.DISCONNECTED&&!proxy.key().equals(ProxyVpnService.activeEndpoint()))connect();
+        render();
+    }
+    private String currentIpRoute() {
+        android.net.ConnectivityManager cm=getSystemService(android.net.ConnectivityManager.class);
+        return (vpnRequestPending?ProxyVpnService.CONNECTING:ProxyVpnService.phase())+"|"+(vpnRequestPending&&selected!=null?selected.key():ProxyVpnService.activeEndpoint())+"|"+cm.getActiveNetwork();
+    }
+    private void refreshPublicIp(boolean force) {
+        if(activeProfile==null||isDestroyed())return;
+        String route=currentIpRoute();long now=android.os.SystemClock.elapsedRealtime();
+        if(!force&&route.equals(ipRoute)&&(ipCheck!=null||now-ipCheckedAt<60000))return;
+        if(ipCheck!=null){ipCheck.cancel();ipCheck=null;}
+        ipRoute=route;ipCheckedAt=now;activeProfile.setVisibility(View.VISIBLE);activeProfile.setTextColor(SECONDARY);
+        if(ProxyVpnService.phase()==ProxyVpnService.CONNECTING||vpnRequestPending){activeProfile.setText(AppLanguage.t(R.string.ui_v25_006));return;}
+        activeProfile.setText(AppLanguage.t(R.string.ui_v25_000)+AppLanguage.t(R.string.ui_v25_001));
+        final boolean vpn=ProxyVpnService.phase()==ProxyVpnService.CONNECTED;
+        final ProxyEndpoint proxy=ProxyEndpoint.parse(ProxyVpnService.activeEndpoint());final PublicIpCheck task=new PublicIpCheck();ipCheck=task;
+        new Thread(()->{
+            PublicIpCheck.Result result=null;try{result=task.inspect(getApplicationContext(),vpn,proxy);}catch(Exception ignored){}
+            final PublicIpCheck.Result measured=result;
+            ui.post(()->{
+                if(isDestroyed()||ipCheck!=task||!route.equals(currentIpRoute()))return;
+                ipCheck=null;ipCheckedAt=android.os.SystemClock.elapsedRealtime();
+                if(measured==null){activeProfile.setText(AppLanguage.t(R.string.ui_v25_002));activeProfile.setTextColor(WARNING);return;}
+                String message=AppLanguage.t(R.string.ui_v25_000)+AppLanguage.isolate(measured.actual);
+                if(vpn){
+                    if(selected!=null&&proxy!=null&&!selected.key().equals(proxy.key())){message+="\n"+AppLanguage.t(R.string.ui_v25_017);activeProfile.setTextColor(WARNING);}
+                    else if(measured.expected.isEmpty()){message+="\n"+AppLanguage.t(R.string.ui_v25_016);activeProfile.setTextColor(WARNING);}
+                    else if(measured.matches()){message+="\n"+AppLanguage.t(measured.actual.equals(proxy.host)?R.string.ui_v25_003:R.string.ui_v25_004);activeProfile.setTextColor(PRIMARY);}
+                    else{message+="\n"+AppLanguage.t(R.string.ui_v25_005);activeProfile.setTextColor(DANGER);}
+                }
+                activeProfile.setText(message);
+            });
+        },"actual-public-ip-check").start();
+    }
+    private void startSavedPings() {
+        if(singleTest!=null||speedTest!=null||speedBatch!=null||preparingSpeedBatch)return;
+        savedPingQueue=favoriteSnapshots();savedPingPosition=0;nextSavedPing();
+    }
+    private void nextSavedPing() {
+        if(savedPingQueue==null)return;
+        while(savedPingPosition<savedPingQueue.size()){
+            ProxyEndpoint proxy=savedPingQueue.get(savedPingPosition++);
+            if(favorites.containsKey(proxy.key())&&DistributionPolicy.allows(proxy)){startProxyProbe(proxy,true);return;}
+        }
+        savedPingQueue=null;updateActions();
+    }
+    private void confirmSpeedBatch(FilteredSpeedBatch batch) {
+        if(speedTest!=null||singleTest!=null||speedBatch!=null||preparingSpeedBatch||savedPingQueue!=null||batch.total()==0)return;
+        new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_v25_012))
+            .setMessage(AppLanguage.t(R.string.ui_249)+batch.total()+AppLanguage.t(R.string.ui_250)+TrafficMeter.bytes(batch.maximumBytes())+AppLanguage.t(R.string.ui_251))
+            .setNegativeButton(AppLanguage.t(R.string.ui_252),null).setPositiveButton(AppLanguage.t(R.string.ui_253),(d,w)->{
+                if(isDestroyed()||speedTest!=null||singleTest!=null||speedBatch!=null||savedPingQueue!=null)return;
+                speedBatch=batch;nextFilteredSpeed();render();
+            }).show();
     }
     private void connect() {
         if (selected == null) { Toast.makeText(this, AppLanguage.t(R.string.ui_202), Toast.LENGTH_LONG).show(); return; }
@@ -1369,6 +1453,7 @@ public final class MainActivity extends Activity {
         return true;
     }
     private void cancelSingleTests() {
+        savedPingQueue=null;
         speedBatchGeneration++;preparingSpeedBatch=false;
         if(speedBatch!=null){speedBatch.cancel();speedBatch=null;}
         DownloadSpeedTest download = speedTest; SingleProxyTest probe = singleTest;
@@ -1420,7 +1505,7 @@ public final class MainActivity extends Activity {
                     record.probeError = failure.isEmpty() && finished != null ? Socks5Probe.describe(finished.failure) : failure;
                     record.probeInfo = "";
                     note = (latencyOnly ? AppLanguage.t(R.string.ui_144) : AppLanguage.t(R.string.ui_244)) + ProxyTestResult.shortError(record.probeError);
-                    if(finished!=null&&finished.failure!=Socks5Probe.Failure.CANCELLED){
+                    if(finished!=null&&ProbeFailurePolicy.invalidates(finished.failure)){
                         long rejectedAt=System.currentTimeMillis();healthy.reject(proxy.key(),rejectedAt);manual.removeIf(p->p.key().equals(proxy.key()));
                         ScanCheckpoint current=checkpoint;
                         if(current!=null)ProxyStore.IO.execute(()->{try{current.forgetVerified(proxy.key(),rejectedAt);scanFiles.save(current);}catch(Exception ex){android.util.Log.e("PersianSocks","Invalidation save failed",ex);}});
@@ -1429,7 +1514,7 @@ public final class MainActivity extends Activity {
                         note=favorites.containsKey(proxy.key())?AppLanguage.t(R.string.ui_245):AppLanguage.t(R.string.ui_246);
                     }
                 }
-                saveTestResults(); render();
+                saveTestResults();if(savedPingQueue!=null)nextSavedPing();render();
             });
         }, "single-proxy-connection-test").start();
     }
@@ -1504,7 +1589,7 @@ public final class MainActivity extends Activity {
         if(speedBatch==null)return;
         ProxyEndpoint proxy;
         while((proxy=speedBatch.next())!=null){
-            ProxyEndpoint current=healthy.find(proxy.key());
+            ProxyEndpoint current=healthy.find(proxy.key());if(current==null)current=favorites.get(proxy.key());
             if(current!=null&&DistributionPolicy.allows(current)){runSpeedTest(current);return;}
             speedBatch.completed();
         }

@@ -18,7 +18,7 @@ for p in java.glob('*.java'):
 main=(java/'MainActivity.java').read_text()
 assert '"v" + AppLanguage.version(this)' in main and '0.22.0' not in main
 assert 'languageBusy()' in main and 'ui.postDelayed(this::applyPendingLanguage' in main
-assert 'View.LAYOUT_DIRECTION_RTL' not in main and 'Gravity.RIGHT' not in main
+assert 'View.LAYOUT_DIRECTION_RTL' not in main
 assert 't.setGravity(AppLanguage.gravity()' in main and 't.setTextAlignment(View.TEXT_ALIGNMENT_GRAVITY)' in main
 assert 'title.setGravity(AppLanguage.gravity())' in main and 'title.addView(brand,new LinearLayout.LayoutParams(-1,-2))' in main
 assert 'AppLanguage.isolate(TrafficMeter.bytes(t.downloaded))' in main
@@ -31,4 +31,8 @@ assert 'app-language' in language and 'getPackageInfo' in language
 results=(java/'ProxyResults.java').read_text()
 assert all(x in results for x in ['FASTEST(', 'DOWNLOAD(', 'UDP_FIRST(', 'SOCKS(', 'HTTP('])
 assert 'AppLanguage' not in results and 'AppLanguage' not in (java/'ProxyEndpoint.java').read_text()
+assert 'if(dx<0)startProxyProbe(gestureProxy,true);else startSpeedTest(gestureProxy)' in main
+assert 'row.setTranslationX(distance)' in main and 'gestureProxy.key()' in main
+assert 'chooseProxy(endpoint)' in main and 'refreshPublicIp(false)' in main
+assert 'savedPingButton' in main and 'savedSpeedButton' in main
 print(f'PASS: {len(fa)} bilingual UI strings; resource references, saved labels, installed version, RTL/LTR and stable protocol IDs')

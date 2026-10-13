@@ -42,7 +42,7 @@ public final class ProxyIndex extends AbstractList<ProxyEndpoint> {
             if(copy.candidate(index)==null)continue;
             ProxyEndpoint fresh=copy.verified(index);
             if(fresh!=null)accept(fresh);
-            else { String key=copy.candidate(index).key(); if(find(key)!=null)reject(key,copy.finishedAt(index)); }
+            else if(ProbeFailurePolicy.invalidates(copy.failure(index))) { String key=copy.candidate(index).key(); if(find(key)!=null)reject(key,copy.finishedAt(index)); }
         }
     }
     public static final class Record {

@@ -18,35 +18,46 @@ public final class DownloadSpeedTest {
     public void run(Transport transport,Listener listener){
         long bytes=0,start=0,last=0;double speed=0;String error="";
         AtomicBoolean timedOut=new AtomicBoolean(false);
+        if(cancelled.get()){listener.finished(0,0,"تست متوقف شد");return;}
+        deadline.schedule(()->{timedOut.set(true);HttpURLConnection c=connection;if(c!=null)c.disconnect();},20,TimeUnit.SECONDS);
         try {
-            if(cancelled.get()||!transport.valid())throw new IOException("شبکهٔ تست در دسترس نیست");
-            HttpURLConnection c=transport.open(new java.net.URL(URL+"&ts="+System.nanoTime()));connection=c;
-            if(cancelled.get()){c.disconnect();throw new IOException("تست متوقف شد");}
-            deadline.schedule(()->{timedOut.set(true);c.disconnect();},20,TimeUnit.SECONDS);
-            c.setConnectTimeout(6000);c.setReadTimeout(5000);c.setUseCaches(false);c.setInstanceFollowRedirects(false);
-            c.setRequestProperty("Accept-Encoding","identity");c.setRequestProperty("Cache-Control","no-cache, no-store");
-            c.setRequestProperty("User-Agent","PersianSocks/0.12.0");
-            if(c.getResponseCode()!=200)throw new IOException("سرور تست پاسخ معتبر نداد");
-            String encoding=c.getContentEncoding();if(encoding!=null&&!encoding.equalsIgnoreCase("identity"))throw new IOException("پاسخ فشرده برای تست سرعت پذیرفته نشد");
-            start=last=System.nanoTime();
-            try(InputStream in=c.getInputStream()) {
-                byte[] block=new byte[16384];
-                while(bytes<MAX_BYTES&&!cancelled.get()){
-                    if(!transport.valid())throw new IOException("شبکهٔ تست تغییر کرد؛ تست را دوباره اجرا کن");
-                    int n=in.read(block,0,(int)Math.min(block.length,MAX_BYTES-bytes));if(n<0)break;bytes+=n;
-                    long now=System.nanoTime();speed=mbps(bytes,now-start);
-                    if(now-last>=500_000_000){listener.progress(bytes,speed);last=now;}
-                    if(now-start>=12_000_000_000L)break;
-                }
-                if(bytes==0&&!cancelled.get())throw new IOException("داده‌ای برای اندازه‌گیری نرسید");
-                speed=mbps(bytes,System.nanoTime()-start);
+            String[] endpoints={URL,"https://proof.ovh.net/files/10Mb.dat"};
+            for(int attempt=0;attempt<endpoints.length;attempt++){
+                HttpURLConnection c=null;boolean retryable=false;
+                try {
+                    if(cancelled.get()||!transport.valid())throw new IOException("شبکهٔ تست در دسترس نیست");
+                    c=transport.open(new java.net.URL(endpoints[attempt]+(attempt==0?"&":"?")+"ts="+System.nanoTime()));connection=c;
+                    if(cancelled.get()||timedOut.get())throw new IOException("تست متوقف شد");
+                    c.setConnectTimeout(6000);c.setReadTimeout(5000);c.setUseCaches(false);c.setInstanceFollowRedirects(false);
+                    c.setRequestProperty("Accept-Encoding","identity");c.setRequestProperty("Cache-Control","no-cache, no-store");
+                    c.setRequestProperty("User-Agent","PersianSocks");
+                    int code=c.getResponseCode();retryable=code==403||code==429||code>=500; if(code!=200)throw new IOException("Download server returned HTTP "+code);
+                    String encoding=c.getContentEncoding();if(encoding!=null&&!encoding.equalsIgnoreCase("identity"))throw new IOException("پاسخ فشرده برای تست سرعت پذیرفته نشد");
+                    start=last=System.nanoTime();
+                    try(InputStream in=c.getInputStream()) {
+                        byte[] block=new byte[16384];
+                        while(bytes<MAX_BYTES&&!cancelled.get()){
+                            if(!transport.valid())throw new IOException("شبکهٔ تست تغییر کرد؛ تست را دوباره اجرا کن");
+                            int n=in.read(block,0,(int)Math.min(block.length,MAX_BYTES-bytes));if(n<0)break;bytes+=n;
+                            long now=System.nanoTime();speed=mbps(bytes,now-start);
+                            if(now-last>=500_000_000){listener.progress(bytes,speed);last=now;}
+                            if(now-start>=12_000_000_000L)break;
+                        }
+                        if(bytes==0&&!cancelled.get())throw new IOException("داده‌ای برای اندازه‌گیری نرسید");
+                        speed=mbps(bytes,System.nanoTime()-start);
+                    }
+                    error="";break;
+                }catch(Exception ex){
+                    long elapsed=start==0?0:System.nanoTime()-start;
+                    if((timedOut.get()||ex instanceof SocketTimeoutException)&&bytes>=256_000&&elapsed>=3_000_000_000L&&transport.valid()){
+                        speed=mbps(bytes,elapsed);error="";break;
+                    }
+                    error=timedOut.get()?"مهلت تست تمام شد":String.valueOf(ex.getMessage());
+                    boolean secureFailure=false;for(Throwable cause=ex;cause!=null;cause=cause.getCause()){if(cause instanceof javax.net.ssl.SSLException)secureFailure=true;if(cause instanceof SocketTimeoutException||cause instanceof ConnectException||cause instanceof NoRouteToHostException||cause instanceof UnknownHostException)retryable=true;}
+                    if(bytes>0||cancelled.get()||timedOut.get()||!transport.valid()||secureFailure||!retryable)break;
+                }finally{if(c!=null)c.disconnect();connection=null;}
             }
-        }catch(Exception ex){
-            if(timedOut.get()&&bytes>0&&transport.valid())speed=mbps(bytes,System.nanoTime()-start);
-            else error=timedOut.get()?"مهلت تست تمام شد":String.valueOf(ex.getMessage());
-        }finally{
-            HttpURLConnection c=connection;if(c!=null)c.disconnect();connection=null;deadline.shutdownNow();
-        }
+        }finally{deadline.shutdownNow();}
         if(cancelled.get())error="تست متوقف شد";
         listener.finished(bytes,speed,error);
     }
