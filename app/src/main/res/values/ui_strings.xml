@@ -520,4 +520,7 @@
     <string name="ui_v28_speed_time" formatted="false">"زمان آخرین دانلود موفق: "</string>
     <string name="ui_v28_vpn_error" formatted="false">"آخرین خطای VPN این پروکسی: "</string>
     <string name="ui_v28_evidence" formatted="false">"تست سرعت فقط مسیر سرور دانلود را در زمان همان آزمون بررسی می‌کند. برای تأیید VPN، مسیر واقعی تونل جداگانه بررسی می‌شود؛ موفقیت قبلی تضمین اتصال فعلی نیست."</string>
+    <string name="ui_home_filters" formatted="false">"فیلترها"</string>
+    <string name="ui_home_scan" formatted="false">"اسکن پروکسی‌ها"</string>
+    <string name="ui_home_reset" formatted="false">"بازنشانی"</string>
 </resources>

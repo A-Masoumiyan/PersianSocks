@@ -75,7 +75,7 @@ public final class MainActivity extends Activity {
     private String ipRoute="";
     private long ipCheckedAt;
     private final Runnable ipTicker=new Runnable(){public void run(){if(isDestroyed())return;refreshPublicIp(false);if(siteIcons!=null)siteIcons.sync();ui.postDelayed(this,15000);}};
-    private LinearLayout filterRow, limitRow;
+    private UiIconButton filterButton;
     private ProxyEndpoint selected;
     private ListView results;
     private LinearLayout emptyState;
@@ -101,7 +101,7 @@ public final class MainActivity extends Activity {
     private int scanTypes=7;
     private ProxyResults.Protocol protocol=ProxyResults.Protocol.ALL;
     private ProxyResults.PingLimit pingLimit = ProxyResults.PingLimit.NONE;
-    private Button scanToggle, collectButton, sortButton, serviceButton, protocolButton, pingButton;
+    private Button scanToggle, collectButton;
     private boolean smoothResults;
     private long measurementRevision;
     private PowerToggle vpnToggle;
@@ -324,12 +324,12 @@ public final class MainActivity extends Activity {
             else connect();
         });
         LinearLayout.LayoutParams powerCell=new LinearLayout.LayoutParams(dp(56),dp(56));powerCell.setMarginEnd(dp(8));actions.addView(vpnToggle,powerCell);
-        probeButton = button(AppLanguage.t(R.string.ui_009), false); probeButton.setTextSize(12);
+        probeButton = new UiIconButton(this,UiIconButton.Kind.CONNECT,AppLanguage.t(R.string.ui_009));
         probeButton.setOnClickListener(v -> { if (singleTest != null) singleTest.cancel(); else startProxyProbe(selected, false); });
-        actions.addView(probeButton, weighted(48, 1, 6));
-        speedButton = button(AppLanguage.t(R.string.ui_010), false); speedButton.setTextSize(12);
+        actions.addView(new android.widget.Space(this),new LinearLayout.LayoutParams(0,1,1));actions.addView(probeButton,iconCell(6));
+        speedButton = new UiIconButton(this,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_010));
         speedButton.setOnClickListener(v -> { if (speedTest != null) speedTest.cancel(); else startSpeedTest(selected); });
-        actions.addView(speedButton, weighted(48, 1, 0));
+        actions.addView(speedButton,iconCell(0));
         hero.addView(actions, margin(dp(10), 0));
 
         LinearLayout traffic = horizontal();
@@ -349,22 +349,21 @@ public final class MainActivity extends Activity {
         LinearLayout scanPanel = panel();
         scanPanel.setPadding(dp(12), dp(8), dp(12), dp(8));
         LinearLayout scanTitle = horizontal();
-        collectButton = button(AppLanguage.t(R.string.ui_014), false); collectButton.setTextSize(12);
+        collectButton = new UiIconButton(this,UiIconButton.Kind.COLLECT,AppLanguage.t(R.string.ui_014));
         collectButton.setOnClickListener(v -> { if (collecting) stopCollection(); else collectList(); });
-        scanTitle.addView(collectButton, weighted(48, 1, 8));
-        scanToggle = button(AppLanguage.t(R.string.ui_015), false); scanToggle.setTextSize(13);
-        scanToggle.setPadding(dp(12), 0, dp(12), 0);
+        scanTitle.addView(collectButton,iconCell(6));
+        scanToggle = new UiIconButton(this,UiIconButton.Kind.SCAN,AppLanguage.t(R.string.ui_home_scan));
         scanToggle.setOnClickListener(v -> { if (scanning || ProxyVpnService.autoScanning()) stopScan(); else scanMenu(); });
-        scanTitle.addView(scanToggle, weighted(48, 1, 0));
+        scanTitle.addView(scanToggle,iconCell(6));
         scanPanel.addView(scanTitle);
         listStatus = text("", 11, SECONDARY, false); listStatus.setVisibility(View.GONE);
         listStatus.setMaxLines(1); listStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        scanPanel.addView(listStatus, margin(dp(4), 0));
+        LinearLayout scanText=new LinearLayout(this);scanText.setOrientation(LinearLayout.VERTICAL);scanText.setLayoutDirection(AppLanguage.direction());scanText.setGravity(AppLanguage.gravity());scanText.addView(listStatus,new LinearLayout.LayoutParams(-1,-2));
         status = text(checkpoint != null && !checkpoint.complete() ? AppLanguage.t(R.string.ui_016) + checkpoint.done() + AppLanguage.t(R.string.ui_017) + checkpoint.total() :
             catalogCount == 0 ? AppLanguage.t(R.string.ui_018) : catalogCount + AppLanguage.t(R.string.ui_019), 12, SECONDARY, false);
         status.setMaxLines(1); status.setEllipsize(android.text.TextUtils.TruncateAt.END);
         status.setOnClickListener(v -> showReport());
-        scanPanel.addView(status, margin(dp(4), 0));
+        scanText.addView(status,new LinearLayout.LayoutParams(-1,-2));scanTitle.addView(scanText,new LinearLayout.LayoutParams(0,-2,1));
         scanProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         scanProgress.setMax(100);
         scanProgress.setProgressTintList(ColorStateList.valueOf(PRIMARY));
@@ -377,33 +376,27 @@ public final class MainActivity extends Activity {
         LinearLayout heading = horizontal();
         heading.addView(text(AppLanguage.t(R.string.ui_020), 18, Color.WHITE, true), new LinearLayout.LayoutParams(0, -2, 1));
         counter = text(AppLanguage.t(R.string.ui_021), 12, PRIMARY, true); heading.addView(counter);
-        Button reset=button("↺",false);reset.setContentDescription(AppLanguage.t(R.string.ui_022));reset.setOnClickListener(v->resetFilters());
-        LinearLayout.LayoutParams resetCell=new LinearLayout.LayoutParams(dp(48),dp(48));resetCell.setMarginStart(dp(8));heading.addView(reset,resetCell);
-        root.addView(heading, margin(dp(12), 0));
-        favoritesButton=button(AppLanguage.t(R.string.ui_023),false);
-        favoritesButton.setTextSize(13);
+        root.addView(heading, margin(dp(8), 0));
+        LinearLayout toolbar=horizontal();
+        favoritesButton=new UiIconButton(this,UiIconButton.Kind.STAR,AppLanguage.t(R.string.ui_151));
         favoritesButton.setOnClickListener(v->{showFavorites=!showFavorites;renderedRevision=-1;render();});
-        LinearLayout savedActions=horizontal();savedActions.addView(favoritesButton,new LinearLayout.LayoutParams(0,dp(44),1));
-        savedPingButton=button(AppLanguage.t(R.string.ui_v25_008),false);savedPingButton.setOnClickListener(v->{if(savedPingQueue!=null)cancelSingleTests();else startSavedPings();render();});
-        savedSpeedButton=button(AppLanguage.t(R.string.ui_v25_009),false);savedSpeedButton.setOnClickListener(v->{if(speedBatch!=null)stopFilteredSpeed();else confirmSpeedBatch(new FilteredSpeedBatch(favoriteSnapshots()));render();});
-        savedActions.addView(savedPingButton,weighted(44,1,4));savedActions.addView(savedSpeedButton,weighted(44,1,0));
-        savedPingButton.setVisibility(View.GONE);savedSpeedButton.setVisibility(View.GONE);root.addView(savedActions,sized(dp(44),dp(4)));
-        filterRow=horizontal();limitRow=horizontal();
-        serviceButton=dropdownButton(AppLanguage.t(R.string.ui_024),AppLanguage.t(R.string.ui_025));serviceButton.setOnClickListener(v->serviceMenu());
-        protocolButton=dropdownButton(AppLanguage.t(R.string.ui_026),AppLanguage.t(R.string.ui_027));protocolButton.setOnClickListener(v->protocolMenu());
-        pingButton=dropdownButton(AppLanguage.t(R.string.ui_028),AppLanguage.t(R.string.ui_029));pingButton.setOnClickListener(v->pingMenu());
-        sortButton=dropdownButton(AppLanguage.t(R.string.ui_030),AppLanguage.t(R.string.ui_031));sortButton.setOnClickListener(v->sortMenu());
-        filterRow.addView(serviceButton,weighted(48,1,6));filterRow.addView(protocolButton,weighted(48,1,0));
-        limitRow.addView(pingButton,weighted(48,1,6));limitRow.addView(sortButton,weighted(48,1,0));
-        root.addView(filterRow,margin(dp(6),0));root.addView(limitRow,margin(dp(6),0));
-        filteredSpeedButton=button(AppLanguage.t(R.string.ui_032),false);
-        filteredSpeedButton.setTextSize(12);
+        toolbar.addView(favoritesButton,weighted(48,1,6));
+        filterButton=new UiIconButton(this,UiIconButton.Kind.FILTER,AppLanguage.t(R.string.ui_home_filters));
+        filterButton.setOnClickListener(v->homeFiltersDialog());toolbar.addView(filterButton,weighted(48,1,6));
+        filteredSpeedButton=new UiIconButton(this,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_032));
         filteredSpeedButton.setOnClickListener(v->{if(speedBatch!=null||preparingSpeedBatch)stopFilteredSpeed();else prepareFilteredSpeed();});
-        root.addView(filteredSpeedButton,sized(dp(42),dp(6)));
+        toolbar.addView(filteredSpeedButton,weighted(48,1,6));
+        savedPingButton=new UiIconButton(this,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_v25_008));
+        savedPingButton.setOnClickListener(v->{if(savedPingQueue!=null)cancelSingleTests();else startSavedPings();render();});
+        savedSpeedButton=new UiIconButton(this,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_v25_009));
+        savedSpeedButton.setOnClickListener(v->{if(speedBatch!=null)stopFilteredSpeed();else confirmSpeedBatch(new FilteredSpeedBatch(favoriteSnapshots()));render();});
+        toolbar.addView(savedPingButton,weighted(48,1,6));toolbar.addView(savedSpeedButton,weighted(48,1,6));
+        UiIconButton reset=new UiIconButton(this,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_022));reset.setOnClickListener(v->resetFilters());toolbar.addView(reset,weighted(48,1,0));
+        savedPingButton.setVisibility(View.GONE);savedSpeedButton.setVisibility(View.GONE);root.addView(toolbar,margin(dp(4),0));
         rebuildFilters();
         filterSummary = text("", 11, SECONDARY, false);
         filterSummary.setSingleLine(true); filterSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        filterSummary.setOnClickListener(v -> resetFilters());
+        filterSummary.setOnClickListener(v -> homeFiltersDialog());
         root.addView(filterSummary, margin(dp(3), 0));
         emptyState=panel();root.addView(emptyState,margin(dp(8),0));
         results.setAdapter(resultAdapter);
@@ -422,13 +415,6 @@ public final class MainActivity extends Activity {
         column.addView(text(label, 11, SECONDARY, false)); column.addView(choice, sized(dp(48), dp(4)));
         return column;
     }
-    private Button dropdownButton(String label, String description) {
-        Button choice = button(label + "  ▾", false); choice.setTextSize(13);
-        choice.setGravity(AppLanguage.gravity() | Gravity.CENTER_VERTICAL); choice.setPadding(dp(12), 0, dp(12), 0);
-        choice.setSingleLine(true); choice.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        choice.setContentDescription(description); return choice;
-    }
-
     private LinearLayout horizontal() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -526,18 +512,41 @@ public final class MainActivity extends Activity {
             }
         }
     }
-    private void pingMenu() {
-        PopupMenu popup = new PopupMenu(this,pingButton);
-        for (ProxyResults.PingLimit limit : ProxyResults.PingLimit.values())
-            popup.getMenu().add(1,limit.ordinal()+1,limit.ordinal(),AppLanguage.display(limit.label)).setChecked(pingLimit == limit);
-        popup.getMenu().setGroupCheckable(1,true,true);
-        popup.setOnMenuItemClickListener(item -> {
-            pingLimit=ProxyResults.PingLimit.values()[item.getItemId()-1]; 
-            getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putInt("ping-limit-ms",pingLimit.milliseconds).apply();
-            if (ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED && !vpnRequestPending) { userSelected=false; selectBest(); }
-            render(); return true;
-        });
-        popup.show();
+    private LinearLayout.LayoutParams iconCell(int gap){LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(48),dp(48));cell.setMarginEnd(dp(gap));return cell;}
+    private void iconState(Button button,UiIconButton.Kind kind,String description,boolean active){
+        UiIconButton icon=(UiIconButton)button;icon.kind(kind);icon.active(active);icon.setContentDescription(AppLanguage.display(description));icon.setTooltipText(icon.getContentDescription());
+    }
+    private void homeFiltersDialog(){
+        final String[] draft={filter,protocol.name(),pingLimit.name(),smoothResults?"SMOOTH":sort.name()};
+        LinearLayout panel=dialogContent(),tabs=horizontal();
+        int[] titles={R.string.ui_025,R.string.ui_027,R.string.ui_029,R.string.ui_031};
+        UiIconButton.Kind[] kinds={UiIconButton.Kind.TARGET,UiIconButton.Kind.PROTOCOL,UiIconButton.Kind.PING,UiIconButton.Kind.SORT};
+        UiIconButton[] buttons=new UiIconButton[4];final int[] category={0};
+        TextView heading=text("",14,PRIMARY,true);android.widget.RadioGroup options=new android.widget.RadioGroup(this);options.setOrientation(LinearLayout.VERTICAL);options.setLayoutDirection(AppLanguage.direction());
+        Runnable showOptions=()->{
+            int section=category[0];for(int i=0;i<4;i++)buttons[i].active(i==section);
+            heading.setText(AppLanguage.t(titles[section]));options.setOnCheckedChangeListener(null);options.clearCheck();options.removeAllViews();
+            List<String> values=new ArrayList<>(),labels=new ArrayList<>();
+            if(section==0){for(String key:filterKeys){values.add(key);labels.add(AppLanguage.display(ProxyResults.label(key)));}}
+            else if(section==1){for(ProxyResults.Protocol value:ProxyResults.Protocol.values()){
+                if(DistributionPolicy.play()&&value!=ProxyResults.Protocol.HTTP||DistributionPolicy.encryptedOnly()&&value==ProxyResults.Protocol.SOCKS)continue;
+                values.add(value.name());labels.add(value==ProxyResults.Protocol.HTTP&&DistributionPolicy.encryptedOnly()?"HTTPS / TLS":AppLanguage.display(value.label));}}
+            else if(section==2){for(ProxyResults.PingLimit value:ProxyResults.PingLimit.values()){values.add(value.name());labels.add(AppLanguage.display(value.label));}}
+            else{for(ProxyResults.Sort value:ProxyResults.Sort.values()){values.add(value.name());labels.add(AppLanguage.display(value.label));if(value==ProxyResults.Sort.DOWNLOAD){values.add("SMOOTH");labels.add(AppLanguage.t(R.string.ui_081));}}}
+            for(int i=0;i<values.size();i++){android.widget.RadioButton choice=new android.widget.RadioButton(this);choice.setId(i+1);choice.setText(labels.get(i));choice.setTextSize(13);choice.setTextColor(Color.WHITE);choice.setLayoutDirection(AppLanguage.direction());choice.setTextDirection(AppLanguage.textDirection());choice.setButtonTintList(ColorStateList.valueOf(PRIMARY));choice.setPadding(dp(4),dp(4),dp(4),dp(4));choice.setMinHeight(dp(48));options.addView(choice,new android.widget.RadioGroup.LayoutParams(-1,-2));if(values.get(i).equals(draft[section]))choice.setChecked(true);}
+            options.setOnCheckedChangeListener((group,id)->{if(id>0&&id<=values.size())draft[section]=values.get(id-1);});
+        };
+        for(int i=0;i<4;i++){final int index=i;buttons[i]=new UiIconButton(this,kinds[i],AppLanguage.t(titles[i]));buttons[i].setOnClickListener(v->{category[0]=index;showOptions.run();});tabs.addView(buttons[i],weighted(48,1,i==3?0:6));}
+        panel.addView(tabs);panel.addView(heading,margin(dp(12),0));panel.addView(options);
+        LinearLayout actions=horizontal();Button save=button(AppLanguage.t(R.string.ui_065),true),reset=button(AppLanguage.t(R.string.ui_home_reset),false),cancel=button(AppLanguage.t(R.string.ui_067),false);
+        actions.addView(save,weighted(48,1,6));actions.addView(reset,weighted(48,1,6));actions.addView(cancel,weighted(48,1,0));panel.addView(actions,margin(dp(12),0));
+        ScrollView scroll=new ScrollView(this);scroll.addView(panel);AlertDialog dialog=new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_home_filters)).setView(scroll).create();
+        reset.setOnClickListener(v->{draft[0]="ALL";draft[1]=DistributionPolicy.encryptedOnly()?"HTTP":"ALL";draft[2]="NONE";draft[3]="FASTEST";showOptions.run();});cancel.setOnClickListener(v->dialog.dismiss());
+        save.setOnClickListener(v->{boolean changed=!filter.equals(draft[0])||!protocol.name().equals(draft[1])||!pingLimit.name().equals(draft[2]);
+            filter=draft[0];protocol=ProxyResults.Protocol.valueOf(draft[1]);pingLimit=ProxyResults.PingLimit.valueOf(draft[2]);smoothResults=draft[3].equals("SMOOTH");if(!smoothResults)sort=ProxyResults.Sort.valueOf(draft[3]);
+            getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("filter",filter).putString("protocol-filter",protocol.name()).putInt("ping-limit-ms",pingLimit.milliseconds).putString("sort",sort.name()).putBoolean("smooth-results",smoothResults).apply();
+            if(ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED&&!vpnRequestPending&&(changed||!userSelected))selectBest();dialog.dismiss();render();});
+        showOptions.run();dialog.show();
     }
     private void resetFilters() {
         filter="ALL"; protocol=DistributionPolicy.encryptedOnly() ? ProxyResults.Protocol.HTTP : ProxyResults.Protocol.ALL;
@@ -551,41 +560,6 @@ public final class MainActivity extends Activity {
         filterKeys.clear();
         for (ProxyResults.Filter option : ProxyResults.Filter.values()) filterKeys.add(option.name());
         for (ServiceTargets.Target target : customTargets) filterKeys.add(target.id);
-    }
-    private void serviceMenu() {
-        PopupMenu popup = new PopupMenu(this, serviceButton);
-        for (int i = 0; i < filterKeys.size(); i++) {
-            String key = filterKeys.get(i);
-            popup.getMenu().add(1, i + 1, i, AppLanguage.display(ProxyResults.label(key))).setChecked(key.equals(filter));
-        }
-        popup.getMenu().setGroupCheckable(1, true, true);
-        popup.getMenu().add(2, 100, filterKeys.size(), AppLanguage.t(R.string.ui_058));
-        popup.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 100) { targetsDialog(); return true; }
-            filter = filterKeys.get(item.getItemId() - 1);
-            getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putString("filter", filter).apply();
-            if (ProxyVpnService.phase() == ProxyVpnService.DISCONNECTED && !vpnRequestPending &&
-                (selected == null || !ProxyResults.accepts(selected, filter))) { userSelected = false; selectBest(); }
-            render(); return true;
-        });
-        popup.show();
-    }
-    private void protocolMenu() {
-        PopupMenu popup = new PopupMenu(this, protocolButton);
-        for (ProxyResults.Protocol option : ProxyResults.Protocol.values()) {
-            if (DistributionPolicy.play() && option != ProxyResults.Protocol.HTTP) continue;
-            if (DistributionPolicy.encryptedOnly() && option == ProxyResults.Protocol.SOCKS) continue;
-            String label = option == ProxyResults.Protocol.HTTP && DistributionPolicy.encryptedOnly() ? "HTTPS / TLS" : AppLanguage.display(option.label);
-            popup.getMenu().add(1, option.ordinal() + 1, option.ordinal(), label).setChecked(protocol == option);
-        }
-        popup.getMenu().setGroupCheckable(1, true, true);
-        popup.setOnMenuItemClickListener(item -> {
-            protocol = ProxyResults.Protocol.values()[item.getItemId() - 1];
-            getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putString("protocol-filter", protocol.name()).apply();
-            if (ProxyVpnService.phase() == ProxyVpnService.DISCONNECTED && !vpnRequestPending) { userSelected = false; selectBest(); }
-            render(); return true;
-        });
-        popup.show();
     }
     private void connectionSettings() {
         LinearLayout inputs = dialogContent(); inputs.setLayoutDirection(AppLanguage.direction());
@@ -688,32 +662,6 @@ public final class MainActivity extends Activity {
         info.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
         new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_054)).setView(info).setPositiveButton(AppLanguage.t(R.string.ui_007), null).show();
     }
-    private void sortMenu() {
-        PopupMenu popup = new PopupMenu(this, sortButton);
-        for (ProxyResults.Sort option : ProxyResults.Sort.values()) {
-            popup.getMenu().add(1, option.ordinal() + 1, option.ordinal() * 2, AppLanguage.display(option.label))
-                .setChecked(!smoothResults && sort == option);
-            if(option==ProxyResults.Sort.DOWNLOAD)
-                // Immediately after 'Fast download', not at the end of the menu.
-                popup.getMenu().add(1, 101, option.ordinal() * 2 + 1, AppLanguage.t(R.string.ui_081))
-                    .setCheckable(true).setChecked(smoothResults);
-        }
-        popup.getMenu().setGroupCheckable(1, true, true);
-        popup.setOnMenuItemClickListener(item -> {
-            if(item.getItemId()==101){
-                smoothResults=true;
-                getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("smooth-results",smoothResults).apply();
-            }else{
-                sort = ProxyResults.Sort.values()[item.getItemId() - 1];
-                smoothResults=false;
-                getSharedPreferences("persiansocks", MODE_PRIVATE).edit()
-                    .putString("sort",sort.name()).putBoolean("smooth-results",false).apply();
-            }
-            if (!userSelected && ProxyVpnService.phase() == ProxyVpnService.DISCONNECTED && !vpnRequestPending) selectBest();
-            render(); return true;
-        });
-        popup.show();
-    }
     private String sortLabel() {
         if(smoothResults)return AppLanguage.t(R.string.ui_081);
         switch (sort) {
@@ -733,10 +681,10 @@ public final class MainActivity extends Activity {
         if(!foregroundVisible)return;
         if (scanToggle == null) return;
         boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto;
-        scanToggle.setText(AppLanguage.display(anyScan ? AppLanguage.t(R.string.ui_087) : AppLanguage.t(R.string.ui_015)));
+        iconState(scanToggle,anyScan?UiIconButton.Kind.STOP:UiIconButton.Kind.SCAN,anyScan?AppLanguage.t(R.string.ui_087):AppLanguage.t(R.string.ui_home_scan),anyScan);
         scanToggle.setEnabled(!collecting && !loading && !preparing && !stopping);
         collectButton.setEnabled(!anyScan && !loading && !preparing && !stopping);
-        collectButton.setText(AppLanguage.display(collecting ? AppLanguage.t(R.string.ui_088) : AppLanguage.t(R.string.ui_014)));
+        iconState(collectButton,collecting?UiIconButton.Kind.STOP:UiIconButton.Kind.COLLECT,collecting?AppLanguage.t(R.string.ui_088):AppLanguage.t(R.string.ui_014),collecting);
         if (!collecting) listStatus.setText(AppLanguage.t(R.string.ui_089) + catalogCount + AppLanguage.t(R.string.ui_090));
         listStatus.setVisibility(collecting ? View.VISIBLE : View.GONE);
         status.setVisibility(collecting ? View.GONE : View.VISIBLE);
@@ -762,18 +710,18 @@ public final class MainActivity extends Activity {
         selectionProtocol.setText(displayed == null ? "—" : displayed.type.name());
         selection.setContentDescription(address.isEmpty() ? AppLanguage.t(R.string.ui_004) : address);
         boolean busy = speedTest != null || singleTest != null || speedBatch != null || preparingSpeedBatch;
-        speedButton.setText(AppLanguage.display(speedTest != null ? AppLanguage.t(R.string.ui_096) : AppLanguage.t(R.string.ui_010)));
-        probeButton.setText(AppLanguage.display(singleTest != null ? AppLanguage.t(R.string.ui_097) : AppLanguage.t(R.string.ui_009)));
+        iconState(speedButton,speedTest!=null?UiIconButton.Kind.STOP:UiIconButton.Kind.DOWNLOAD,speedTest!=null?AppLanguage.t(R.string.ui_096):AppLanguage.t(R.string.ui_010),speedTest!=null);
+        iconState(probeButton,singleTest!=null?UiIconButton.Kind.STOP:UiIconButton.Kind.CONNECT,singleTest!=null?AppLanguage.t(R.string.ui_097):AppLanguage.t(R.string.ui_009),singleTest!=null);
         speedButton.setEnabled(speedBatch == null && !preparingSpeedBatch && (speedTest != null || (selected != null && !busy)));
         probeButton.setEnabled(singleTest != null || (selected != null && !busy));
         speedButton.setAlpha(speedButton.isEnabled() ? 1f : .45f);
         probeButton.setAlpha(probeButton.isEnabled() ? 1f : .45f);
         if(filteredSpeedButton!=null){
-            filteredSpeedButton.setText(AppLanguage.display(speedBatch!=null?AppLanguage.t(R.string.ui_098)+speedBatch.done()+" / "+speedBatch.total():preparingSpeedBatch?AppLanguage.t(R.string.ui_099):AppLanguage.t(R.string.ui_032)));
+            iconState(filteredSpeedButton,speedBatch!=null||preparingSpeedBatch?UiIconButton.Kind.STOP:UiIconButton.Kind.DOWNLOAD,speedBatch!=null?AppLanguage.t(R.string.ui_098)+speedBatch.done()+" / "+speedBatch.total():preparingSpeedBatch?AppLanguage.t(R.string.ui_099):AppLanguage.t(R.string.ui_032),speedBatch!=null||preparingSpeedBatch);
             filteredSpeedButton.setEnabled(speedBatch!=null||preparingSpeedBatch||(!busy&&!healthy.isEmpty()));
             filteredSpeedButton.setAlpha(filteredSpeedButton.isEnabled()?1f:.45f);
         }
-        collectButton.setContentDescription(AppLanguage.t(R.string.ui_100) + catalogCount + AppLanguage.t(R.string.ui_101));
+        if(!collecting){collectButton.setContentDescription(AppLanguage.t(R.string.ui_100)+catalogCount+AppLanguage.t(R.string.ui_101));collectButton.setTooltipText(collectButton.getContentDescription());}
     }
     private void stopScan() {
         if(stopping)return;
@@ -951,34 +899,21 @@ public final class MainActivity extends Activity {
         if(selected!=null){ProxyEndpoint latest=healthy.find(selected.key());if(latest!=null)selected=latest;}
         String kindLabel = protocol == ProxyResults.Protocol.HTTP && DistributionPolicy.encryptedOnly() ? "HTTPS / TLS" : AppLanguage.display(protocol.label);
         boolean filtered = !filter.equals("ALL") || protocol != ProxyResults.Protocol.ALL || pingLimit != ProxyResults.PingLimit.NONE;
-        filterSummary.setText(AppLanguage.display(ProxyResults.label(filter) + "  •  " + kindLabel +
-            (pingLimit == ProxyResults.PingLimit.NONE ? "" : "  •  " + AppLanguage.display(pingLimit.label))));
-        filterSummary.setVisibility(View.GONE);
-        sortButton.setText(AppLanguage.display(sortLabel() + "  ▾"));
-        sortButton.setContentDescription(AppLanguage.t(R.string.ui_139) + (smoothResults?AppLanguage.t(R.string.ui_081):AppLanguage.display(sort.label)));
-        sortButton.setEnabled(true);
-        serviceButton.setText(AppLanguage.t(R.string.ui_140)+AppLanguage.display(ProxyResults.label(filter)) + "  ▾");
-        serviceButton.setContentDescription(AppLanguage.t(R.string.ui_141) + AppLanguage.display(ProxyResults.label(filter)));
-        serviceButton.setTextColor(filter.equals("ALL") ? Color.WHITE : PRIMARY);
-        serviceButton.setBackground(background(SURFACE, dp(12), filter.equals("ALL") ? STROKE : Color.rgb(44, 100, 91)));
-        protocolButton.setText(AppLanguage.t(R.string.ui_142)+kindLabel + "  ▾");
-        protocolButton.setContentDescription(AppLanguage.t(R.string.ui_143) + kindLabel);
-        protocolButton.setTextColor(protocol == ProxyResults.Protocol.ALL ? Color.WHITE : PRIMARY);
-        protocolButton.setBackground(background(SURFACE, dp(12), protocol == ProxyResults.Protocol.ALL ? STROKE : Color.rgb(44, 100, 91)));
-        pingButton.setText(AppLanguage.t(R.string.ui_144)+(pingLimit==ProxyResults.PingLimit.NONE?AppLanguage.t(R.string.ui_145):AppLanguage.display(pingLimit.label))+"  ▾");
-        pingButton.setContentDescription(AppLanguage.t(R.string.ui_147) + AppLanguage.display(pingLimit.label));
-        pingButton.setTextColor(pingLimit == ProxyResults.PingLimit.NONE ? Color.WHITE : PRIMARY);
-        pingButton.setBackground(background(SURFACE,dp(12),pingLimit == ProxyResults.PingLimit.NONE ? STROKE : Color.rgb(44,100,91)));
-        favoritesButton.setText(AppLanguage.display(showFavorites?AppLanguage.t(R.string.ui_v25_007):AppLanguage.t(R.string.ui_149)+favorites.size()+")"));
-        favoritesButton.setContentDescription(showFavorites?AppLanguage.t(R.string.ui_150):AppLanguage.t(R.string.ui_151));
-        LinearLayout.LayoutParams savedBack=new LinearLayout.LayoutParams(showFavorites?dp(78):0,dp(44),showFavorites?0:1);savedBack.setMarginEnd(showFavorites?dp(4):0);favoritesButton.setLayoutParams(savedBack);
+        String summary=AppLanguage.display(ProxyResults.label(filter)+" • "+kindLabel+
+            (pingLimit==ProxyResults.PingLimit.NONE?"":" • "+AppLanguage.display(pingLimit.label))+" • "+sortLabel());
+        filterSummary.setText(summary);filterSummary.setVisibility(showFavorites?View.GONE:View.VISIBLE);
+        filterButton.active(filtered||smoothResults||sort!=ProxyResults.Sort.FASTEST);
+        filterButton.setContentDescription(AppLanguage.t(R.string.ui_home_filters)+": "+summary);filterButton.setTooltipText(filterButton.getContentDescription());
+        iconState(favoritesButton,showFavorites?UiIconButton.Kind.BACK:UiIconButton.Kind.STAR,
+            showFavorites?AppLanguage.t(R.string.ui_150):AppLanguage.t(R.string.ui_151)+" ("+favorites.size()+")",showFavorites);
         savedPingButton.setVisibility(showFavorites?View.VISIBLE:View.GONE);savedSpeedButton.setVisibility(showFavorites?View.VISIBLE:View.GONE);
-        savedPingButton.setText(savedPingQueue!=null?AppLanguage.t(R.string.ui_v25_010)+" "+savedPingPosition+"/"+savedPingQueue.size():AppLanguage.t(R.string.ui_v25_008));
-        savedSpeedButton.setText(speedBatch!=null?AppLanguage.t(R.string.ui_v25_010)+" "+speedBatch.done()+"/"+speedBatch.total():AppLanguage.t(R.string.ui_v25_009));
+        iconState(savedPingButton,savedPingQueue!=null?UiIconButton.Kind.STOP:UiIconButton.Kind.SYNC,
+            savedPingQueue!=null?AppLanguage.t(R.string.ui_v25_010)+" "+savedPingPosition+"/"+savedPingQueue.size():AppLanguage.t(R.string.ui_v25_008),savedPingQueue!=null);
+        iconState(savedSpeedButton,speedBatch!=null?UiIconButton.Kind.STOP:UiIconButton.Kind.DOWNLOAD,
+            speedBatch!=null?AppLanguage.t(R.string.ui_v25_010)+" "+speedBatch.done()+"/"+speedBatch.total():AppLanguage.t(R.string.ui_v25_009),speedBatch!=null);
         savedPingButton.setEnabled(savedPingQueue!=null||(singleTest==null&&speedTest==null&&speedBatch==null&&!preparingSpeedBatch));
         savedSpeedButton.setEnabled(speedBatch!=null||(singleTest==null&&speedTest==null&&savedPingQueue==null&&!preparingSpeedBatch));
-        filterRow.setVisibility(showFavorites?View.GONE:View.VISIBLE);
-        limitRow.setVisibility(showFavorites?View.GONE:View.VISIBLE);
+        filterButton.setVisibility(showFavorites?View.GONE:View.VISIBLE);
         filteredSpeedButton.setVisibility(showFavorites?View.GONE:View.VISIBLE);
         updateActions();
         if(renderedRevision==healthy.revision()&&renderedCriteria.equals(criteria())){resultAdapter.notifyDataSetChanged();return;}

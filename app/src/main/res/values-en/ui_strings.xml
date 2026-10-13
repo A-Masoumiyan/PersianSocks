@@ -520,4 +520,7 @@
     <string name="ui_v28_speed_time" formatted="false">"Last successful download: "</string>
     <string name="ui_v28_vpn_error" formatted="false">"Last VPN error for this proxy: "</string>
     <string name="ui_v28_evidence" formatted="false">"A speed test checks only the download server route at the time of that test. VPN connectivity is checked separately through the real tunnel; an earlier success does not guarantee the current connection."</string>
+    <string name="ui_home_filters" formatted="false">"Filters"</string>
+    <string name="ui_home_scan" formatted="false">"Scan proxies"</string>
+    <string name="ui_home_reset" formatted="false">"Reset"</string>
 </resources>
