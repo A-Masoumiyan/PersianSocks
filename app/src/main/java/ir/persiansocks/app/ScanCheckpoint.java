@@ -31,7 +31,7 @@ public final class ScanCheckpoint {
     public static String fingerprint() {
         StringBuilder result = new StringBuilder(Boolean.toString(DistributionPolicy.encryptedOnly()));
         for (ServiceTargets.Target target : ServiceTargets.current()) result.append('|').append(target.url());
-        return result.toString();
+        return result.append(ScanProbePolicy.profile().signature()).toString();
     }
     public boolean compatible() { return fingerprint.equals(fingerprint()); }
     public int total() { return candidates.size(); }

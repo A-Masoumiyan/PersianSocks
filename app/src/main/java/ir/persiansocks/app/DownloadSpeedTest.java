@@ -15,23 +15,28 @@ public final class DownloadSpeedTest {
     private volatile HttpURLConnection connection;
     private final ScheduledExecutorService deadline=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"download-deadline");t.setDaemon(true);return t;});
     public void cancel(){cancelled.set(true);HttpURLConnection c=connection;if(c!=null)c.disconnect();deadline.shutdownNow();}
-    public void run(Transport transport,Listener listener){
+    public void run(Transport transport,Listener listener){run(transport,listener,"");}
+    public void run(Transport transport,Listener listener,String configuredUrl){
+        String selected=configuredUrl==null?"":configuredUrl;
+        if(!selected.isEmpty())try{selected=TestDownloadPolicy.validate(selected);}catch(Exception ex){deadline.shutdownNow();listener.finished(0,0,String.valueOf(ex.getMessage()));return;}
         long bytes=0,start=0,last=0;double speed=0;String error="";
         AtomicBoolean timedOut=new AtomicBoolean(false);
         if(cancelled.get()){listener.finished(0,0,"تست متوقف شد");return;}
         deadline.schedule(()->{timedOut.set(true);HttpURLConnection c=connection;if(c!=null)c.disconnect();},20,TimeUnit.SECONDS);
         try {
-            String[] endpoints={URL,"https://proof.ovh.net/files/10Mb.dat"};
+            boolean custom=!selected.isEmpty();
+            String[] endpoints=custom?new String[]{selected}:new String[]{URL,"https://proof.ovh.net/files/10Mb.dat"};
             for(int attempt=0;attempt<endpoints.length;attempt++){
                 HttpURLConnection c=null;boolean retryable=false;
                 try {
                     if(cancelled.get()||!transport.valid())throw new IOException("شبکهٔ تست در دسترس نیست");
-                    c=transport.open(new java.net.URL(endpoints[attempt]+(attempt==0?"&":"?")+"ts="+System.nanoTime()));connection=c;
+                    c=transport.open(new java.net.URL(endpoints[attempt]+(custom?"":(attempt==0?"&":"?")+"ts="+System.nanoTime())));connection=c;
                     if(cancelled.get()||timedOut.get())throw new IOException("تست متوقف شد");
                     c.setConnectTimeout(6000);c.setReadTimeout(5000);c.setUseCaches(false);c.setInstanceFollowRedirects(false);
                     c.setRequestProperty("Accept-Encoding","identity");c.setRequestProperty("Cache-Control","no-cache, no-store");
                     c.setRequestProperty("User-Agent","PersianSocks");
                     int code=c.getResponseCode();retryable=code==403||code==429||code>=500; if(code!=200)throw new IOException("Download server returned HTTP "+code);
+                    String contentType=c.getHeaderField("Content-Type");if(custom&&contentType!=null&&contentType.toLowerCase(java.util.Locale.ROOT).contains("text/html"))throw new IOException("لینک فایل به صفحهٔ HTML پاسخ داد");
                     String encoding=c.getContentEncoding();if(encoding!=null&&!encoding.equalsIgnoreCase("identity"))throw new IOException("پاسخ فشرده برای تست سرعت پذیرفته نشد");
                     start=last=System.nanoTime();
                     try(InputStream in=c.getInputStream()) {
@@ -44,6 +49,7 @@ public final class DownloadSpeedTest {
                             if(now-start>=12_000_000_000L)break;
                         }
                         if(bytes==0&&!cancelled.get())throw new IOException("داده‌ای برای اندازه‌گیری نرسید");
+                        if(custom&&bytes<TestDownloadPolicy.MIN_BYTES)throw new IOException("دادهٔ کافی برای تست سرعت دریافت نشد");
                         speed=mbps(bytes,System.nanoTime()-start);
                     }
                     error="";break;

@@ -57,12 +57,12 @@ public final class SingleProxyHarness {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(target.getInputStream(), "US-ASCII"));
                     String first = reader.readLine(); if (first == null) return; requests.add(first);
                     while (!reader.readLine().isEmpty()) {}
-                    boolean speed = host.equals("speed.cloudflare.com"); if (speed) downloads.incrementAndGet();
+                    boolean speed = host.equals("speed.cloudflare.com") || first.startsWith("GET /fixture.bin"); if (speed) downloads.incrementAndGet();
                     int count = speed ? size : 0;
                     String status = mode.equals("redirect") ? "302 Found" : mode.equals("denied") ? "403 Denied" : "200 OK";
                     String framing = mode.equals("chunked") || mode.equals("bad-chunk") ? "Transfer-Encoding: chunked" :
                         "Content-Length: " + (mode.equals("truncated") ? count + 50 : count);
-                    String extra = mode.equals("gzip") ? "Content-Encoding: gzip\r\n" : "";
+                    String extra = mode.equals("gzip") ? "Content-Encoding: gzip\r\n" : mode.equals("html") ? "Content-Type: text/html\r\n" : "";
                     if (mode.equals("redirect")) extra += "Location: https://www.youtube.com/\r\n";
                     if (mode.equals("conflict")) extra += "Content-Length: 99\r\n";
                     // Ordinary repeated response headers are legal and do not affect body framing.

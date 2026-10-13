@@ -93,6 +93,7 @@ public final class MainActivity extends Activity {
     private boolean preparingSpeedBatch;
     private int speedBatchGeneration;
     private DownloadSpeedTest speedTest;
+    private String runningSpeedTarget="";
     private SingleProxyTest singleTest;
     private ProxyEndpoint testingProxy;
     private boolean testingLatency;
@@ -469,10 +470,37 @@ public final class MainActivity extends Activity {
         final int[] values={5000,10000,20000,ProxyScanner.MAX_TESTS};final boolean[] choosing={false};
         ScanLimitView limits=new ScanLimitView(this,scanAll?3:maxTests==5000?0:maxTests==10000?1:maxTests==20000?2:-1,index->{choosing[0]=true;scanAll=index==3;maxTests=values[index];scanCount.setText(scanAll?"":Integer.toString(maxTests));scanCount.setHint("Max");saveScanLimit();choosing[0]=false;});content.addView(limits,sized(dp(64),0));
         scanCount.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence x,int a,int c,int f){}public void onTextChanged(CharSequence x,int a,int before,int count){if(choosing[0])return;try{int n=Integer.parseInt(x.toString());if(n<100||n>ProxyScanner.MAX_TESTS){scanCount.setError(AppLanguage.t(R.string.ui_v28_limit));return;}scanCount.setError(null);scanAll=false;maxTests=n;limits.selected(n==5000?0:n==10000?1:n==20000?2:-1);saveScanLimit();}catch(NumberFormatException ignored){}}public void afterTextChanged(android.text.Editable e){}});
+        LinearLayout testOptions=horizontal();sidebarIcon(testOptions,UiIconButton.Kind.PING,AppLanguage.t(R.string.ui_target_ping),this::pingTargetDialog);sidebarIcon(testOptions,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_target_speed),this::speedTargetDialog);content.addView(testOptions,margin(dp(8),0));
         LinearLayout footer=horizontal();sidebarIcon(footer,UiIconButton.Kind.INFO,AppLanguage.t(R.string.ui_054),this::aboutDialog);sidebarIcon(footer,UiIconButton.Kind.TELEGRAM,"Telegram @HTpink",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse("https://t.me/HTpink")));}catch(Exception ignored){}});
         TextView version=text("v"+AppLanguage.version(this),10,SECONDARY,false);version.setTextDirection(View.TEXT_DIRECTION_LTR);footer.addView(version,new LinearLayout.LayoutParams(0,-2,1));
         LinearLayout updateBox=new LinearLayout(this);updateBox.setOrientation(LinearLayout.VERTICAL);updateBox.setGravity(Gravity.CENTER);UiIconButton update=new UiIconButton(this,UiIconButton.Kind.UPDATE,AppLanguage.t(R.string.ui_update_000));updateBox.addView(update,new LinearLayout.LayoutParams(dp(46),dp(46)));TextView available=text("",9,SECONDARY,false);available.setGravity(Gravity.CENTER);available.setTextDirection(AppLanguage.textDirection());available.setSingleLine(true);updateBox.addView(available);footer.addView(updateBox,new LinearLayout.LayoutParams(dp(104),-2));appUpdater=new AppUpdater(this,update,available);sidebar.addView(footer,margin(dp(12),0));
         page.addView(sidebarOverlay,new FrameLayout.LayoutParams(-1,-1));
+    }
+    private boolean testSettingsBusy(){
+        if(scanning||ProxyVpnService.autoScanning()||collecting||preparing||loading||speedTest!=null||singleTest!=null||speedBatch!=null||preparingSpeedBatch){Toast.makeText(this,AppLanguage.t(R.string.ui_target_busy),Toast.LENGTH_SHORT).show();return true;}return false;
+    }
+    private void pingTargetDialog(){
+        if(testSettingsBusy())return;
+        LinearLayout panel=dialogContent();panel.addView(text(AppLanguage.t(R.string.ui_target_ping_help),13,SECONDARY,false));
+        CheckBox only=sidebarCheck(AppLanguage.t(R.string.ui_target_only),getSharedPreferences("persiansocks",0).getBoolean("scan-ping-only",false));panel.addView(only,sized(dp(48),dp(8)));
+        android.widget.RadioGroup choices=new android.widget.RadioGroup(this);choices.setLayoutDirection(AppLanguage.direction());List<String> urls=new ArrayList<>();List<String> labels=new ArrayList<>();urls.add("");labels.add(AppLanguage.t(R.string.ui_target_auto));
+        for(ServiceTargets.Target t:ServiceTargets.current()){urls.add(t.url());labels.add(AppLanguage.display(t.name)+" • "+t.host);}
+        String selected=getSharedPreferences("persiansocks",0).getString("ping-target-url","");
+        for(int i=0;i<urls.size();i++){android.widget.RadioButton b=new android.widget.RadioButton(this);b.setId(i+1);b.setText(labels.get(i));b.setTextColor(Color.WHITE);b.setTextSize(13);b.setButtonTintList(ColorStateList.valueOf(PRIMARY));b.setMinHeight(dp(48));b.setLayoutDirection(AppLanguage.direction());choices.addView(b);if(urls.get(i).equals(selected))b.setChecked(true);}panel.addView(choices);
+        LinearLayout actions=horizontal();Button save=button(AppLanguage.t(R.string.ui_065),true),cancel=button(AppLanguage.t(R.string.ui_067),false);actions.addView(save,weighted(48,1,6));actions.addView(cancel,weighted(48,1,0));panel.addView(actions,margin(dp(12),0));
+        ScrollView scroll=new ScrollView(this);scroll.addView(panel);AlertDialog dialog=new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_target_ping)).setView(scroll).create();cancel.setOnClickListener(v->dialog.dismiss());
+        save.setOnClickListener(v->{int index=choices.getCheckedRadioButtonId()-1;if(index<0||index>=urls.size())index=0;String url=urls.get(index);if(only.isChecked()&&url.isEmpty()){Toast.makeText(this,AppLanguage.t(R.string.ui_target_choose),Toast.LENGTH_SHORT).show();return;}getSharedPreferences("persiansocks",0).edit().putBoolean("scan-ping-only",only.isChecked()).putString("ping-target-url",url).apply();ScanInputs.configureTests(this);renderedRevision=-1;dialog.dismiss();render();});dialog.show();
+    }
+    private void speedTargetDialog(){
+        if(testSettingsBusy())return;
+        LinearLayout panel=dialogContent();panel.addView(text(AppLanguage.t(R.string.ui_target_speed_help),13,SECONDARY,false));
+        String saved=ScanInputs.speedUrl(this);CheckBox custom=sidebarCheck(AppLanguage.t(R.string.ui_target_custom),!saved.isEmpty());panel.addView(custom,sized(dp(48),dp(8)));
+        StringBuilder domains=new StringBuilder();for(ServiceTargets.Target t:ServiceTargets.current()){if(domains.length()>0)domains.append(" • ");domains.append(t.host);}panel.addView(text(domains.toString(),11,SECONDARY,false));
+        EditText link=new EditText(this);link.setText(saved);link.setHint("https://example.com/test-file.bin");link.setTextColor(Color.WHITE);link.setTextSize(14);link.setSingleLine(true);link.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);link.setTextDirection(View.TEXT_DIRECTION_LTR);link.setEnabled(custom.isChecked());custom.setOnCheckedChangeListener((b,on)->link.setEnabled(on));panel.addView(link,sized(dp(56),dp(8)));
+        Button domainsButton=button(AppLanguage.t(R.string.ui_047),false);panel.addView(domainsButton,sized(dp(48),dp(8)));
+        LinearLayout actions=horizontal();Button save=button(AppLanguage.t(R.string.ui_065),true),cancel=button(AppLanguage.t(R.string.ui_067),false);actions.addView(save,weighted(48,1,6));actions.addView(cancel,weighted(48,1,0));panel.addView(actions,margin(dp(12),0));
+        ScrollView scroll=new ScrollView(this);scroll.addView(panel);AlertDialog dialog=new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_target_speed)).setView(scroll).create();cancel.setOnClickListener(v->dialog.dismiss());domainsButton.setOnClickListener(v->{dialog.dismiss();targetsDialog();});
+        save.setOnClickListener(v->{String url="";if(custom.isChecked())try{url=TestDownloadPolicy.validate(link.getText().toString().trim());}catch(Exception ex){link.setError(AppLanguage.t(R.string.ui_target_invalid));return;}getSharedPreferences("persiansocks",0).edit().putString("speed-target-url",url).apply();dialog.dismiss();renderedRevision=-1;render();});dialog.show();
     }
     private void saveScanLimit(){getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putInt("max-tests",maxTests).putBoolean("scan-all",scanAll).apply();}
     private void sidebarIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(60),dp(60));cell.setMarginEnd(dp(8));row.addView(icon,cell);}
@@ -743,10 +771,12 @@ public final class MainActivity extends Activity {
             popup.getMenu().add(0, 1, 0, AppLanguage.t(R.string.ui_107) + checkpoint.done() + AppLanguage.t(R.string.ui_017) + checkpoint.total() + ")");
         popup.getMenu().add(0, 2, 1, AppLanguage.t(R.string.ui_108));
         popup.getMenu().add(0, 3, 2, AppLanguage.t(R.string.ui_109) + healthy.size() + ")");
+        popup.getMenu().add(0,4,3,AppLanguage.t(R.string.ui_target_ping));popup.getMenu().add(0,5,4,AppLanguage.t(R.string.ui_target_speed));popup.getMenu().add(0,6,5,AppLanguage.t(R.string.ui_032));
         popup.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == 1) runPrepared(checkpoint);
             else if (item.getItemId() == 2) doScan(false);
             else if (item.getItemId() == 3) doScan(true);
+            else if(item.getItemId()==4)pingTargetDialog();else if(item.getItemId()==5)speedTargetDialog();else if(item.getItemId()==6)prepareFilteredSpeed();
             return true;
         }); popup.show();
     }
@@ -825,9 +855,9 @@ public final class MainActivity extends Activity {
         try {
             if(work.mode.equals("LATENCY"))preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},(p,slow,cancel,sockets)->{
                 ProxyEndpoint current=healthy.find(p.key());
-                if(current==null)return Socks5Probe.inspect(p,slow,cancel,sockets,network::socket,network::resolve);
+                if(current==null)return ScanProbePolicy.profile().inspect(p,slow,cancel,sockets,network::socket,network::resolve);
                 Socks5Probe.Result measured=Socks5Probe.inspectTarget(current,SingleProxyTest.latencyTarget(current,latencyFilter),slow,cancel,sockets,network::socket,network::resolve);
-                return measured.endpoint==null?measured:new Socks5Probe.Result(current.withLatency(measured.endpoint.latencyMs),Socks5Probe.Failure.NONE,true,true);
+                return measured.endpoint==null?measured:new Socks5Probe.Result(current.withLatency(measured.endpoint.latencyMs,SingleProxyTest.latencyTarget(current,latencyFilter).url()),Socks5Probe.Failure.NONE,true,true);
             },listener);
             else preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},network::socket,network::resolve,listener);
         }catch(Exception ex){scanning=false;status.setText(AppLanguage.t(R.string.ui_129)+ex.getMessage());render();}
@@ -888,7 +918,7 @@ public final class MainActivity extends Activity {
     private Map<String,Double> speedSnapshot(){
         Map<String,Double> speeds=new LinkedHashMap<>();
         for(Map.Entry<String,ProxyTestResult> entry:testResults.entrySet())
-            speeds.put(entry.getKey(),entry.getValue().speedError.isEmpty()?entry.getValue().downloadMBps:-1.0);
+            speeds.put(entry.getKey(),entry.getValue().speedError.isEmpty()&&entry.getValue().speedTarget.equals(ScanInputs.speedUrl(this))?entry.getValue().downloadMBps:-1.0);
         return speeds;
     }
     private void render() {
@@ -1048,9 +1078,9 @@ public final class MainActivity extends Activity {
             }
             ProxyTestResult measured=testResults.get(p.key());if(measured==null)measured=new ProxyTestResult();
             boolean running=testingProxy!=null&&testingProxy.key().equals(p.key());boolean downloadRunning=running&&speedTest!=null,probeRunning=running&&singleTest!=null;
-            setMetricValue(down,downloadRunning?liveDownloadMBps>=0?ProxyTestResult.speed(liveDownloadMBps):AppLanguage.t(R.string.ui_172):measured.speedValue());
+            setMetricValue(down,downloadRunning?liveDownloadMBps>=0?ProxyTestResult.speed(liveDownloadMBps):AppLanguage.t(R.string.ui_172):measured.speedError.isEmpty()&&!measured.speedTarget.equals(ScanInputs.speedUrl(MainActivity.this))?AppLanguage.t(R.string.ui_181):measured.speedValue());
             down.setTextColor(downloadRunning||measured.speedError.isEmpty()&&measured.downloadMBps>=0?PRIMARY:measured.speedError.isEmpty()?SECONDARY:WARNING);
-            setMetricValue(ping,probeRunning?AppLanguage.t(R.string.ui_172):measured.pingValue(p.latencyMs));divider.setBackgroundColor(active?Color.rgb(44,88,88):STROKE);
+            setMetricValue(ping,probeRunning?AppLanguage.t(R.string.ui_172):ScanProbePolicy.latency(p)==Long.MAX_VALUE?AppLanguage.t(R.string.ui_181):measured.pingValue(p.latencyMs));divider.setBackgroundColor(active?Color.rgb(44,88,88):STROKE);
         }
     }
     private UiIconButton cardIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(34),dp(38));cell.setMarginStart(dp(3));row.addView(icon,cell);return icon;}
@@ -1073,6 +1103,8 @@ public final class MainActivity extends Activity {
                 .append("\n").append(measured.probeError);
             if (!measured.probeInfo.isEmpty()) details.append("\n").append(measured.probeInfo);
         }
+        if(!p.latencyTarget.isEmpty())details.append("\n").append(AppLanguage.t(R.string.ui_target_ping)).append(": ").append(p.latencyTarget);
+        if(measured!=null){details.append("\n").append(AppLanguage.t(R.string.ui_target_speed)).append(": ").append(measured.speedTarget.isEmpty()?AppLanguage.t(R.string.ui_target_default):measured.speedTarget);if(!measured.speedError.isEmpty())details.append("\n").append(AppLanguage.t(R.string.ui_target_last)).append(measured.speedRequestTarget.isEmpty()?AppLanguage.t(R.string.ui_target_default):measured.speedRequestTarget);}
         if(measured!=null&&measured.speedAt>0)details.append("\n").append(AppLanguage.t(R.string.ui_v28_speed_time)).append(android.text.format.DateFormat.getDateFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt))).append(" ").append(android.text.format.DateFormat.getTimeFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt)));
         if(p.key().equals(getSharedPreferences("persiansocks",0).getString("connection-error-endpoint","")))details.append("\n\n").append(AppLanguage.t(R.string.ui_v28_vpn_error)).append(getSharedPreferences("persiansocks",0).getString("connection-error",""));
         details.append("\n\n").append(AppLanguage.t(R.string.ui_v28_evidence));
@@ -1279,7 +1311,7 @@ public final class MainActivity extends Activity {
                     if (latencyOnly) {
                         ProxyEndpoint current = proxy;
                         ProxyEndpoint cached=healthy.find(proxy.key());if(cached!=null)current=cached;
-                        fresh = current.withLatency(fresh.latencyMs);
+                        fresh = current.withLatency(fresh.latencyMs,target.url());
                         record.probeInfo = AppLanguage.t(R.string.ui_241) + AppLanguage.display(target.name) + AppLanguage.t(R.string.ui_242);
                         note = AppLanguage.t(R.string.ui_144) + isolated(fresh.latencyMs + " ms");
                     } else { record.probeInfo = AppLanguage.t(R.string.ui_243); note = AppLanguage.t(R.string.ui_243); }
@@ -1310,7 +1342,7 @@ public final class MainActivity extends Activity {
         runSpeedTest(proxy);
     }
     private void runSpeedTest(ProxyEndpoint proxy) {
-        final DownloadSpeedTest test = new DownloadSpeedTest(); speedTest = test; testingProxy = proxy; liveDownloadMBps = -1;
+        final DownloadSpeedTest test = new DownloadSpeedTest();final String targetUrl=ScanInputs.speedUrl(this);runningSpeedTarget=targetUrl;speedTest = test; testingProxy = proxy; liveDownloadMBps = -1;
         render();
         new Thread(() -> {
             PhysicalTestNetwork network;
@@ -1338,14 +1370,14 @@ public final class MainActivity extends Activity {
                 public void finished(long bytes, double mbps, String error) {
                     ui.post(() -> finishSpeedTest(test, proxy, bytes, mbps, error));
                 }
-            });
+            }, targetUrl);
         }, "single-proxy-download-test").start();
     }
     private void finishSpeedTest(DownloadSpeedTest test, ProxyEndpoint proxy, long bytes, double mbps, String error) {
         if (isDestroyed() || speedTest != test) return;
         test.cancel(); speedTest = null; testingProxy = null;
-        ProxyTestResult record = resultFor(proxy); record.speedError = error; record.downloadedBytes = bytes;
-        if (error.isEmpty()){record.downloadMBps = ProxyTestResult.fromMbps(mbps);record.speedAt=System.currentTimeMillis();}
+        ProxyTestResult record = resultFor(proxy); record.speedError = error;record.speedRequestTarget=runningSpeedTarget;record.downloadedBytes = bytes;
+        if (error.isEmpty()){record.speedTarget=runningSpeedTarget;record.downloadMBps = ProxyTestResult.fromMbps(mbps);record.speedAt=System.currentTimeMillis();}
         saveTestResults();
         if(speedBatch!=null){speedBatch.completed();nextFilteredSpeed();}
         render();

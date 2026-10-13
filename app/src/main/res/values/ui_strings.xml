@@ -523,4 +523,21 @@
     <string name="ui_home_filters" formatted="false">"فیلترها"</string>
     <string name="ui_home_scan" formatted="false">"اسکن پروکسی‌ها"</string>
     <string name="ui_home_reset" formatted="false">"بازنشانی"</string>
+    <string name="ui_target_ping" formatted="false">"دامنهٔ پینگ و حالت اسکن"</string>
+    <string name="ui_target_speed" formatted="false">"دامنهٔ تست سرعت"</string>
+    <string name="ui_target_default" formatted="false">"پیش‌فرض: Cloudflare / OVH"</string>
+    <string name="ui_target_last" formatted="false">"مقصد آخرین تست: "</string>
+    <string name="ui_target_busy" formatted="false">"ابتدا اسکن یا تست جاری را متوقف کن."</string>
+    <string name="ui_target_only" formatted="false">"اسکن فقط پینگ همین دامنه"</string>
+    <string name="ui_target_auto" formatted="false">"خودکار: بهترین پاسخ سرویس‌ها"</string>
+    <string name="ui_target_choose" formatted="false">"یک دامنهٔ مشخص انتخاب کن."</string>
+    <string name="ui_target_ping_help" formatted="false">"پینگ زمان پاسخ HTTPS از مسیر پروکسی است. در اسکن کامل، سرویس‌ها بررسی می‌شوند و پینگ از دامنهٔ انتخابی می‌آید. حالت فقط پینگ، سرویس‌های دیگر و UDP را تأیید نمی‌کند."</string>
+    <string name="ui_target_speed_help" formatted="false">"برای دانلود واقعی، لینک فایل HTTPS از یکی از دامنه‌های تست وارد کن. سقف هر تست ۲۰ مگابایت است. دادهٔ کمتر از ۲۵۶ کیلوبایت یا صفحهٔ HTML نتیجهٔ سرعت محسوب نمی‌شود. مقصد دلخواه به دامنهٔ دیگری تغییر نمی‌کند."</string>
+    <string name="ui_target_custom" formatted="false">"دانلود از دامنهٔ تست دلخواه"</string>
+    <string name="ui_target_invalid" formatted="false">"لینک HTTPS معتبر از یکی از دامنه‌های تست وارد کن."</string>
+    <string name="ui_target_small" formatted="false">"دادهٔ کافی نیست"</string>
+    <string name="ui_target_insufficient" formatted="false">"دادهٔ کافی برای تست سرعت دریافت نشد"</string>
+    <string name="ui_target_html" formatted="false">"لینک فایل به صفحهٔ HTML پاسخ داد"</string>
+    <string name="ui_target_domain_error" formatted="false">"دامنهٔ لینک باید در دامنه‌های تست باشد"</string>
+    <string name="ui_target_url_error" formatted="false">"لینک فایل معتبر نیست"</string>
 </resources>

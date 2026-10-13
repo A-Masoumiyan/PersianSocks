@@ -17,6 +17,7 @@ public final class ProxyEndpoint {
     public final int serviceMask, checkedMask;
     public final long testedAt;
     public final long latencyAt;
+    public final String latencyTarget;
     public final Set<String> extraPassed, extraChecked;
     public final String countryCode;
 
@@ -39,7 +40,11 @@ public final class ProxyEndpoint {
     }
     private ProxyEndpoint(String host,int port,long latencyMs,boolean udpAdvertised,int serviceMask,int checkedMask,
             long testedAt,Set<String> extraPassed,Set<String> extraChecked,String countryCode,Type type,long latencyAt) {
-        this.type=type;
+        this(host,port,latencyMs,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,latencyAt,"");
+    }
+    private ProxyEndpoint(String host,int port,long latencyMs,boolean udpAdvertised,int serviceMask,int checkedMask,
+            long testedAt,Set<String> extraPassed,Set<String> extraChecked,String countryCode,Type type,long latencyAt,String latencyTarget) {
+        this.latencyTarget=latencyTarget;this.type=type;
         this.host = host;
         this.port = port;
         this.latencyMs = latencyMs;
@@ -54,8 +59,9 @@ public final class ProxyEndpoint {
     }
     public String address() { return host + ":" + port; }
     public String key(){return type==Type.SOCKS5?address():type.name().toLowerCase(Locale.US)+"://"+address();}
-    public ProxyEndpoint withType(Type t){return new ProxyEndpoint(host,port,latencyMs,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,t,latencyAt);}
-    public ProxyEndpoint withLatency(long value){return new ProxyEndpoint(host,port,value,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,System.currentTimeMillis());}
+    public ProxyEndpoint withType(Type t){return new ProxyEndpoint(host,port,latencyMs,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,t,latencyAt,latencyTarget);}
+    public ProxyEndpoint withLatency(long value){return new ProxyEndpoint(host,port,value,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,System.currentTimeMillis(),latencyTarget);}
+    public ProxyEndpoint withLatency(long value,String target){return new ProxyEndpoint(host,port,value,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,System.currentTimeMillis(),target);}
     public boolean isPublicIpv4() {
         String[] parts = host.split("\\.");
         if(parts.length!=4 || !host.matches("[0-9.]+"))return false;
@@ -70,7 +76,7 @@ public final class ProxyEndpoint {
         try {
             o.put("host", host); o.put("port", port); o.put("latency", latencyMs); o.put("udp", udpAdvertised);
             o.put("services", serviceMask); o.put("checked", checkedMask); o.put("testedAt", testedAt);
-            o.put("latencyAt",latencyAt);
+            o.put("latencyAt",latencyAt);o.put("latencyTarget",latencyTarget);
             o.put("extraPassed", new JSONArray(extraPassed)); o.put("extraChecked", new JSONArray(extraChecked));
             o.put("country", countryCode); o.put("type",type.name());
         }
@@ -80,7 +86,7 @@ public final class ProxyEndpoint {
     public static ProxyEndpoint fromJson(JSONObject o) {
         ProxyEndpoint p=new ProxyEndpoint(o.optString("host"), o.optInt("port"), o.optLong("latency", -1), o.optBoolean("udp", false),
             o.optInt("services", 0), o.optInt("checked", 0), o.optLong("testedAt", 0),
-            strings(o.optJSONArray("extraPassed")), strings(o.optJSONArray("extraChecked")), o.optString("country"), typeOf(o.optString("type","SOCKS5")),o.optLong("latencyAt",o.optLong("testedAt",0)));
+            strings(o.optJSONArray("extraPassed")), strings(o.optJSONArray("extraChecked")), o.optString("country"), typeOf(o.optString("type","SOCKS5")),o.optLong("latencyAt",o.optLong("testedAt",0)),o.optString("latencyTarget"));
         return p;
     }
     private static Type typeOf(String value){try{return Type.valueOf(value);}catch(Exception ignored){return Type.SOCKS5;}}

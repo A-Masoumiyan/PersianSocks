@@ -31,7 +31,7 @@ public final class ProxyResults {
         public final String label;
         PingLimit(int milliseconds, String label) { this.milliseconds = milliseconds; this.label = label; }
         public boolean accepts(ProxyEndpoint p) {
-            return this == NONE || (p.latencyMs >= 0 && p.latencyMs < milliseconds);
+            return this == NONE || (ScanProbePolicy.latency(p) < milliseconds);
         }
         public static PingLimit fromMilliseconds(int value) {
             for (PingLimit limit : values()) if (limit.milliseconds == value) return limit;
@@ -85,8 +85,8 @@ public final class ProxyResults {
             java.util.function.ToDoubleFunction<ProxyEndpoint> speeds, boolean smooth) {
         List<ProxyEndpoint> list = new ArrayList<>();
         for (ProxyEndpoint p : source) if (accepts(p, key) &&
-                (!smooth || (rate(speeds.applyAsDouble(p)) > 0 && p.latencyMs >= 0))) list.add(p);
-        Comparator<ProxyEndpoint> latency = Comparator.comparingLong(p -> p.latencyMs < 0 ? Long.MAX_VALUE : p.latencyMs);
+                (!smooth || (rate(speeds.applyAsDouble(p)) > 0 && ScanProbePolicy.latency(p)!=Long.MAX_VALUE))) list.add(p);
+        Comparator<ProxyEndpoint> latency = Comparator.comparingLong(ScanProbePolicy::latency);
         Comparator<ProxyEndpoint> comparator;
         switch (sort) {
             case DOWNLOAD:
