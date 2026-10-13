@@ -23,16 +23,18 @@ public final class VpnWidgetProvider extends AppWidgetProvider {
         QuickControls.ensureCatalog(context);
         int phase=ProxyVpnService.phase();boolean scanning=ProxyVpnService.autoScanning();
         RemoteViews views=new RemoteViews(context.getPackageName(),R.layout.vpn_widget);
-        views.setTextViewText(R.id.widget_state,QuickControlState.subtitle(phase,scanning));
+        views.setTextViewText(R.id.widget_state,AppLanguage.display(QuickControlState.subtitle(phase,scanning)));
+        views.setInt(R.id.widget_root,"setLayoutDirection",AppLanguage.direction());
+        views.setTextViewText(R.id.widget_open,AppLanguage.t(R.string.ui_controls_007));
         views.setTextColor(R.id.widget_state,phase==ProxyVpnService.CONNECTED?Color.rgb(70,226,184):
             phase==ProxyVpnService.CONNECTING?Color.rgb(245,199,111):Color.rgb(151,169,189));
         String filter=ScanInputs.filter(context);
-        String message=phase==ProxyVpnService.DISCONNECTED?"فیلتر: "+ProxyResults.label(filter)+" • انتخاب خودکار":
-            scanning&&ProxyVpnService.autoProgress()<0?"در حال دریافت منابع • فیلتر: "+ProxyResults.label(filter):
-            context.getSharedPreferences("persiansocks",Context.MODE_PRIVATE).getString("state","در حال آماده‌سازی…");
-        views.setTextViewText(R.id.widget_detail,message);
-        views.setTextViewText(R.id.widget_auto,QuickControlState.autoLabel(phase,scanning));
-        views.setContentDescription(R.id.widget_auto,QuickControlState.autoLabel(phase,scanning));
+        String message=phase==ProxyVpnService.DISCONNECTED?AppLanguage.t(R.string.ui_279)+ProxyResults.label(filter)+AppLanguage.t(R.string.ui_280):
+            scanning&&ProxyVpnService.autoProgress()<0?AppLanguage.t(R.string.ui_281)+ProxyResults.label(filter):
+            context.getSharedPreferences("persiansocks",Context.MODE_PRIVATE).getString("state",AppLanguage.t(R.string.ui_282));
+        views.setTextViewText(R.id.widget_detail,AppLanguage.display(message));
+        views.setTextViewText(R.id.widget_auto,AppLanguage.display(QuickControlState.autoLabel(phase,scanning)));
+        views.setContentDescription(R.id.widget_auto,AppLanguage.display(QuickControlState.autoLabel(phase,scanning)));
         views.setInt(R.id.widget_auto,"setBackgroundResource",QuickControlState.busy(phase,scanning)?
             R.drawable.widget_stop:R.drawable.widget_action);
         views.setTextColor(R.id.widget_auto,QuickControlState.busy(phase,scanning)?Color.WHITE:Color.rgb(11,17,29));

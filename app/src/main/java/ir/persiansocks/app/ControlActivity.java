@@ -10,6 +10,7 @@ import android.widget.Toast;
 public final class ControlActivity extends Activity {
     private static final int REQUEST_VPN=291;
     private String command;
+    @Override protected void attachBaseContext(android.content.Context base) { super.attachBaseContext(AppLanguage.wrap(base)); }
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
         command=getIntent().getAction();
@@ -36,11 +37,11 @@ public final class ControlActivity extends Activity {
         if(request!=REQUEST_VPN)return;
         waiting=false;
         if(result==RESULT_OK)execute();
-        else {Toast.makeText(this,"مجوز VPN صادر نشد",Toast.LENGTH_SHORT).show();finishQuietly();}
+        else {Toast.makeText(this,AppLanguage.t(R.string.ui_229),Toast.LENGTH_SHORT).show();finishQuietly();}
     }
     private void execute() {
         try{QuickControls.execute(this,command);}
-        catch(Exception error){Toast.makeText(this,"امکان اجرای فرمان نیست: "+error.getMessage(),Toast.LENGTH_LONG).show();}
+        catch(Exception error){Toast.makeText(this,AppLanguage.t(R.string.ui_272)+error.getMessage(),Toast.LENGTH_LONG).show();}
         finishQuietly();
     }
     private void finishQuietly(){finish();overridePendingTransition(0,0);}

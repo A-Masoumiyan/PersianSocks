@@ -26,17 +26,17 @@ public final class MaxScanHarness {
     public static void main(String[] args)throws Exception{
         ProxyScanner.Options all=new ProxyScanner.Options(5000,false,true);
         check(all.scanAll&&all.maxTests==Integer.MAX_VALUE,"Max has no fixed candidate-count cutoff");
-        check(!new ProxyScanner.Options(50000,false).scanAll&&new ProxyScanner.Options(50000,false).maxTests==20000,
-            "Numeric scan budgets retain the existing upper bound");
+        check(!new ProxyScanner.Options(50000,false).scanAll&&new ProxyScanner.Options(50000,false).maxTests==50000,
+            "Numeric scan budgets support 50,000 candidates");
         check(new ProxyScanner.Options(0,false).maxTests==100,"An invalid numeric count does not accidentally enable Max");
         StringBuilder large=new StringBuilder();
-        for(int i=1;i<=24000;i++)large.append("8.8.8.8:").append(i).append('\n');
+        for(int i=1;i<=60000;i++)large.append("8.8.8.8:").append(i).append('\n');
         List<ProxyEndpoint> parsed=ProxyScanner.parseStream(new StringReader(large.toString()),true,Integer.MAX_VALUE,new AtomicBoolean(false));
-        check(parsed.size()==24000&&parsed.get(23999).port==24000,"Max parses all 24,000 unique endpoints beyond the former limit");
-        check(ProxyScanner.parseList(large.toString(),true).size()==20000,"The default parser retains numeric-mode limits");
+        check(parsed.size()==60000&&parsed.get(59999).port==60000,"Max parses all 60,000 unique endpoints beyond the former limit");
+        check(ProxyScanner.parseList(large.toString(),true).size()==60000,"The default parser supports more than 50,000 unique endpoints");
         List<ProxyEndpoint> merged=ProxyScanner.mergeCandidates(Collections.emptyList(),
             Arrays.asList(parsed,parsed),Arrays.asList(parsed.get(0)),all.maxTests);
-        check(merged.size()==24000,"Max candidate selection retains every unique endpoint across overlapping sources");
+        check(merged.size()==60000,"Max candidate selection retains every unique endpoint across overlapping sources");
         check(ProxyScanner.mergeCandidates(Collections.emptyList(),Arrays.asList(parsed),Collections.emptyList(),5000).size()==5000,
             "A selected numeric budget still stops candidate selection at that budget");
         String sample="socks5://8.8.8.8:1080\n1.1.1.1:65535\n192.168.1.1:80\n8.8.8.8:1080\n"+

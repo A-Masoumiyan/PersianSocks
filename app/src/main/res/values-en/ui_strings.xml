@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_000" formatted="false">"No new scan has run yet."</string>
+    <string name="ui_001" formatted="false">"Show settings"</string>
+    <string name="ui_002" formatted="false">"PersianSocks logo"</string>
+    <string name="ui_003" formatted="false">"●  Ready to connect"</string>
+    <string name="ui_004" formatted="false">"No proxy selected"</string>
+    <string name="ui_005" formatted="false">"Select a proxy and connect"</string>
+    <string name="ui_006" formatted="false">"Connection status"</string>
+    <string name="ui_007" formatted="false">"Close"</string>
+    <string name="ui_008" formatted="false">"Tap to view the full message"</string>
+    <string name="ui_009" formatted="false">"Connection test"</string>
+    <string name="ui_010" formatted="false">"Speed test"</string>
+    <string name="ui_011" formatted="false">"↓ Download"</string>
+    <string name="ui_012" formatted="false">"↑ Upload"</string>
+    <string name="ui_013" formatted="false">"Total: 0 B"</string>
+    <string name="ui_014" formatted="false">"Fetch list"</string>
+    <string name="ui_015" formatted="false">"Scan  ▾"</string>
+    <string name="ui_016" formatted="false">"Paused scan: "</string>
+    <string name="ui_017" formatted="false">" of "</string>
+    <string name="ui_018" formatted="false">"Fetch the proxy list first"</string>
+    <string name="ui_019" formatted="false">" proxies ready to scan"</string>
+    <string name="ui_020" formatted="false">"Proxies"</string>
+    <string name="ui_021" formatted="false">"0 results"</string>
+    <string name="ui_022" formatted="false">"Reset filters"</string>
+    <string name="ui_023" formatted="false">"☆ Saved"</string>
+    <string name="ui_024" formatted="false">"Service: All"</string>
+    <string name="ui_025" formatted="false">"Select service"</string>
+    <string name="ui_026" formatted="false">"Type: All"</string>
+    <string name="ui_027" formatted="false">"Proxy type"</string>
+    <string name="ui_028" formatted="false">"Ping: All"</string>
+    <string name="ui_029" formatted="false">"Ping limit"</string>
+    <string name="ui_030" formatted="false">"Lowest latency"</string>
+    <string name="ui_031" formatted="false">"Sort"</string>
+    <string name="ui_032" formatted="false">"Test speed of all filtered results"</string>
+    <string name="ui_033" formatted="false">"Close sidebar"</string>
+    <string name="ui_034" formatted="false">"Settings"</string>
+    <string name="ui_035" formatted="false">"Close  ×"</string>
+    <string name="ui_036" formatted="false">"Hide sidebar"</string>
+    <string name="ui_037" formatted="false">"Connection"</string>
+    <string name="ui_038" formatted="false">"TLS proxies only"</string>
+    <string name="ui_039" formatted="false">"Automatic failover"</string>
+    <string name="ui_040" formatted="false">"Split tunneling • Choose apps"</string>
+    <string name="ui_041" formatted="false">"Scan"</string>
+    <string name="ui_042" formatted="false">"Scan count, types and timeout"</string>
+    <string name="ui_043" formatted="false">"Retest the 20 fastest"</string>
+    <string name="ui_044" formatted="false">"Sources and proxies"</string>
+    <string name="ui_045" formatted="false">"Manage sources"</string>
+    <string name="ui_046" formatted="false">"Add proxy manually"</string>
+    <string name="ui_047" formatted="false">"Test domains"</string>
+    <string name="ui_048" formatted="false">"Tools and reports"</string>
+    <string name="ui_049" formatted="false">"Add quick settings tile"</string>
+    <string name="ui_050" formatted="false">"Add home-screen widget"</string>
+    <string name="ui_051" formatted="false">"Scan and connection report"</string>
+    <string name="ui_052" formatted="false">"Crash report"</string>
+    <string name="ui_053" formatted="false">"Privacy"</string>
+    <string name="ui_054" formatted="false">"About"</string>
+    <string name="ui_055" formatted="false">"No error has been recorded."</string>
+    <string name="ui_056" formatted="false">"Could not read the report"</string>
+    <string name="ui_057" formatted="false">"Copy report"</string>
+    <string name="ui_058" formatted="false">"+ Test domain"</string>
+    <string name="ui_059" formatted="false">"TLS proxies only"</string>
+    <string name="ui_060" formatted="false">"This edition only accepts TLS connections with valid certificates."</string>
+    <string name="ui_061" formatted="false">"Off by default. Enabling this limits scanning and connections to verified TLS. Changing this setting stops the current scan and connection."</string>
+    <string name="ui_062" formatted="false">"Automatic proxy failover"</string>
+    <string name="ui_063" formatted="false">"If the connection drops, a replacement is selected using the current filter."</string>
+    <string name="ui_064" formatted="false">"Connection settings"</string>
+    <string name="ui_065" formatted="false">"Save"</string>
+    <string name="ui_066" formatted="false">"Connection settings saved"</string>
+    <string name="ui_067" formatted="false">"Cancel"</string>
+    <string name="ui_068" formatted="false">"+ Add domain"</string>
+    <string name="ui_069" formatted="false">"Remove domain"</string>
+    <string name="ui_070" formatted="false">"Up to 8 custom domains; remove one to add another"</string>
+    <string name="ui_071" formatted="false">"Service name, e.g. Facebook"</string>
+    <string name="ui_072" formatted="false">"facebook.com or https://www.facebook.com/"</string>
+    <string name="ui_073" formatted="false">"HTTPS certificates and HTTP responses 200–399 are checked. Existing results will be retested after adding the domain."</string>
+    <string name="ui_074" formatted="false">"Add test domain"</string>
+    <string name="ui_075" formatted="false">"Save and test"</string>
+    <string name="ui_076" formatted="false">"This address was already added"</string>
+    <string name="ui_077" formatted="false">"Domain added; fetch the list and scan"</string>
+    <string name="ui_078" formatted="false">"Country is the proxy server\'s approximate location.\n"</string>
+    <string name="ui_079" formatted="false">"DB-IP Country Lite, October 2026\nCC BY 4.0\nhttps://creativecommons.org/licenses/by/4.0/\n"</string>
+    <string name="ui_080" formatted="false">"CSV data was converted to a compact IPv4 table.\n\nTunnel engine: hev-socks5-tunnel, MIT license"</string>
+    <string name="ui_081" formatted="false">"Low ping / Fast download"</string>
+    <string name="ui_082" formatted="false">"Fast download"</string>
+    <string name="ui_083" formatted="false">"Most services"</string>
+    <string name="ui_084" formatted="false">"Most recent test"</string>
+    <string name="ui_085" formatted="false">"Prefer UDP"</string>
+    <string name="ui_086" formatted="false">"Low ping"</string>
+    <string name="ui_087" formatted="false">"Stop scan"</string>
+    <string name="ui_088" formatted="false">"Stop fetching"</string>
+    <string name="ui_089" formatted="false">"Saved list: "</string>
+    <string name="ui_090" formatted="false">" proxies"</string>
+    <string name="ui_091" formatted="false">"●  Connected"</string>
+    <string name="ui_092" formatted="false">"Scan: "</string>
+    <string name="ui_093" formatted="false">" • Settings"</string>
+    <string name="ui_094" formatted="false">"Current VPN connection: "</string>
+    <string name="ui_095" formatted="false">"Not selected"</string>
+    <string name="ui_096" formatted="false">"Stop speed test"</string>
+    <string name="ui_097" formatted="false">"Stop test"</string>
+    <string name="ui_098" formatted="false">"Stop speed tests • "</string>
+    <string name="ui_099" formatted="false">"Canceling preparation…"</string>
+    <string name="ui_100" formatted="false">"Fetch list; "</string>
+    <string name="ui_101" formatted="false">" saved proxies"</string>
+    <string name="ui_102" formatted="false">"Saving progress…"</string>
+    <string name="ui_103" formatted="false">"Scan stopped"</string>
+    <string name="ui_104" formatted="false">"Stopped: "</string>
+    <string name="ui_105" formatted="false">" • Resume progress saved"</string>
+    <string name="ui_106" formatted="false">"Could not save progress: "</string>
+    <string name="ui_107" formatted="false">"Resume scan ("</string>
+    <string name="ui_108" formatted="false">"Scan list from the beginning"</string>
+    <string name="ui_109" formatted="false">"Retest all healthy proxies ("</string>
+    <string name="ui_110" formatted="false">"Fetching stopped; the previous list was preserved"</string>
+    <string name="ui_111" formatted="false">"Stop the scan first"</string>
+    <string name="ui_112" formatted="false">"Fetching list…"</string>
+    <string name="ui_113" formatted="false">"Could not save the list: "</string>
+    <string name="ui_114" formatted="false">"Could not read the list"</string>
+    <string name="ui_115" formatted="false">" proxies fetched; ready to scan"</string>
+    <string name="ui_116" formatted="false">"Could not stop the service: "</string>
+    <string name="ui_117" formatted="false">"Preparing scan…"</string>
+    <string name="ui_118" formatted="false">"No healthy proxies are saved"</string>
+    <string name="ui_119" formatted="false">"Tap Fetch list first"</string>
+    <string name="ui_120" formatted="false">"Stop the current operation first"</string>
+    <string name="ui_121" formatted="false">"No healthy proxies match the current filter"</string>
+    <string name="ui_122" formatted="false">"Retesting the fastest proxies…"</string>
+    <string name="ui_123" formatted="false">"No compatible proxy to scan"</string>
+    <string name="ui_124" formatted="false">"Test settings changed; start a new scan"</string>
+    <string name="ui_125" formatted="false">"Testing "</string>
+    <string name="ui_126" formatted="false">" • Newly healthy: "</string>
+    <string name="ui_127" formatted="false">"\nNewly healthy: "</string>
+    <string name="ui_128" formatted="false">"Final save failed; scan progress was preserved"</string>
+    <string name="ui_129" formatted="false">"Could not start scan: "</string>
+    <string name="ui_130" formatted="false">"Could not restore data: "</string>
+    <string name="ui_131" formatted="false">"Resume scan: "</string>
+    <string name="ui_132" formatted="false">"This proxy is already saved"</string>
+    <string name="ui_133" formatted="false">"Could not save the proxy"</string>
+    <string name="ui_134" formatted="false">"Proxy added to Saved"</string>
+    <string name="ui_135" formatted="false">"Remove from Saved"</string>
+    <string name="ui_136" formatted="false">"Remove only this proxy from Saved?"</string>
+    <string name="ui_137" formatted="false">"Remove"</string>
+    <string name="ui_138" formatted="false">"Removal could not be saved"</string>
+    <string name="ui_139" formatted="false">"Sort: "</string>
+    <string name="ui_140" formatted="false">"Service: "</string>
+    <string name="ui_141" formatted="false">"Service filter: "</string>
+    <string name="ui_142" formatted="false">"Type: "</string>
+    <string name="ui_143" formatted="false">"Proxy type filter: "</string>
+    <string name="ui_144" formatted="false">"Ping: "</string>
+    <string name="ui_145" formatted="false">"All"</string>
+    <string name="ui_146" formatted="false">"ms"</string>
+    <string name="ui_147" formatted="false">"Ping limit: "</string>
+    <string name="ui_148" formatted="false">"← All proxies"</string>
+    <string name="ui_149" formatted="false">"★ Saved ("</string>
+    <string name="ui_150" formatted="false">"Back to all proxies"</string>
+    <string name="ui_151" formatted="false">"Show saved proxies"</string>
+    <string name="ui_152" formatted="false">" results"</string>
+    <string name="ui_153" formatted="false">"No proxies saved yet"</string>
+    <string name="ui_154" formatted="false">"Return to the main list and tap the star beside a proxy."</string>
+    <string name="ui_155" formatted="false">"No results match these filters"</string>
+    <string name="ui_156" formatted="false">"Loading…"</string>
+    <string name="ui_157" formatted="false">"Searching…"</string>
+    <string name="ui_158" formatted="false">"No results yet"</string>
+    <string name="ui_159" formatted="false">"Choose a different sort mode and run speed tests, then select Low ping / Fast download again."</string>
+    <string name="ui_160" formatted="false">"Change filters from the sidebar."</string>
+    <string name="ui_161" formatted="false">"Fetch the list and scan; invalid proxies will be removed."</string>
+    <string name="ui_162" formatted="false">"Selected"</string>
+    <string name="ui_163" formatted="false">"Proxy tests and details"</string>
+    <string name="ui_164" formatted="false">"Download speed:"</string>
+    <string name="ui_165" formatted="false">"Ping:"</string>
+    <string name="ui_166" formatted="false">"Already saved"</string>
+    <string name="ui_167" formatted="false">"Add to Saved"</string>
+    <string name="ui_168" formatted="false">"; swipe left: speed test; swipe right: ping"</string>
+    <string name="ui_169" formatted="false">" verified"</string>
+    <string name="ui_170" formatted="false">" not verified"</string>
+    <string name="ui_171" formatted="false">" not tested"</string>
+    <string name="ui_172" formatted="false">"Testing…"</string>
+    <string name="ui_173" formatted="false">"Select proxy"</string>
+    <string name="ui_174" formatted="false">"Test only this proxy"</string>
+    <string name="ui_175" formatted="false">"Retest latency"</string>
+    <string name="ui_176" formatted="false">"Download speed test (up to 20 MB)"</string>
+    <string name="ui_177" formatted="false">"Details"</string>
+    <string name="ui_178" formatted="false">"Stop this proxy\'s test"</string>
+    <string name="ui_179" formatted="false">"\n\nCountry: "</string>
+    <string name="ui_180" formatted="false">"\nPing: "</string>
+    <string name="ui_181" formatted="false">"Not tested"</string>
+    <string name="ui_182" formatted="false">"\nPing is the HTTPS response time through this proxy."</string>
+    <string name="ui_183" formatted="false">"UDP advertised by the source; UDP connectivity is not guaranteed"</string>
+    <string name="ui_184" formatted="false">"Only TCP verified"</string>
+    <string name="ui_185" formatted="false">"Verified"</string>
+    <string name="ui_186" formatted="false">"Not verified"</string>
+    <string name="ui_187" formatted="false">"Not tested"</string>
+    <string name="ui_188" formatted="false">"\nRecorded download speed: "</string>
+    <string name="ui_189" formatted="false">"\nRecorded speed-test data: "</string>
+    <string name="ui_190" formatted="false">"\n\nLast speed-test error: "</string>
+    <string name="ui_191" formatted="false">"\n\nLast connection/ping test error: "</string>
+    <string name="ui_192" formatted="false">"Proxy details"</string>
+    <string name="ui_193" formatted="false">"Select"</string>
+    <string name="ui_194" formatted="false">"IP:PORT, http://IP:PORT or https://HOST:PORT"</string>
+    <string name="ui_195" formatted="false">"HTTPS (TLS to the proxy)"</string>
+    <string name="ui_196" formatted="false">"HTTPS supports hostnames; the certificate must be valid. Proxies requiring passwords are not supported yet."</string>
+    <string name="ui_197" formatted="false">"This edition accepts only HTTPS with verified TLS"</string>
+    <string name="ui_198" formatted="false">"Enter a valid IP:PORT, http://IP:PORT or https://HOST:PORT"</string>
+    <string name="ui_199" formatted="false">"Testing manual proxy…"</string>
+    <string name="ui_200" formatted="false">"Manual proxy passed the checks"</string>
+    <string name="ui_201" formatted="false">"Manual test failed; proxy was not saved in results"</string>
+    <string name="ui_202" formatted="false">"Select a healthy proxy first"</string>
+    <string name="ui_203" formatted="false">"Run the service tests first"</string>
+    <string name="ui_204" formatted="false">"Connection did not start; VPN traffic permission was not granted"</string>
+    <string name="ui_205" formatted="false">"List-fetch report:\n"</string>
+    <string name="ui_206" formatted="false">"No list fetched yet"</string>
+    <string name="ui_207" formatted="false">"\n\nVPN connection report:\n"</string>
+    <string name="ui_208" formatted="false">"No tunnel test has run yet."</string>
+    <string name="ui_209" formatted="false">"Last scan report"</string>
+    <string name="ui_210" formatted="false">"Report copied"</string>
+    <string name="ui_211" formatted="false">"Scan count: 100–100,000, or Max for all unique received proxies."</string>
+    <string name="ui_212" formatted="false">"Max (all results)"</string>
+    <string name="ui_213" formatted="false">"Proxy types to scan"</string>
+    <string name="ui_214" formatted="false">"HTTP and HTTPS"</string>
+    <string name="ui_215" formatted="false">"Scan type: HTTPS with a valid TLS certificate at the proxy itself. The server must support an encrypted connection to the proxy."</string>
+    <string name="ui_216" formatted="false">"Select one or both. HTTPS destinations using CONNECT and HTTPS with TLS to the proxy are supported."</string>
+    <string name="ui_217" formatted="false">"Longer timeout for slow networks"</string>
+    <string name="ui_218" formatted="false">"Changes apply to a new scan; resuming uses the saved scan\'s settings."</string>
+    <string name="ui_219" formatted="false">"Up to 60 parallel tests. Normal TCP timeout is 2.5 seconds; slow mode uses 6 seconds. All configured services are tested over HTTPS."</string>
+    <string name="ui_220" formatted="false">"Scan settings"</string>
+    <string name="ui_221" formatted="false">"No type selected; both types saved"</string>
+    <string name="ui_222" formatted="false">"Saved for the next scan"</string>
+    <string name="ui_223" formatted="false">"Built-in sources:\n"</string>
+    <string name="ui_224" formatted="false">"\nHTTPS with TLS:\n"</string>
+    <string name="ui_225" formatted="false">"Enter HTTPS followed by a TLS proxy-list URL on each line. The proxy itself must support TLS; each certificate is checked. Up to 20 custom sources."</string>
+    <string name="ui_226" formatted="false">"Enter SOCKS5, HTTP or HTTPS, a space and an https:// source URL on each line. Without a type, SOCKS5 is assumed. Up to 20 custom sources."</string>
+    <string name="ui_227" formatted="false">"Proxy sources"</string>
+    <string name="ui_228" formatted="false">"Sources saved"</string>
+    <string name="ui_229" formatted="false">"VPN permission was not granted"</string>
+    <string name="ui_230" formatted="false">"The selected proxy is no longer valid"</string>
+    <string name="ui_231" formatted="false">"Select a proxy with verified TLS"</string>
+    <string name="ui_232" formatted="false">"Could not start VPN service: "</string>
+    <string name="ui_233" formatted="false">"Only TLS proxies are selected"</string>
+    <string name="ui_234" formatted="false">"TLS requirement disabled; SOCKS5 and HTTP are also available"</string>
+    <string name="ui_235" formatted="false">"; the previous connection was stopped"</string>
+    <string name="ui_236" formatted="false">"Total: "</string>
+    <string name="ui_237" formatted="false">"Select a proxy first"</string>
+    <string name="ui_238" formatted="false">"A test is running; stop it first"</string>
+    <string name="ui_239" formatted="false">"This proxy is incompatible with the current TLS setting"</string>
+    <string name="ui_240" formatted="false">"Test stopped"</string>
+    <string name="ui_241" formatted="false">"Ping to "</string>
+    <string name="ui_242" formatted="false">" measured over HTTPS"</string>
+    <string name="ui_243" formatted="false">"Connection test: Passed"</string>
+    <string name="ui_244" formatted="false">"Connection test: "</string>
+    <string name="ui_245" formatted="false">"Proxy did not respond; removed from scan results but kept in Saved"</string>
+    <string name="ui_246" formatted="false">"Proxy did not respond and was removed from results"</string>
+    <string name="ui_247" formatted="false">"No results match the filters"</string>
+    <string name="ui_248" formatted="false">"Speed test for filtered results"</string>
+    <string name="ui_249" formatted="false">"All "</string>
+    <string name="ui_250" formatted="false">" results matching the current filters will be tested sequentially, including cards further down the list.\nMaximum data use: "</string>
+    <string name="ui_251" formatted="false">" (20 MB per proxy).\nChanging filters after starting does not change the test queue."</string>
+    <string name="ui_252" formatted="false">"Cancel"</string>
+    <string name="ui_253" formatted="false">"Start tests"</string>
+    <string name="ui_254" formatted="false">"Split tunneling"</string>
+    <string name="ui_255" formatted="false">"Back"</string>
+    <string name="ui_256" formatted="false">"Choose which apps use the VPN. Changes apply on the next connection."</string>
+    <string name="ui_257" formatted="false">"All apps use the VPN"</string>
+    <string name="ui_258" formatted="false">"Only selected apps use the VPN"</string>
+    <string name="ui_259" formatted="false">"Selected apps bypass the VPN"</string>
+    <string name="ui_260" formatted="false">"Show all apps (including system apps)"</string>
+    <string name="ui_261" formatted="false">"Search app name"</string>
+    <string name="ui_262" formatted="false">"Loading installed apps…"</string>
+    <string name="ui_263" formatted="false">"Clear selections"</string>
+    <string name="ui_264" formatted="false">"No apps found"</string>
+    <string name="ui_265" formatted="false">"Save settings"</string>
+    <string name="ui_266" formatted="false">"Could not load apps; reopen this screen."</string>
+    <string name="ui_267" formatted="false">" apps • "</string>
+    <string name="ui_268" formatted="false">" selected"</string>
+    <string name="ui_269" formatted="false">"Select at least one app"</string>
+    <string name="ui_270" formatted="false">"Saved; applies on the next connection"</string>
+    <string name="ui_271" formatted="false">", selected"</string>
+    <string name="ui_272" formatted="false">"Could not run command: "</string>
+    <string name="ui_273" formatted="false">"Allow traffic through the VPN"</string>
+    <string name="ui_274" formatted="false">"Accept"</string>
+    <string name="ui_275" formatted="false">"Decline"</string>
+    <string name="ui_276" formatted="false">"Privacy and connection method"</string>
+    <string name="ui_277" formatted="false">"Online policy"</string>
+    <string name="ui_278" formatted="false">"Could not open the address"</string>
+    <string name="ui_279" formatted="false">"Filter: "</string>
+    <string name="ui_280" formatted="false">" • Automatic selection"</string>
+    <string name="ui_281" formatted="false">"Fetching sources • Filter: "</string>
+    <string name="ui_282" formatted="false">"Preparing…"</string>
+    <string name="ui_283" formatted="false">"PersianSocks, "</string>
+    <string name="ui_284" formatted="false">", "</string>
+    <string name="ui_285" formatted="false">"Telegram"</string>
+    <string name="ui_286" formatted="false">"YouTube"</string>
+    <string name="ui_287" formatted="false">"Instagram"</string>
+    <string name="ui_288" formatted="false">"Complete"</string>
+    <string name="ui_289" formatted="false">"All types"</string>
+    <string name="ui_290" formatted="false">"No limit"</string>
+    <string name="ui_291" formatted="false">"Under 500 ms"</string>
+    <string name="ui_292" formatted="false">"Under 1000 ms"</string>
+    <string name="ui_293" formatted="false">"Under 1500 ms"</string>
+    <string name="ui_294" formatted="false">"Under 2000 ms"</string>
+    <string name="ui_295" formatted="false">"Most verified services"</string>
+    <string name="ui_296" formatted="false">"UDP first, then latency"</string>
+    <string name="ui_297" formatted="false">"App language"</string>
+    <string name="ui_298" formatted="false">"The language will change when the current operation finishes."</string>
+    <string name="ui_299" formatted="false">"Scan complete"</string>
+    <string name="ui_300" formatted="false">"Scan incomplete"</string>
+    <string name="ui_301" formatted="false">"Scan stopped: "</string>
+    <string name="ui_302" formatted="false">"Custom source "</string>
+    <string name="ui_303" formatted="false">"Wi-Fi or mobile Internet is unavailable"</string>
+    <string name="ui_304" formatted="false">"The test network disconnected"</string>
+    <string name="ui_305" formatted="false">"The independent test route is unavailable"</string>
+    <string name="ui_extra_000" formatted="false">"First approve routing traffic through the VPN"</string>
+    <string name="ui_extra_001" formatted="false">"Tile added to Quick Settings"</string>
+    <string name="ui_extra_002" formatted="false">"Tile already added"</string>
+    <string name="ui_extra_003" formatted="false">"Add PersianSocks from the Quick Settings editor"</string>
+    <string name="ui_extra_004" formatted="false">"Add to Quick Settings"</string>
+    <string name="ui_extra_005" formatted="false">"Fully expand Quick Settings, edit the tiles, and drag PersianSocks into the active tiles."</string>
+    <string name="ui_extra_006" formatted="false">"OK"</string>
+    <string name="ui_extra_007" formatted="false">"Add widget"</string>
+    <string name="ui_extra_008" formatted="false">"Touch and hold an empty area of your home screen, open Widgets, and select PersianSocks."</string>
+    <string name="ui_extra_009" formatted="false">"Disconnected because the TLS setting changed"</string>
+    <string name="ui_extra_010" formatted="false">"Automatic scan stopped"</string>
+    <string name="ui_extra_011" formatted="false">"VPN disconnected"</string>
+    <string name="ui_extra_012" formatted="false">"First accept the VPN disclosure in the app"</string>
+    <string name="ui_extra_013" formatted="false">"VPN connection"</string>
+    <string name="ui_extra_014" formatted="false">"Could not start connection: "</string>
+    <string name="ui_extra_015" formatted="false">"Could not read saved proxies"</string>
+    <string name="ui_extra_016" formatted="false">"First grant VPN permission to connect from the widget"</string>
+    <string name="ui_extra_017" formatted="false">"Invalid proxy address"</string>
+    <string name="ui_extra_018" formatted="false">"This edition only accepts proxies with valid TLS"</string>
+    <string name="ui_extra_019" formatted="false">"Automatic scan and connection from device controls\nFilter: "</string>
+    <string name="ui_extra_020" formatted="false">"Automatic scan and connection…"</string>
+    <string name="ui_extra_021" formatted="false">"Could not start background scan: "</string>
+    <string name="ui_extra_022" formatted="false">"Automatic scan for “"</string>
+    <string name="ui_extra_023" formatted="false">"First download a proxy list in the app"</string>
+    <string name="ui_extra_024" formatted="false">"Automatic scan of saved list\n"</string>
+    <string name="ui_extra_025" formatted="false">" of "</string>
+    <string name="ui_extra_026" formatted="false">"\nNewly healthy: "</string>
+    <string name="ui_extra_027" formatted="false">"Automatic scan: "</string>
+    <string name="ui_extra_028" formatted="false">" • newly healthy: "</string>
+    <string name="ui_extra_029" formatted="false">"Could not start automatic scan: "</string>
+    <string name="ui_extra_030" formatted="false">"No fresh proxy matches the selected filter and ping limit"</string>
+    <string name="ui_extra_031" formatted="false">"Verifying connection: "</string>
+    <string name="ui_extra_032" formatted="false">"An unencrypted proxy was not selected"</string>
+    <string name="ui_extra_033" formatted="false">"Proxy: "</string>
+    <string name="ui_extra_034" formatted="false">"\nStage: rechecking services before creating the tunnel"</string>
+    <string name="ui_extra_035" formatted="false">"Rechecking services before connection…"</string>
+    <string name="ui_extra_036" formatted="false">"Starting service: "</string>
+    <string name="ui_extra_037" formatted="false">"Could not start VPN: "</string>
+    <string name="ui_extra_038" formatted="false">"Testing services for filter “"</string>
+    <string name="ui_extra_039" formatted="false">"Connection not started; services failed revalidation: "</string>
+    <string name="ui_extra_040" formatted="false">"Proxy no longer matches filter “"</string>
+    <string name="ui_extra_041" formatted="false">"”"</string>
+    <string name="ui_extra_042" formatted="false">"Proxy revalidated: "</string>
+    <string name="ui_extra_043" formatted="false">"Starting tunnel…"</string>
+    <string name="ui_extra_044" formatted="false">"Android rejected creation of the VPN interface"</string>
+    <string name="ui_extra_045" formatted="false">"Tunnel engine did not start"</string>
+    <string name="ui_extra_046" formatted="false">"Connecting: "</string>
+    <string name="ui_extra_047" formatted="false">"Tunnel setup: "</string>
+    <string name="ui_extra_048" formatted="false">"Connection failed: "</string>
+    <string name="ui_extra_049" formatted="false">"Tunnel engine started; verifying traffic inside the VPN…"</string>
+    <string name="ui_extra_050" formatted="false">"Testing the actual tunnel…"</string>
+    <string name="ui_extra_051" formatted="false">"Tunnel engine failed to start"</string>
+    <string name="ui_extra_052" formatted="false">"Android\'s active network did not switch to the VPN; a direct test was rejected."</string>
+    <string name="ui_extra_053" formatted="false">"VPN network did not become available"</string>
+    <string name="ui_extra_054" formatted="false">"\nTunnel: sent="</string>
+    <string name="ui_extra_055" formatted="false">" bytes; received="</string>
+    <string name="ui_extra_056" formatted="false">" bytes"</string>
+    <string name="ui_extra_057" formatted="false">"Traffic inside the VPN did not pass the selected filter"</string>
+    <string name="ui_extra_058" formatted="false">"VPN verified: "</string>
+    <string name="ui_extra_059" formatted="false">"Connected • "</string>
+    <string name="ui_extra_060" formatted="false">"\n\nAutomatic switching:\n"</string>
+    <string name="ui_extra_061" formatted="false">"\n\nLatest tunnel engine messages:\n"</string>
+    <string name="ui_extra_062" formatted="false">"VPN engine stopped"</string>
+    <string name="ui_extra_063" formatted="false">"Selecting a replacement with a suitable ping…"</string>
+    <string name="ui_extra_064" formatted="false">"No verified replacement matches the filter and ping limit; scan again"</string>
+    <string name="ui_extra_065" formatted="false">"Selected replacement: "</string>
+    <string name="ui_extra_066" formatted="false">"Automatic switch: "</string>
+    <string name="ui_extra_067" formatted="false">"; verifying connection"</string>
+    <string name="ui_extra_068" formatted="false">"Internet unavailable"</string>
+    <string name="ui_extra_069" formatted="false">"Waiting for Internet connection"</string>
+    <string name="ui_extra_070" formatted="false">"Automatic switching disabled; disconnected"</string>
+    <string name="ui_extra_071" formatted="false">"Select a proxy to reconnect"</string>
+    <string name="ui_extra_072" formatted="false">"VPN network is no longer active"</string>
+    <string name="ui_extra_073" formatted="false">"Two consecutive tests inside the VPN failed"</string>
+    <string name="ui_extra_074" formatted="false">"No response; checking once more"</string>
+    <string name="ui_extra_075" formatted="false">"\nAutomatic scan stopped"</string>
+    <string name="ui_extra_076" formatted="false">"Proxy connection and VPN download/upload rates"</string>
+    <string name="ui_extra_077" formatted="false">"\nTotal download: "</string>
+    <string name="ui_extra_078" formatted="false">" • upload: "</string>
+    <string name="ui_extra_079" formatted="false">"Stop scan"</string>
+    <string name="ui_extra_080" formatted="false">"Disconnect"</string>
+    <string name="ui_extra_081" formatted="false">"VPN permission revoked"</string>
+    <string name="ui_extra_082" formatted="false">"Not tested"</string>
+    <string name="ui_extra_083" formatted="false">"Stopped"</string>
+    <string name="ui_extra_084" formatted="false">"Stopped"</string>
+    <string name="ui_extra_085" formatted="false">"Disconnected"</string>
+    <string name="ui_extra_086" formatted="false">"Disconnected"</string>
+    <string name="ui_extra_087" formatted="false">"Timeout"</string>
+    <string name="ui_extra_088" formatted="false">"Timed out"</string>
+    <string name="ui_extra_089" formatted="false">"Certificate"</string>
+    <string name="ui_extra_090" formatted="false">"TLS error"</string>
+    <string name="ui_extra_091" formatted="false">"Network"</string>
+    <string name="ui_extra_092" formatted="false">"Unreachable"</string>
+    <string name="ui_extra_093" formatted="false">"Response"</string>
+    <string name="ui_extra_094" formatted="false">"Body"</string>
+    <string name="ui_extra_095" formatted="false">"Invalid response"</string>
+    <string name="ui_extra_096" formatted="false">"Failed"</string>
+    <string name="ui_extra_098" formatted="false">"Telegram"</string>
+    <string name="ui_extra_099" formatted="false">"YouTube"</string>
+    <string name="ui_extra_100" formatted="false">"Instagram"</string>
+    <string name="ui_extra_101" formatted="false">"Enter a valid domain or HTTPS URL"</string>
+    <string name="ui_extra_102" formatted="false">"Unknown"</string>
+    <string name="ui_extra_103" formatted="false">"Downloading sources: "</string>
+    <string name="ui_extra_104" formatted="false">"Could not download list: "</string>
+    <string name="ui_extra_105" formatted="false">": waiting for download"</string>
+    <string name="ui_extra_106" formatted="false">"Sources: "</string>
+    <string name="ui_extra_107" formatted="false">" • unique addresses: "</string>
+    <string name="ui_extra_108" formatted="false">"Scan complete: "</string>
+    <string name="ui_extra_109" formatted="false">" tested • at least one verified service: "</string>
+    <string name="ui_extra_110" formatted="false">" • proxy responses: "</string>
+    <string name="ui_extra_111" formatted="false">"\nScan error: "</string>
+    <string name="ui_extra_112" formatted="false">"Scan stopped: "</string>
+    <string name="ui_extra_113" formatted="false">" addresses"</string>
+    <string name="ui_extra_114" formatted="false">"No valid addresses"</string>
+    <string name="ui_extra_115" formatted="false">" addresses (mirror)"</string>
+    <string name="ui_extra_116" formatted="false">"; mirror: no addresses"</string>
+    <string name="ui_extra_117" formatted="false">"; mirror: "</string>
+    <string name="ui_extra_118" formatted="false">"Downloaded sources: "</string>
+    <string name="ui_extra_119" formatted="false">"\nScan limit: "</string>
+    <string name="ui_extra_120" formatted="false">"Max (all results)"</string>
+    <string name="ui_extra_121" formatted="false">"\nTest timeout: "</string>
+    <string name="ui_extra_122" formatted="false">"Slow network"</string>
+    <string name="ui_extra_123" formatted="false">"Standard"</string>
+    <string name="ui_extra_124" formatted="false">"\nBuilt-in list: "</string>
+    <string name="ui_extra_125" formatted="false">" addresses; sample dated 2026-10-12, untested"</string>
+    <string name="ui_extra_126" formatted="false">"\nChecked: "</string>
+    <string name="ui_extra_127" formatted="false">"\nTCP responded: "</string>
+    <string name="ui_extra_128" formatted="false">"\nProxy responded: "</string>
+    <string name="ui_extra_129" formatted="false">"\nAt least one verified service: "</string>
+    <string name="ui_extra_130" formatted="false">"\n\nReasons for failed tests:\n"</string>
+    <string name="ui_extra_131" formatted="false">"\nNone of Telegram, YouTube or Instagram was verified. This result alone cannot distinguish failed servers from network restrictions.\n"</string>
+    <string name="ui_extra_132" formatted="false">"\nSource status:\n"</string>
+    <string name="ui_extra_133" formatted="false">"\nTelegram, YouTube and Instagram are all tested. At least one 200–399 response with a valid certificate is required. UDP verification only confirms command acceptance."</string>
+    <string name="ui_extra_134" formatted="false">"Test settings changed; restart the scan"</string>
+    <string name="ui_extra_135" formatted="false">"Scan "</string>
+    <string name="ui_extra_136" formatted="false">"complete"</string>
+    <string name="ui_extra_137" formatted="false">"incomplete"</string>
+    <string name="ui_error_000" formatted="false">"This edition only accepts proxies with valid TLS"</string>
+    <string name="ui_error_001" formatted="false">"TCP connection timed out"</string>
+    <string name="ui_error_002" formatted="false">"TCP connection refused"</string>
+    <string name="ui_error_003" formatted="false">"Proxy did not respond"</string>
+    <string name="ui_error_004" formatted="false">"Username or password required"</string>
+    <string name="ui_error_005" formatted="false">"Invalid proxy protocol"</string>
+    <string name="ui_error_006" formatted="false">"Proxy rejected the destination"</string>
+    <string name="ui_error_007" formatted="false">"HTTPS timed out"</string>
+    <string name="ui_error_008" formatted="false">"TLS or certificate error"</string>
+    <string name="ui_error_009" formatted="false">"Invalid HTTPS response"</string>
+    <string name="ui_error_010" formatted="false">"HTTPS verified"</string>
+    <string name="ui_error_011" formatted="false">"Connection error or disconnection"</string>
+    <string name="ui_error_012" formatted="false">"Test network unavailable"</string>
+    <string name="ui_error_013" formatted="false">"Test stopped"</string>
+    <string name="ui_error_014" formatted="false">"Test server returned an invalid response"</string>
+    <string name="ui_error_015" formatted="false">"Compressed response rejected for speed measurement"</string>
+    <string name="ui_error_016" formatted="false">"Test network changed; run the test again"</string>
+    <string name="ui_error_017" formatted="false">"No data received for measurement"</string>
+    <string name="ui_error_018" formatted="false">"Test timed out"</string>
+    <string name="ui_error_019" formatted="false">"HTTPS test inside the VPN:\n"</string>
+    <string name="ui_error_020" formatted="false">"No response"</string>
+    <string name="ui_error_021" formatted="false">": verified\n"</string>
+    <string name="ui_controls_000" formatted="false">"Connect"</string>
+    <string name="ui_controls_001" formatted="false">"Cancel"</string>
+    <string name="ui_controls_002" formatted="false">"Scanning"</string>
+    <string name="ui_controls_003" formatted="false">"Connected"</string>
+    <string name="ui_controls_004" formatted="false">"Connecting"</string>
+    <string name="ui_controls_005" formatted="false">"Cancel connection"</string>
+    <string name="ui_controls_006" formatted="false">"Auto scan and connect"</string>
+    <string name="ui_controls_007" formatted="false">"Open app"</string>
+    <string name="ui_controls_008" formatted="false">"Auto scan and connect using the selected filter"</string>
+</resources>

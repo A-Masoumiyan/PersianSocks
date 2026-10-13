@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:layoutDirection="rtl" android:padding="14dp"
+    android:id="@+id/widget_root" android:orientation="vertical" android:layoutDirection="locale" android:padding="14dp"
     android:background="@drawable/widget_background">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal" android:gravity="center_vertical">
@@ -13,24 +13,24 @@
             android:textColor="#FFFFFF" android:textSize="17sp" android:textStyle="bold"
             android:maxLines="1" android:textDirection="ltr" android:ellipsize="end" />
         <TextView android:id="@+id/widget_state" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="قطع" android:textSize="12sp" android:textColor="#97A9BD" android:layout_marginStart="8dp" />
+            android:text="@string/ui_extra_085" android:textSize="12sp" android:textColor="#97A9BD" android:layout_marginStart="8dp" />
     </LinearLayout>
     <TextView android:id="@+id/widget_detail" android:layout_width="match_parent" android:layout_height="0dp"
         android:layout_weight="1" android:layout_marginTop="6dp" android:layout_marginBottom="8dp"
-        android:text="اسکن و اتصال خودکار با فیلتر انتخابی"
+        android:text="@string/ui_controls_008"
         android:textColor="#A5B6CA" android:textSize="12sp" android:maxLines="1" android:ellipsize="end"
-        android:gravity="right|center_vertical" />
+        android:gravity="start|center_vertical" />
     <ProgressBar android:id="@+id/widget_progress" style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginBottom="6dp"
         android:progressTint="#46E2B8" android:indeterminateTint="#46E2B8" android:visibility="gone" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:orientation="horizontal">
         <Button android:id="@+id/widget_auto" android:layout_width="0dp" android:layout_weight="1"
-            android:layout_height="match_parent" android:text="اسکن و اتصال خودکار" android:textSize="12sp"
+            android:layout_height="match_parent" android:text="@string/ui_controls_006" android:textSize="12sp"
             android:textColor="#0B111D" android:background="@drawable/widget_action" android:textAllCaps="false"
             android:paddingLeft="6dp" android:paddingRight="6dp" android:minWidth="0dp" android:minHeight="0dp"
             android:maxLines="2" android:ellipsize="end" />
         <Button android:id="@+id/widget_open" android:layout_width="60dp" android:layout_height="match_parent"
-            android:layout_marginStart="8dp" android:text="برنامه" android:textSize="12sp" android:textColor="#FFFFFF"
+            android:layout_marginStart="8dp" android:text="@string/ui_controls_007" android:textSize="12sp" android:textColor="#FFFFFF"
             android:background="@drawable/widget_secondary" android:textAllCaps="false"
             android:paddingLeft="4dp" android:paddingRight="4dp" android:minWidth="0dp" android:minHeight="0dp" />
     </LinearLayout>

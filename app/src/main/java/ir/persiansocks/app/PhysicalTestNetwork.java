@@ -10,11 +10,18 @@ import java.util.concurrent.*;
 
 /** A test captures one physical network and never falls back to a VPN or direct destination. */
 public final class PhysicalTestNetwork {
-    private static final ExecutorService DNS = Executors.newFixedThreadPool(2, r -> {
+    private static final ExecutorService DNS = Executors.newFixedThreadPool(8, r -> {
         Thread thread = new Thread(r, "single-proxy-dns"); thread.setDaemon(true); return thread;
     });
     private final ConnectivityManager manager;
     private final Network network;
+    // Cache belongs to this captured physical network, never to another network or VPN.
+    private final ConcurrentHashMap<String,DnsAnswer> cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String,CompletableFuture<InetAddress>> pending = new ConcurrentHashMap<>();
+    private static final class DnsAnswer {
+        final InetAddress address; final long expires;
+        DnsAnswer(InetAddress address) { this.address=address; expires=System.nanoTime()+30_000_000_000L; }
+    }
     private PhysicalTestNetwork(ConnectivityManager manager, Network network) { this.manager = manager; this.network = network; }
     public static PhysicalTestNetwork capture(Context context) throws IOException {
         ConnectivityManager manager = context.getSystemService(ConnectivityManager.class);
@@ -49,12 +56,28 @@ public final class PhysicalTestNetwork {
     public InetAddress resolve(String host) throws Exception {
         if (!valid()) throw new IOException("شبکهٔ تست قطع شد");
         if (host.matches("[0-9.]+")) return InetAddress.getByName(host);
-        Future<InetAddress[]> query = DNS.submit(() -> network.getAllByName(host));
-        try {
-            InetAddress[] answers = query.get(6, TimeUnit.SECONDS);
-            for (InetAddress answer : answers) if (answer instanceof Inet4Address) return answer;
-            if (answers.length > 0) return answers[0];
-            throw new UnknownHostException(host);
-        } finally { query.cancel(true); }
+        DnsAnswer cached=cache.get(host);
+        if(cached!=null&&System.nanoTime()<cached.expires)return cached.address;
+        CompletableFuture<InetAddress> created=new CompletableFuture<>();
+        CompletableFuture<InetAddress> query=pending.putIfAbsent(host,created);
+        if(query==null){
+            query=created;
+            DNS.execute(()->{
+                try {
+                    if(!valid())throw new IOException("شبکهٔ تست قطع شد");
+                    InetAddress[] answers=network.getAllByName(host);InetAddress best=null;
+                    for(InetAddress answer:answers)if(answer instanceof Inet4Address){best=answer;break;}
+                    if(best==null&&answers.length>0)best=answers[0];
+                    if(best==null)throw new UnknownHostException(host);
+                    if(!valid())throw new IOException("شبکهٔ تست قطع شد");
+                    if(cache.size()>=256)cache.clear();
+                    cache.put(host,new DnsAnswer(best));created.complete(best);
+                }catch(Exception ex){created.completeExceptionally(ex);}
+                finally{pending.remove(host,created);}
+            });
+        }
+        InetAddress answer=query.get(6,TimeUnit.SECONDS);
+        if(!valid())throw new IOException("شبکهٔ تست قطع شد");
+        return answer;
     }
 }
