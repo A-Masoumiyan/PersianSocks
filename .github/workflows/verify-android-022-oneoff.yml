@@ -5,7 +5,7 @@ on:
     paths:
       - '.github/oneoff-android-022.request'
 permissions:
-  contents: read
+  contents: write
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -46,3 +46,20 @@ jobs:
           name: PersianSocks-0.22.0-DEBUG-not-upgradable
           path: app/build/outputs/apk/personal/debug/*.apk
           if-no-files-found: error
+      - name: Publish TEST ONLY Android APK as GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          apk=$(find app/build/outputs/apk/personal/debug -name '*.apk' -type f | head -1)
+          cp "$apk" PersianSocks-0.22.0-DEBUG-TEST.apk
+          cat > /tmp/persiansocks-debug-notes.md <<'NOTES'
+          ⚠️ **آزمایشی - نسخه رسمی نیست**. امضا از نوع Debug است و نصب مستقیم روی نسخه رسمی 0.21.0 بدون حذف آن امکان‌پذیر نیست. برای ارتقای ایمن باید با کلید رسمی امضا شود. وضعیت رفع هشدار Google Play Protect هم تأیید نشده است.
+
+          - Android 0.22.0 (versionCode 23)
+          - علاقه‌مندی‌ها، سوایپ چپ تست دانلود، سوایپ راست پینگ، مرتب‌سازی ترکیبی زیر دانلود سریع
+          - تست: ساخت Debug و تأیید apksigner/aapt در CI موفق؛ تست گوشی واقعی و سازگاری ارتقا انجام نشده
+          - نسخه رسمی 0.21.0 بدون تغییر حفظ شده است
+          NOTES
+          gh release create v0.22.0-debug-preview PersianSocks-0.22.0-DEBUG-TEST.apk --prerelease --target "$GITHUB_SHA" --title 'PersianSocks Android 0.22.0 — Debug Test (NOT OFFICIAL)' --notes-file /tmp/persiansocks-debug-notes.md
