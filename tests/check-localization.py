@@ -19,6 +19,10 @@ main=(java/'MainActivity.java').read_text()
 assert '"v" + AppLanguage.version(this)' in main and '0.22.0' not in main
 assert 'languageBusy()' in main and 'ui.postDelayed(this::applyPendingLanguage' in main
 assert 'View.LAYOUT_DIRECTION_RTL' not in main and 'Gravity.RIGHT' not in main
+assert 't.setGravity(AppLanguage.gravity()' in main and 't.setTextAlignment(View.TEXT_ALIGNMENT_GRAVITY)' in main
+assert 'title.setGravity(AppLanguage.gravity())' in main and 'title.addView(brand,new LinearLayout.LayoutParams(-1,-2))' in main
+assert 'AppLanguage.isolate(TrafficMeter.bytes(t.downloaded))' in main
+assert 'AppLanguage.isolate(TrafficMeter.bytes(t.uploaded))' in main
 language=(java/'AppLanguage.java').read_text()
 assert 'config.setLocales' in language and 'config.setLayoutDirection' in language
 assert '"fa".equals(code)&&!"en".equals(code)' in language
