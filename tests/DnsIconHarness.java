@@ -15,6 +15,16 @@ public final class DnsIconHarness {
         check(!icons.contains("https://www.example.com/skip.svg"),"unsupported SVG not displayed as another logo");
         for(String url:new String[]{"http://example.com/icon.png","https://user:pass@example.com/i","https://192.168.1.1/i","file:///icon.png","https://thing.local/i"})check(!IconPolicy.https(url),"reject invalid icon URL");
         check(IconPolicy.sameSite("https://facebook.com/","https://www.facebook.com/"),"canonical www redirect");check(!IconPolicy.sameSite("https://facebook.com/","https://facebook.com.evil.test/"),"reject lookalike page redirect");
+        check(IconPolicy.icons("<link rel=icon href='/correct.png'><script>let x=\"<link rel=icon href='https://wrong.example/i.png'>\"", "https://www.example.com/").size()==2,"truncated page ignores unfinished script");
+        check(IconPolicy.icons("<link rel=icon href='/correct.png'>"+"x".repeat(131072),"https://www.example.com/").get(0).endsWith("/correct.png"),"large page head preserves actual declared icon");
+        IconRetryPolicy retries=new IconRetryPolicy();
+        check(retries.begin("facebook.com","wifi",0),"first attempt even at time zero");
+        check(!retries.begin("facebook.com","wifi",15_000),"same failed path throttled");
+        check(retries.begin("facebook.com","vpn:proxy1",15_001),"new proxy retries without restart");
+        check(!retries.begin("facebook.com","vpn:proxy1",30_000),"route retry not flooded by traffic broadcasts");
+        check(retries.begin("facebook.com","vpn:proxy1",75_001),"failed icon retried after cooldown");
+        retries.retain(Collections.emptySet());
+        check(retries.begin("facebook.com","vpn:proxy1",75_002),"removed/re-added domain gets fresh attempt");
         System.out.println("PASS: "+count+" VPN DNS wire and favicon origin/parser checks");
     }
 }

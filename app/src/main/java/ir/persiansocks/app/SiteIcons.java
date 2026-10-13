@@ -15,27 +15,57 @@ public final class SiteIcons {
     private final Context context;private final Runnable changed;private final File directory;
     private final ExecutorService worker=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"site-icons");t.setPriority(Thread.MIN_PRIORITY);return t;});
     private final LruCache<String,Bitmap> memory=new LruCache<String,Bitmap>(1024*1024){protected int sizeOf(String k,Bitmap b){return b.getByteCount();}};
-    private final Set<String> attempted=ConcurrentHashMap.newKeySet();private volatile Set<String> hosts=Collections.emptySet();private volatile boolean closed;private volatile HttpURLConnection connection;
+    private final IconRetryPolicy retries=new IconRetryPolicy();private final java.util.concurrent.atomic.AtomicBoolean scheduled=new java.util.concurrent.atomic.AtomicBoolean();private volatile Set<String> hosts=Collections.emptySet();private volatile boolean closed;private volatile HttpURLConnection connection;
     public SiteIcons(Context c,Runnable r){context=c.getApplicationContext();changed=r;directory=new File(context.getFilesDir(),"site-icons");directory.mkdirs();}
     private String key(String host){try{byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(host.getBytes(StandardCharsets.US_ASCII));StringBuilder s=new StringBuilder();for(byte b:hash)s.append(String.format(Locale.ROOT,"%02x",b&255));return s.toString();}catch(Exception e){throw new IllegalStateException(e);}}
     public Bitmap get(String host){return memory.get(host);}
-    public synchronized void sync(){Set<String> next=new HashSet<>();for(ServiceTargets.Target t:ServiceTargets.current())next.add(t.host);hosts=Collections.unmodifiableSet(next);memory.snapshot().keySet().stream().filter(h->!next.contains(h)).forEach(memory::remove);attempted.removeIf(h->!next.contains(h));
-        worker.execute(()->{Set<String> names=new HashSet<>();for(String h:next){names.add(key(h)+".png");names.add(key(h)+".json");}File[] files=directory.listFiles();if(files!=null)for(File f:files)if(!names.contains(f.getName()))f.delete();for(String host:next){if(closed||!hosts.contains(host))continue;File target=new File(directory,key(host)+".png");Bitmap bmp=target.isFile()?BitmapFactory.decodeFile(target.getPath()):null;if(bmp!=null){memory.put(host,bmp);notifyChanged();continue;}if(!attempted.add(host))continue;try{fetch(host,target);}catch(Exception ignored){}}});
+    public synchronized void sync(){
+        if(closed)return;
+        Set<String> next=new HashSet<>();for(ServiceTargets.Target t:ServiceTargets.current())next.add(t.host);
+        hosts=Collections.unmodifiableSet(next);memory.snapshot().keySet().stream().filter(h->!next.contains(h)).forEach(memory::remove);retries.retain(next);
+        if(!scheduled.compareAndSet(false,true))return;
+        worker.execute(()->{try{
+            Set<String> current=hosts;Set<String> names=new HashSet<>();for(String h:current){names.add(key(h)+".png");names.add(key(h)+".json");}
+            File[] files=directory.listFiles();if(files!=null)for(File f:files)if(!names.contains(f.getName()))f.delete();
+            List<ProxyEndpoint> candidates=ProxyStore.index().snapshot();
+            for(String host:current){
+                if(closed||!hosts.contains(host)||memory.get(host)!=null)continue;
+                File target=new File(directory,key(host)+".png");Bitmap bmp=target.isFile()?BitmapFactory.decodeFile(target.getPath()):null;
+                if(bmp!=null){synchronized(this){if(hosts.contains(host)){memory.put(host,bmp);notifyChanged();}else bmp.recycle();}continue;}
+                ProxyEndpoint route=iconRoute(host,candidates);
+                Network active=context.getSystemService(ConnectivityManager.class).getActiveNetwork();
+                String fingerprint=String.valueOf(active)+":"+ProxyVpnService.phase()+":"+(route==null?"direct":route.key());
+                if(!retries.begin(host,fingerprint,android.os.SystemClock.elapsedRealtime()))continue;
+                try{
+                    // A verified proxy fetches this site's real icon even when the physical ISP blocks it.
+                    if(route!=null)try{PhysicalTestNetwork path=PhysicalTestNetwork.capture(context);if(fetch(host,target,route,path))continue;}catch(Exception ignored){}
+                    fetch(host,target,null,null);
+                }catch(Exception ignored){}
+            }
+        }finally{scheduled.set(false);}});
+    }
+    private ProxyEndpoint iconRoute(String host,List<ProxyEndpoint> candidates){
+        ProxyEndpoint active=ProxyEndpoint.parse(ProxyVpnService.activeEndpoint());
+        if(ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&active!=null&&DistributionPolicy.allows(active))return active;
+        for(ServiceTargets.Target t:ServiceTargets.current())if(t.host.equals(host)){
+            ProxyEndpoint best=null;for(ProxyEndpoint p:candidates)if(p.passed(t)&&DistributionPolicy.allows(p)&&(best==null||p.latencyMs<best.latencyMs))best=p;
+            if(best!=null)return best;
+        }return null;
     }
     private void notifyChanged(){new android.os.Handler(android.os.Looper.getMainLooper()).post(()->{if(!closed)changed.run();});}
     private static final class Body{final byte[] data;final String url;Body(byte[] b,String u){data=b;url=u;}}
-    private Body read(String url,String original,boolean page)throws Exception {
+    private Body read(String url,String original,boolean page,ProxyEndpoint proxy,PhysicalTestNetwork path)throws Exception {
         long deadline=System.nanoTime()+15_000_000_000L;int limit=page?128*1024:1024*1024;
         for(int redirect=0;redirect<5;redirect++){
-            if(closed||!IconPolicy.https(url)||page&&!IconPolicy.sameSite(original,url))throw new IOException("Icon origin");Network network=context.getSystemService(ConnectivityManager.class).getActiveNetwork();if(network==null)throw new IOException("Offline");HttpURLConnection c=(HttpURLConnection)network.openConnection(new URL(url),java.net.Proxy.NO_PROXY);connection=c;
-            try{c.setConnectTimeout(4000);c.setReadTimeout(4000);c.setInstanceFollowRedirects(false);c.setRequestProperty("User-Agent","Mozilla/5.0 PersianSocks site icon");int status=c.getResponseCode();if(status>=300&&status<400){String location=c.getHeaderField("Location");if(location==null)throw new IOException("Redirect");url=new URL(new URL(url),location).toString();continue;}if(status!=200)throw new IOException("HTTP status");try(InputStream in=c.getInputStream();ByteArrayOutputStream bytes=new ByteArrayOutputStream()){byte[] buf=new byte[4096];int n;while((n=in.read(buf))!=-1){if(closed||System.nanoTime()>deadline||bytes.size()+n>limit)throw new IOException("Icon limit");bytes.write(buf,0,n);}return new Body(bytes.toByteArray(),url);}}finally{c.disconnect();connection=null;}
+            if(closed||!IconPolicy.https(url)||page&&!IconPolicy.sameSite(original,url))throw new IOException("Icon origin");HttpURLConnection c;if(proxy!=null)c=new ProxyHttpConnection(new URL(url),proxy,path::socket,path::resolve);else{Network network=context.getSystemService(ConnectivityManager.class).getActiveNetwork();if(network==null)throw new IOException("Offline");c=(HttpURLConnection)network.openConnection(new URL(url),java.net.Proxy.NO_PROXY);}connection=c;
+            try{c.setConnectTimeout(4000);c.setReadTimeout(4000);c.setInstanceFollowRedirects(false);c.setRequestProperty("User-Agent","Mozilla/5.0 PersianSocks site icon");c.setRequestProperty("Accept-Encoding","identity");int status=c.getResponseCode();if(status>=300&&status<400){String location=c.getHeaderField("Location");if(location==null)throw new IOException("Redirect");url=new URL(new URL(url),location).toString();continue;}if(status!=200)throw new IOException("HTTP status");String encoding=c.getContentEncoding();if(encoding!=null&&!encoding.equalsIgnoreCase("identity")&&!encoding.equalsIgnoreCase("gzip"))throw new IOException("Icon encoding");try(InputStream raw=c.getInputStream();InputStream in="gzip".equalsIgnoreCase(encoding)?new java.util.zip.GZIPInputStream(raw):raw;ByteArrayOutputStream bytes=new ByteArrayOutputStream()){byte[] buf=new byte[4096];int n;while((n=in.read(buf))!=-1){if(closed||System.nanoTime()>deadline)throw new IOException("Icon timeout");if(bytes.size()+n>limit){if(!page)throw new IOException("Icon limit");bytes.write(buf,0,limit-bytes.size());break;}bytes.write(buf,0,n);}return new Body(bytes.toByteArray(),url);}}finally{c.disconnect();connection=null;}
         }throw new IOException("Icon redirect limit");
     }
-    private void fetch(String host,File target)throws Exception {
-        String origin="https://"+host+"/";List<String> links=new ArrayList<>();try{Body page=read(origin,origin,true);links=IconPolicy.icons(new String(page.data,StandardCharsets.UTF_8),page.url);}catch(Exception ignored){links.add(origin+"favicon.ico");}
-        for(String link:links){if(closed||!hosts.contains(host))return;try{Body body=read(link,origin,false);Bitmap bitmap=decode(body.data);if(bitmap==null)continue;if(bitmap.getWidth()>96||bitmap.getHeight()>96){float scale=96f/Math.max(bitmap.getWidth(),bitmap.getHeight());Bitmap old=bitmap;bitmap=Bitmap.createScaledBitmap(old,Math.max(1,Math.round(old.getWidth()*scale)),Math.max(1,Math.round(old.getHeight()*scale)),true);if(old!=bitmap)old.recycle();}
-                synchronized(this){if(closed||!hosts.contains(host)){bitmap.recycle();return;}File temp=new File(directory,key(host)+".tmp");try(OutputStream out=new FileOutputStream(temp)){bitmap.compress(Bitmap.CompressFormat.PNG,100,out);}if(!temp.renameTo(target)){temp.delete();throw new IOException("Icon storage");}try(OutputStream out=new FileOutputStream(new File(directory,key(host)+".json"))){out.write(new org.json.JSONObject().put("host",host).put("source",body.url).toString().getBytes(StandardCharsets.UTF_8));}memory.put(host,bitmap);}notifyChanged();return;
-            }catch(Exception ignored){}}
+    private boolean fetch(String host,File target,ProxyEndpoint proxy,PhysicalTestNetwork path)throws Exception {
+        String origin="https://"+host+"/";List<String> links=new ArrayList<>();try{Body page=read(origin,origin,true,proxy,path);links=IconPolicy.icons(new String(page.data,StandardCharsets.UTF_8),page.url);}catch(Exception ignored){links.add(origin+"favicon.ico");}
+        for(String link:links){if(closed||!hosts.contains(host))return false;try{Body body=read(link,origin,false,proxy,path);Bitmap bitmap=decode(body.data);if(bitmap==null)continue;if(bitmap.getWidth()>96||bitmap.getHeight()>96){float scale=96f/Math.max(bitmap.getWidth(),bitmap.getHeight());Bitmap old=bitmap;bitmap=Bitmap.createScaledBitmap(old,Math.max(1,Math.round(old.getWidth()*scale)),Math.max(1,Math.round(old.getHeight()*scale)),true);if(old!=bitmap)old.recycle();}
+                synchronized(this){if(closed||!hosts.contains(host)){bitmap.recycle();return false;}File temp=new File(directory,key(host)+".tmp");try(OutputStream out=new FileOutputStream(temp)){bitmap.compress(Bitmap.CompressFormat.PNG,100,out);}if(!temp.renameTo(target)){temp.delete();throw new IOException("Icon storage");}try(OutputStream out=new FileOutputStream(new File(directory,key(host)+".json"))){out.write(new org.json.JSONObject().put("host",host).put("source",body.url).toString().getBytes(StandardCharsets.UTF_8));}memory.put(host,bitmap);}notifyChanged();return true;
+            }catch(Exception ignored){}}return false;
     }
     private static int le(byte[] b,int p,int n){int v=0;for(int i=0;i<n;i++)v|=(b[p+i]&255)<<(8*i);return v;}
     static Bitmap decode(byte[] data){

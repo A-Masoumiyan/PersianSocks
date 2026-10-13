@@ -1,5 +1,5 @@
 {
-  "sha256": "31ee6863b794a89ca7b1f4315fdb4bc29ac20dd0d179ff30f602b008ce2d028c",
+  "sha256": "602153118b5acd49a9a76b42d600c319e018fb7a114fbe9a5b717054aabbc95d",
   "bytes": 3909641,
   "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
   "permissions": [
@@ -17,7 +17,7 @@
   "versionCode": 31,
   "hostSuitesPassed": true,
   "updateSelectionChecks": 30,
-  "dnsAndFaviconPolicyChecks": 15,
+  "dnsAndFaviconPolicyChecks": 23,
   "bilingualStrings": 520,
   "largeScanRows": 96000,
   "largeScanFailedPruned": 95040,
@@ -30,5 +30,11 @@
     "foreground": 24,
     "background": 8,
     "connecting": 4
+  },
+  "liveSiteIconFetch": {
+    "web.telegram.org": "PNG 32x32",
+    "www.youtube.com": "ICO 48x48",
+    "www.instagram.com": "WebP 32x32",
+    "www.facebook.com": "ICO 60x60"
   }
 }
