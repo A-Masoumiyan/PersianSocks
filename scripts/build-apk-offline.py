@@ -120,4 +120,5 @@ run(bt / 'apksigner', 'sign', '--ks', key, '--ks-key-alias', 'persiansocks',
     '--out', output, work / 'aligned.apk')
 run(bt / 'apksigner', 'verify', '--verbose', '--print-certs', output)
 run(bt / 'zipalign', '-c', '-P', '16', '4', output)
+run(__import__('sys').executable, root / 'scripts/audit-release-apk.py', output, '--sdk', sdk)
 print('APK:', output)

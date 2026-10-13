@@ -1,17 +1,23 @@
 {
-  "version": "0.18.0",
-  "versionCode": 19,
-  "buildPassed": true,
-  "dialogCreationSitesThemed": 16,
-  "sameSigningCertificate": true,
-  "signatureVerified": true,
-  "aligned16KB": true,
-  "nativeABIs": 4,
+  "sha256": "9ecaf8e7aef7a564ce2f222b939fcdc59f23229e5639d7943d1bf495164a08b9",
+  "bytes": 3876873,
+  "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
+  "permissions": [
+    "android.permission.ACCESS_NETWORK_STATE",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+    "android.permission.INTERNET",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.QUERY_ALL_PACKAGES",
+    "ir.persiansocks.app.permission.INTERNAL_STATE"
+  ],
+  "status": "release integrity checks passed; Google review not performed",
+  "version": "0.26.0",
+  "versionCode": 28,
+  "hostSuitesPassed": true,
+  "releaseGuardChecks": 6,
+  "negativeArchiveChecks": 4,
+  "bilingualStrings": 494,
   "deviceUITested": false,
-  "regressionTestsRerun": false,
-  "priorVersionRegressionChecksPassed": 377,
-  "apkBytes": 3794953,
-  "apkSha256": "1f43b01b79f4b4011f31a0e019ec7fd29253de6e9b435566f7b6a9ec473f23ec"
+  "googleReviewPerformed": false
 }
-
-UI-only change. Compiled all Java and resources. Verified in-app dialog theme coverage. No device or emulator UI verification available.
