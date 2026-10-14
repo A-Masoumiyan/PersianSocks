@@ -95,6 +95,17 @@ public final class ProxyVpnService extends VpnService {
     private String autoReport = "";
     private boolean autoSelectionScheduled;
     private long lastScanAnnouncement;
+    private PhysicalNetworkMonitor networkMonitor;
+    private boolean waitingForPhysical;
+    private final Runnable recoverPhysical=()->{
+        if(!waitingForPhysical||!userRequested||destroying)return;
+        if(!autoSwitch()){finishConnection(AppLanguage.t(R.string.ui_extra_070));return;}
+        if(networkMonitor!=null&&!networkMonitor.available())return;
+        if(!physicalNetworkAvailable())return;
+        ProxyEndpoint resume=ProxyEndpoint.parse(current);
+        if(resume==null){finishConnection(AppLanguage.t(R.string.ui_extra_071));return;}
+        waitingForPhysical=false;failover.reset(current);beginConnect(resume);
+    };
 
     @Override public void onCreate() {
         super.onCreate();
@@ -105,6 +116,15 @@ public final class ProxyVpnService extends VpnService {
         trafficSnapshot=trafficMeter.stopped();
         ServiceTargets.configure(ServiceTargets.decode(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("test-domains", "[]")));
         try { CountryLookup.initialize(getAssets().open("ip-country.bin")); } catch (Exception ignored) {}
+        try{networkMonitor=new PhysicalNetworkMonitor(getSystemService(ConnectivityManager.class),new Handler(Looper.getMainLooper()),(broken,dnsChanged)->{
+            if(destroying||!userRequested||autoScanning)return;
+            if(dnsChanged&&tunnelPhysical!=null)tunnelPhysical.invalidateDns();
+            if(broken&&!waitingForPhysical){
+                recoveryLog.append("PHYSICAL_ROUTE_CHANGED: retry same proxy on a fresh route\n");
+                waitForNetwork();
+            }
+            if(waitingForPhysical){handler.removeCallbacks(recoverPhysical);handler.postDelayed(recoverPhysical,250);}
+        });}catch(RuntimeException ex){Log.w("PersianSocks","Physical callback unavailable; using recovery polling",ex);}
     }
 
     @Override public IBinder onBind(Intent intent) { return super.onBind(intent); }
@@ -285,6 +305,8 @@ public final class ProxyVpnService extends VpnService {
                     failConnection(msg,verified.endpoint==null&&ProbeFailurePolicy.invalidates(verified.failure)); return;
                 }
                 lastProfile = verified.endpoint;tunnelPhysical=chosenPhysical;
+                if(networkMonitor!=null)networkMonitor.activate(chosenPhysical.network());
+                if(!chosenPhysical.valid()||(networkMonitor!=null&&networkMonitor.activeBroken())){waitForNetwork();return;}
                 announce(AppLanguage.t(R.string.ui_extra_042) + verified.endpoint.passedServices());
                 handler.postDelayed(()->{if(token==generation&&!stop.get())openTunnel(verified.endpoint,token);},300);
             });
@@ -334,8 +356,9 @@ public final class ProxyVpnService extends VpnService {
                 "  netmask: 255.255.0.0\n" +
                 "  cache-size: 4096\n" +
                 "misc:\n" +
-                "  max-session-count: 128\n" +
+                "  max-session-count: " + ProtectedSocksGateway.MAX_CONNECTIONS + "\n" +
                 "  connect-timeout: 20000\n" +
+                "  tcp-read-write-timeout: " + ProtectedSocksGateway.TCP_IDLE_MILLIS + "\n" +
                 "  log-file: '" + new File(getFilesDir(), "native-tunnel.log").getAbsolutePath() + "'\n" +
                 "  log-level: warn\n";
             try (FileOutputStream clear = new FileOutputStream(new File(getFilesDir(), "native-tunnel.log"), false)) {}
@@ -436,6 +459,8 @@ public final class ProxyVpnService extends VpnService {
     }
     private void publishTraffic(){sendBroadcast(new Intent(STATE).setPackage(getPackageName()).putExtra("traffic-only",true),INTERNAL_PERMISSION);}
     private void saveVpnReport(String report) {
+        if(gateway!=null)report+="\nRelay sessions: "+gateway.activeConnections()+"/"+ProtectedSocksGateway.MAX_CONNECTIONS+
+            "; local capacity rejections: "+gateway.capacityRejections()+"; last relay error: "+gateway.lastError()+"\n";
         if (recoveryLog.length() > 0) report += AppLanguage.t(R.string.ui_extra_060) + recoveryLog;
         File log = new File(getFilesDir(), "native-tunnel.log");
         if (tun != null && log.exists()) {
@@ -478,6 +503,8 @@ public final class ProxyVpnService extends VpnService {
     }
     private void failConnection(String reason){failConnection(reason,false);}
     private void failConnection(String reason,boolean invalidates) {
+        // A dead captured route is a phone-network event, not evidence against the proxy.
+        if(userRequested&&tunnelPhysical!=null&&(!tunnelPhysical.valid()||(networkMonitor!=null&&networkMonitor.activeBroken()))){waitForNetwork();return;}
         announceError(reason);
         if(invalidates&&userRequested&&physicalNetworkAvailable()&&!current.isEmpty()){ProxyStore.index().reject(current,System.currentTimeMillis());ProxyStore.save(this,ProxyStore.index());}
         if (!userRequested || !autoSwitch()) { finishConnection(reason); return; }
@@ -509,30 +536,37 @@ public final class ProxyVpnService extends VpnService {
         });
     }
     private void waitForNetwork() {
+        if(!userRequested)return;
+        if(!autoSwitch()){finishConnection(AppLanguage.t(R.string.ui_extra_070));return;}
+        waitingForPhysical=true;
         cancelled.set(true);
         for (Socket socket : probeSockets) try { socket.close(); } catch (Exception ignored) {}
         handler.removeCallbacksAndMessages(null);
+        if(gateway!=null){gateway.close();gateway=null;}
+        tunnelPhysical=null;if(networkMonitor!=null)networkMonitor.clearActive();
+        Socks5Probe.setSocketMaker(null);Socks5Probe.setResolver(null);
         int token = ++generation;
         trafficSnapshot=trafficMeter.stopped();publishTraffic();
         updatePhase(CONNECTING);
         announceError(AppLanguage.t(R.string.ui_extra_068));
         getSystemService(NotificationManager.class).notify(ID, notification(AppLanguage.t(R.string.ui_extra_069)));
+        handler.postDelayed(recoverPhysical,250);
         waitForNetwork(token);
     }
     private void waitForNetwork(int token) {
         handler.postDelayed(() -> {
             if (token != generation || !userRequested) return;
             if (!autoSwitch()) { finishConnection(AppLanguage.t(R.string.ui_extra_070)); return; }
-            if (physicalNetworkAvailable()) {
-                ProxyEndpoint resume = ProxyEndpoint.parse(current);
-                if (resume != null) { failover.reset(current); beginConnect(resume); }
-                else finishConnection(AppLanguage.t(R.string.ui_extra_071));
-            } else waitForNetwork(token);
+            recoverPhysical.run();
+            if(waitingForPhysical)waitForNetwork(token);
         }, 10000);
     }
     private void scheduleHealthCheck(int token) {
         handler.postDelayed(() -> {
             if (token != generation || !userRequested || phase != CONNECTED) return;
+            if(tunnelPhysical!=null&&(!tunnelPhysical.valid()||(networkMonitor!=null&&networkMonitor.activeBroken()))){waitForNetwork();return;}
+            // Saturation is a local resource condition; defer the extra probe without a failure vote.
+            if(gateway!=null&&gateway.nearCapacity()){saveVpnReport("LOCAL_CAPACITY: health probe deferred while relay is busy");scheduleHealthCheck(token);return;}
             if (requiredFilter.startsWith("https://")) {
                 boolean exists = false;
                 for (ServiceTargets.Target t : ServiceTargets.current()) if (t.id.equals(requiredFilter)) exists = true;
@@ -547,6 +581,8 @@ public final class ProxyVpnService extends VpnService {
                 return;
             }
             AtomicBoolean stop = cancelled;
+            final ProtectedSocksGateway checkedGateway=gateway;
+            final long previousCapacity=checkedGateway==null?0:checkedGateway.capacityRejections();
             ServiceTargets.Target[] targets = failover.healthTargets(requiredFilter, lastProfile);
             new Thread(() -> {
                 TunnelVerifier.Result result = TunnelVerifier.check(new TunnelVerifier.Transport() {
@@ -555,6 +591,7 @@ public final class ProxyVpnService extends VpnService {
                 }, stop, probeSockets, targets, true, requiredFilter.equals("ALL"));
                 handler.post(() -> {
                     if (token != generation || stop.get() || !userRequested) return;
+                    if(checkedGateway!=null&&checkedGateway.capacityRejections()>previousCapacity){saveVpnReport("LOCAL_CAPACITY: health sample inconclusive\n"+result.report);scheduleHealthCheck(token);return;}
                     if (failover.health(result.accepts(requiredFilter))) {
                         saveVpnReport(result.report);
                         failConnection(AppLanguage.t(R.string.ui_extra_073)); return;
@@ -568,7 +605,7 @@ public final class ProxyVpnService extends VpnService {
     }
     private void closeTunnel() {
         if(trafficMeter!=null){sampleTraffic(false);trafficSnapshot=trafficMeter.stopped();persistTraffic();publishTraffic();}
-        generation++;tunnelPhysical=null;
+        generation++;tunnelPhysical=null;waitingForPhysical=false;if(networkMonitor!=null)networkMonitor.clearActive();
         PreparedScanner stoppedScanner=automaticScanner;automaticScanner=null;
         if(stoppedScanner!=null){stoppedScanner.requestStop();ProxyStore.IO.execute(()->{try{ScanCheckpoint saved=stoppedScanner.pause();if(saved!=null)ProxyStore.index().apply(saved);ProxyStore.save(this,ProxyStore.index());}catch(Exception ex){android.util.Log.e("PersianSocks","Stop save failed",ex);}});}
         if(autoScanning&&autoSelection!=null){
@@ -639,6 +676,7 @@ public final class ProxyVpnService extends VpnService {
     @Override public void onRevoke() { userRequested=false; closeTunnel(); announce(AppLanguage.t(R.string.ui_extra_081)); scheduleIdleStop(); super.onRevoke(); }
     @Override public void onDestroy() {
         destroying=true;userRequested=false;closeTunnel();
+        if(networkMonitor!=null){try{networkMonitor.close();}catch(RuntimeException ignored){}networkMonitor=null;}
         if(instance.get()==this)instance.clear();
         super.onDestroy();
     }

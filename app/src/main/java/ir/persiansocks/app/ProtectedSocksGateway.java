@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.*;
 
 /** Loopback SOCKS gateway. Every physical upstream socket is protected from the VPN. */
 public final class ProtectedSocksGateway implements AutoCloseable {
+    public static final int MAX_CONNECTIONS = 64;
+    public static final int TCP_IDLE_MILLIS = 300_000;
     public interface Protector {
         boolean tcp(Socket socket);
         boolean udp(DatagramSocket socket);
@@ -28,25 +30,39 @@ public final class ProtectedSocksGateway implements AutoCloseable {
     private volatile String lastError="";
     public String lastError(){return lastError;}
     private final AtomicBoolean stopped=new AtomicBoolean(false);
-    private final Semaphore slots=new Semaphore(64);
+    private final Semaphore slots=new Semaphore(MAX_CONNECTIONS);
+    private final AtomicLong capacityRejections=new AtomicLong();
+    private final long idleNanos;
+    private final ScheduledExecutorService idleWatch=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"relay-idle-watch");t.setDaemon(true);return t;});
+    public int activeConnections(){return MAX_CONNECTIONS-slots.availablePermits();}
+    public long capacityRejections(){return capacityRejections.get();}
+    public boolean nearCapacity(){return activeConnections()>=MAX_CONNECTIONS-4;}
     private final Set<Connection> connections=ConcurrentHashMap.newKeySet();
-    private final ExecutorService pool=new ThreadPoolExecutor(0,200,30,TimeUnit.SECONDS,
+    private final ExecutorService pool=new ThreadPoolExecutor(0,MAX_CONNECTIONS*3,30,TimeUnit.SECONDS,
         new SynchronousQueue<>(),r->{Thread t=new Thread(null,r,"protected-socks-relay",256*1024);t.setDaemon(true);return t;});
     private final Thread acceptThread;
 
     public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector)throws IOException {
+        this(proxy,protector,TCP_IDLE_MILLIS);
+    }
+    /** Alternate idle budget supports real socket fixtures without changing production timers. */
+    public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector,int idleMillis)throws IOException {
         DistributionPolicy.require(proxy);
+        if(idleMillis<100)throw new IllegalArgumentException("Idle budget too short");
+        idleNanos=TimeUnit.MILLISECONDS.toNanos(idleMillis);
         this.proxy=proxy;this.protector=protector;
         listener=new ServerSocket(0,64,InetAddress.getByName("127.0.0.1"));
         acceptThread=new Thread(()-> {
             while(!stopped.get()) try {
                 Socket s=listener.accept();
-                if(!slots.tryAcquire()) { closeSocket(s); continue; }
+                if(!slots.tryAcquire()) { capacityRejections.incrementAndGet();lastError="LOCAL_CAPACITY: relay session budget exhausted";closeSocket(s);continue; }
                 Connection c=new Connection(s); connections.add(c);
-                try { pool.execute(()->handle(c)); }catch(RejectedExecutionException ex){c.close();}
+                try { pool.execute(()->handle(c)); }catch(RejectedExecutionException ex){capacityRejections.incrementAndGet();lastError="LOCAL_CAPACITY: relay worker budget exhausted";c.close();}
             }catch(IOException ex){if(stopped.get())break;}
         },"protected-socks-accept");
         acceptThread.setDaemon(true);acceptThread.start();
+        long sweep=Math.max(50,Math.min(1000,idleMillis/4));
+        idleWatch.scheduleWithFixedDelay(()->{long now=System.nanoTime();for(Connection c:connections)if(c.relaying&&now-c.activity.get()>=idleNanos)c.close();},sweep,sweep,TimeUnit.MILLISECONDS);
     }
     public int port(){return listener.getLocalPort();}
     private final class Connection implements AutoCloseable {
@@ -54,6 +70,8 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         final Set<Socket> tcp=ConcurrentHashMap.newKeySet();
         final Set<DatagramSocket> udp=ConcurrentHashMap.newKeySet();
         final AtomicBoolean ended=new AtomicBoolean(false);
+        final AtomicLong activity=new AtomicLong(System.nanoTime());
+        volatile boolean relaying;
         Connection(Socket s){client=s;tcp.add(s);}
         void add(Socket s){tcp.add(s);if(ended.get())closeSocket(s);}
         void add(DatagramSocket s){udp.add(s);if(ended.get())s.close();}
@@ -106,7 +124,10 @@ public final class ProtectedSocksGateway implements AutoCloseable {
             String destination=request.type==3?request.domain:request.address().getHostAddress();
             remote=ProxyTransport.connect(raw,proxy,destination,request.port,10000);c.add(remote);
             co.write(new byte[]{5,0,0,1,0,0,0,0,0,0});co.flush();
-            client.setSoTimeout(180000);remote.setSoTimeout(180000);
+            // A silent upload direction must not kill an active download (or vice versa).
+            // The shared watchdog also closes stuck writes; EOF still half-closes the peer.
+            client.setSoTimeout(0);remote.setSoTimeout(0);
+            c.activity.set(System.nanoTime());c.relaying=true;
             AtomicInteger remaining=new AtomicInteger(2);
             pool.execute(()->pump(remote,client,c,remaining));
             handedOff=true;pump(client,remote,c,remaining);
@@ -117,7 +138,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         try {
             InputStream in=from.getInputStream();OutputStream out=to.getOutputStream();
             byte[]buffer=new byte[8192];int n;
-            while((n=in.read(buffer))!=-1)out.write(buffer,0,n);
+            while((n=in.read(buffer))!=-1){if(n==0)continue;c.activity.set(System.nanoTime());out.write(buffer,0,n);c.activity.set(System.nanoTime());}
             try{to.shutdownOutput();}catch(Exception ignored){}
         }catch(Exception ex){c.close();}
         finally{if(remaining.decrementAndGet()==0)c.close();}
@@ -125,7 +146,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
     private void relayUdp(Connection c,Socket control,Packet reply,OutputStream clientReply)throws Exception {
         InetAddress address=reply.address();
         if(address==null)address=protector.resolve(reply.domain);
-        if(address.isAnyLocalAddress()||address.isLoopbackAddress())address=InetAddress.getByName(proxy.host);
+        if(address.isAnyLocalAddress()||address.isLoopbackAddress())address=protector.resolve(proxy.host);
         if(reply.port<1)throw new IOException("Invalid UDP relay port");
         DatagramSocket local=new DatagramSocket(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),0));c.add(local);
         DatagramSocket physical=new DatagramSocket(null);c.add(physical);
@@ -190,6 +211,6 @@ public final class ProtectedSocksGateway implements AutoCloseable {
     public void close(){
         if(!stopped.compareAndSet(false,true))return;
         try{listener.close();}catch(Exception ignored){}
-        for(Connection c:connections)c.close();pool.shutdownNow();acceptThread.interrupt();
+        for(Connection c:connections)c.close();idleWatch.shutdownNow();pool.shutdownNow();acceptThread.interrupt();
     }
 }

@@ -1,6 +1,6 @@
-# PersianSocks 0.18.0
+# PersianSocks Android 0.28.7
 
-نسخهٔ release با package `ir.persiansocks.app`، versionCode 17، حداقل Android 10 / API 29 و target/compile SDK 36 ساخته و با امضای نسخه‌های قبلی امضا شده است.
+نسخهٔ release با package `ir.persiansocks.app`، versionCode 37، حداقل Android 10 / API 29 و target/compile SDK 36 ساخته شده و گواهی رسمی فعلی آن حفظ شده است. در این نسخه، تشخیص بیکاری مشترک TCP، هماهنگی ظرفیت نشست‌ها و بازیابی مسیر فیزیکی اضافه شده‌اند. آزمون دانلود و آپلود هم‌زمانِ ۳۱۰ ثانیه‌ای محلی پاس شد؛ [جزئیات و محدودیت تست گوشی](docs/android-0287-stream-recovery.md).
 
 ## نسخهٔ ۰.۱۶.۰ — فهرست سبک‌تر، حذف نامعتبرها و کنترل اتصال ساده
 
