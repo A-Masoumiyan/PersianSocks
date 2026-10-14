@@ -1,54 +1,10 @@
-{
-  "sha256": "23914a4f0cb6e85b419060d60c42860eb8b2e640ec185fbb73cd4712644edc67",
-  "bytes": 3926025,
-  "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
-  "permissions": [
-    "android.permission.ACCESS_NETWORK_STATE",
-    "android.permission.FOREGROUND_SERVICE",
-    "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
-    "android.permission.INTERNET",
-    "android.permission.POST_NOTIFICATIONS",
-    "android.permission.QUERY_ALL_PACKAGES",
-    "android.permission.REQUEST_INSTALL_PACKAGES",
-    "ir.persiansocks.app.permission.INTERNAL_STATE"
-  ],
-  "status": "release integrity checks passed; Google review not performed",
-  "version": "0.28.7",
-  "versionCode": 37,
-  "hostSuitesPassed": true,
-  "updateSelectionChecks": 30,
-  "dnsAndFaviconPolicyChecks": 23,
-  "bilingualStrings": 544,
-  "largeScanRows": 96000,
-  "largeScanFailedPruned": 95040,
-  "largeScanHealthyPreserved": 960,
-  "largeScanPersistedBytes": 8869671,
-  "deviceUITested": false,
-  "realPhoneVpnTested": false,
-  "googleReviewPerformed": false,
-  "scanWorkerCaps": {
-    "foreground": 24,
-    "background": 8,
-    "connecting": 4
-  },
-  "liveSiteIconFetch": {
-    "web.telegram.org": "PNG 32x32",
-    "www.youtube.com": "ICO 48x48",
-    "www.instagram.com": "WebP 32x32",
-    "www.facebook.com": "ICO 60x60"
-  },
-  "configuredTargetChecks": 37,
-  "tlsCandidateFeeds": 10,
-  "reconnectPriorityChecks": 340,
-  "streamRecoveryChecks": 38,
-  "longStreamChecks": 4,
-  "longStreamProtocol": "HTTP",
-  "longStreamDurationMs": 310000,
-  "tcpIdleMillis": 300000,
-  "gatewayMaxSessions": 64,
-  "nativeMaxSessions": 64,
-  "releaseInputTests": 6,
-  "physicalRouteDeviceTested": false,
-  "longStreamDownloadedBytes": 1581312,
-  "longStreamUploadedBytes": 1580800
-}
+PersianSocks Android 0.29.0 / versionCode 39
+Package: ir.persiansocks.app; minimum API 29; target/compile API 36.
+Original release certificate SHA-256: 1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125
+Pinned Hev 2.18.0 AAR SHA-256: 15ec8ed121663b562c99caa5bb602d1009f24e5b09e733438b81988f12feaaab
+Cronet bundled 500.1.0 native inventory: scripts/platform-native-sha256.json.
+Gradle dependencies: SHA-256 verification-metadata.xml; Gradle distribution checksum is pinned.
+Validation: complete host transport/security suites passed (482 PASS output lines, including real UDP/quality/adaptive fixtures and Play security).
+Validation: ten Robolectric integration tests passed; Android lint has no errors. Coverage includes actual Room/Paging, legacy migration, both language UIs, OkHttp redirects/cancellation, physical route loss, and WorkManager constraints/unique cancellation.
+Final APK digest/size are recorded on the v0.29.0 release with its downloadable asset. Release auditing checks certificate identity, exact native bytes, permission inventory, non-debug package/SDK, 16 KiB ZIP alignment and 64-bit ELF load alignment.
+Limit: no physical Android device is attached; native TUN, live ISP connectivity and actual Cronet negotiation are not device-tested. No Google/Play review is claimed.

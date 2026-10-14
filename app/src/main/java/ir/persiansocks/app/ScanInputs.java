@@ -31,8 +31,8 @@ public final class ScanInputs {
         catch(Exception ignored){return "ALL";}
     }
     public static ProxyResults.Sort sort(Context context) {
-        try{return ProxyResults.Sort.valueOf(prefs(context).getString("sort","FASTEST"));}
-        catch(Exception ignored){return ProxyResults.Sort.FASTEST;}
+        try{return ProxyResults.Sort.valueOf(prefs(context).getString("sort","QUALITY"));}
+        catch(Exception ignored){return ProxyResults.Sort.QUALITY;}
     }
     public static ProxyResults.Protocol protocol(Context context){
         if(DistributionPolicy.encryptedOnly())return ProxyResults.Protocol.HTTP;

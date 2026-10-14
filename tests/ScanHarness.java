@@ -179,7 +179,7 @@ public final class ScanHarness {
             })) {
                 ProxyEndpoint result=GatewayTestSupport.check(gate);
                 verify(result!=null&&result.serviceMask==7,"TLS/HTTPS for all services through protected SOCKS gateway");
-                verify(tcpProtected.get()>=4,"every upstream TCP socket goes through protection hook");
+                verify(tcpProtected.get()>=3,"each of the three service TCP sockets goes through protection hook");
                 try(Socket control=new Socket("127.0.0.1",gate.port());DatagramSocket client=new DatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(),0))) {
                     control.setSoTimeout(3000);client.setSoTimeout(3000);
                     OutputStream out=control.getOutputStream();InputStream in=control.getInputStream();

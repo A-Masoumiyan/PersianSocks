@@ -40,8 +40,10 @@ final class FavoriteProxies {
         try {
             JSONArray array = new JSONArray();
             for (ProxyEndpoint proxy : saved) array.put(proxy.json());
-            return context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            boolean committed=context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
                 .putString(KEY, array.toString()).commit();
+            if(committed){java.util.List<ProxyDatabase.FavoriteRow> rows=new java.util.ArrayList<>();int i=0;for(ProxyEndpoint p:saved)rows.add(new ProxyDatabase.FavoriteRow(p,i++));Context app=context.getApplicationContext();ProxyStore.IO.execute(()->{try{if(!ProxyStore.loaded())ProxyStore.load(app);ProxyDatabase.get(app).data().favorites(rows);}catch(Exception ex){android.util.Log.e("PersianSocks","Favorite mirror failed",ex);}});}
+            return committed;
         } catch (Exception ex) {
             android.util.Log.e("PersianSocks", "Favorite list save failed", ex);
             return false;

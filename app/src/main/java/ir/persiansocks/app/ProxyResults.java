@@ -8,6 +8,8 @@ import java.util.List;
 public final class ProxyResults {
     private ProxyResults() {}
     private static volatile boolean instagramFirst;
+    private static volatile java.util.function.ToDoubleFunction<ProxyEndpoint> quality=p->0;
+    public static void quality(java.util.function.ToDoubleFunction<ProxyEndpoint> source){quality=source;}
     public static void instagramFirst(boolean value){instagramFirst=value;}
     public static List<ProxyEndpoint> pinActive(List<ProxyEndpoint> rows,ProxyEndpoint active,boolean includeMissing){List<ProxyEndpoint> copy=new ArrayList<>(rows);if(active==null)return copy;boolean existed=copy.removeIf(p->p.key().equals(active.key()));if(existed||includeMissing)copy.add(0,active);return copy;}
     public enum Filter {
@@ -53,7 +55,7 @@ public final class ProxyResults {
         return visible(byPing(byProtocol(source,protocol),limit),key,sort);
     }
     public enum Sort {
-        FASTEST("پینگ کم"), DOWNLOAD("دانلود سریع"), MOST_SERVICES("بیشترین سرویس تأییدشده"),
+        QUALITY("کیفیت روی این شبکه"), FASTEST("پینگ کم"), DOWNLOAD("دانلود سریع"), MOST_SERVICES("بیشترین سرویس تأییدشده"),
         RECENT("جدیدترین تست"), UDP_FIRST("اولویت UDP، سپس تأخیر");
         public final String label;
         Sort(String label) { this.label = label; }
@@ -92,6 +94,8 @@ public final class ProxyResults {
         Comparator<ProxyEndpoint> latency = Comparator.comparingLong(ScanProbePolicy::latency);
         Comparator<ProxyEndpoint> comparator;
         switch (sort) {
+            case QUALITY:
+                comparator=Comparator.comparingDouble((ProxyEndpoint p)->quality.applyAsDouble(p)).reversed().thenComparing(latency);break;
             case DOWNLOAD:
                 comparator = Comparator.comparingDouble((ProxyEndpoint p) -> rate(speeds.applyAsDouble(p)))
                     .reversed().thenComparing(latency);

@@ -7,7 +7,7 @@ import java.io.*;
 /** Small local crash report; never sent or uploaded automatically. */
 public final class PersianSocksApp extends Application {
     @Override public void onCreate(){
-        super.onCreate();AppLanguage.initialize(this);Thread.UncaughtExceptionHandler original=Thread.getDefaultUncaughtExceptionHandler();
+        super.onCreate();AppLanguage.initialize(this);AppHttp.initialize(this);QualityHistory.initialize(this);ProxyResults.quality(QualityHistory::score);ProxyMaintenance.schedule(this);Thread.UncaughtExceptionHandler original=Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread,error)->{
             try(PrintWriter out=new PrintWriter(new File(getFilesDir(),"last-crash.txt"),"UTF-8")){
                 out.println("PersianSocks " + AppLanguage.version(this) + " / Android "+Build.VERSION.RELEASE+" / SDK "+Build.VERSION.SDK_INT);

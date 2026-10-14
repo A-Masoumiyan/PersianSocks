@@ -22,8 +22,11 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ListView;
-import android.widget.BaseAdapter;
+import androidx.activity.ComponentActivity;
+import androidx.recyclerview.widget.*;
+import androidx.paging.*;
+import androidx.lifecycle.LiveData;
+
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ScrollView;
@@ -39,8 +42,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
 
-public final class MainActivity extends Activity {
+public final class MainActivity extends ComponentActivity {
     private static java.lang.ref.WeakReference<MainActivity> instance=new java.lang.ref.WeakReference<>(null);
+    public static boolean backgroundBusy(){MainActivity a=instance.get();return a!=null&&!a.isDestroyed()&&(a.scanning||a.collecting||a.preparing||a.stopping||a.singleTest!=null||a.speedTest!=null||a.speedBatch!=null);}
     public static void pauseManualScanForQuickAction(){
         MainActivity current=instance.get();
         if(current!=null&&!current.isDestroyed()&&current.scanning)current.stopScan();
@@ -76,13 +80,17 @@ public final class MainActivity extends Activity {
     private PublicIpCheck ipCheck;
     private String ipRoute="";
     private long ipCheckedAt;
-    private final Runnable ipTicker=new Runnable(){public void run(){if(isDestroyed())return;refreshPublicIp(false);if(siteIcons!=null)siteIcons.sync();ui.postDelayed(this,15000);}};
+    private final Runnable ipTicker=new Runnable(){public void run(){if(isDestroyed())return;String previousScope=QualityHistory.scope();QualityHistory.select(MainActivity.this);if(!previousScope.equals(QualityHistory.scope()))scheduleRender();refreshPublicIp(false);if(siteIcons!=null)siteIcons.sync();ui.postDelayed(this,15000);}};
     private UiIconButton filterButton;
     private ProxyEndpoint selected;
-    private ListView results;
+    private RecyclerView results;
+    private LiveData<PagingData<ProxyDatabase.ResultRow>> pageStream;
+    private static final java.util.concurrent.atomic.AtomicLong pageSequence=new java.util.concurrent.atomic.AtomicLong();
+    private long pageGeneration;
+    private int resultCount;
     private LinearLayout emptyState;
     private final ResultAdapter resultAdapter=new ResultAdapter();
-    private List<ProxyEndpoint> ranked=new ArrayList<>();
+
     private final java.util.concurrent.ExecutorService rankWorker=java.util.concurrent.Executors.newSingleThreadExecutor();
     private boolean ranking;
     private long renderedRevision=-1;
@@ -124,7 +132,7 @@ public final class MainActivity extends Activity {
     private final List<ServiceTargets.Target> customTargets = new ArrayList<>();
     private ProgressBar scanProgress;
     private String filter = "ALL";
-    private ProxyResults.Sort sort = ProxyResults.Sort.FASTEST;
+    private ProxyResults.Sort sort = ProxyResults.Sort.QUALITY;
     private boolean vpnRequestPending;
     private int observedVpnPhase=-1;
     private volatile boolean scanning;
@@ -171,7 +179,7 @@ public final class MainActivity extends Activity {
         ScanInputs.initializePolicy(this);
         favorites.putAll(FavoriteProxies.load(this));
         scanFiles = new ScanFiles(getFilesDir());
-        
+
         maxTests = Math.max(100, Math.min(ProxyScanner.MAX_TESTS,
             getSharedPreferences("persiansocks", MODE_PRIVATE).getInt("max-tests", 5000)));
         slowScan = getSharedPreferences("persiansocks", MODE_PRIVATE).getBoolean("slow-scan", false);
@@ -187,7 +195,7 @@ public final class MainActivity extends Activity {
         filter = getSharedPreferences("persiansocks", MODE_PRIVATE).getString("filter", "ALL");
         if (filter.startsWith("https://") && customTargets.stream().noneMatch(t -> t.id.equals(filter))) filter = "ALL";
         try { CountryLookup.initialize(getAssets().open("ip-country.bin")); } catch (Exception ignored) {}
-        try { sort = ProxyResults.Sort.valueOf(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("sort", "FASTEST")); }
+        try { sort = ProxyResults.Sort.valueOf(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("sort", "QUALITY")); }
         catch (IllegalArgumentException ignored) {}
         buildUi();
         render();
@@ -198,7 +206,7 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onStart() {
         super.onStart();foregroundVisible=true;PreparedScanner.foreground(true);ui.removeCallbacks(ipTicker);ui.post(ipTicker);
-        ScanInputs.initializePolicy(this);
+        ScanInputs.initializePolicy(this);QualityHistory.select(this);
         IntentFilter f = new IntentFilter(ProxyVpnService.STATE);
         registerReceiver(vpnState, f, ProxyVpnService.INTERNAL_PERMISSION, null, Context.RECEIVER_NOT_EXPORTED);
         vpnRequestPending = false;
@@ -244,8 +252,8 @@ public final class MainActivity extends Activity {
         getWindow().setNavigationBarColor(BG);
         page = new FrameLayout(this);
         page.setBackgroundColor(BG);
-        ListView scroller = new ListView(this); mainScroller = scroller; results=scroller;
-        scroller.setDivider(null); scroller.setCacheColorHint(BG);
+        RecyclerView scroller = new RecyclerView(this); mainScroller = scroller; results=scroller;
+        scroller.setLayoutManager(new LinearLayoutManager(this));scroller.setItemAnimator(null);
         scroller.setClipToPadding(false);
 
         scroller.setBackgroundColor(BG);
@@ -253,7 +261,7 @@ public final class MainActivity extends Activity {
         root.setPadding(dp(12), dp(8), dp(12), dp(16));
         root.setOrientation(LinearLayout.VERTICAL);
         root.setLayoutDirection(AppLanguage.direction());
-        scroller.addHeaderView(root,null,false);
+
         page.addView(scroller, new FrameLayout.LayoutParams(-1, -1));
         page.setLayoutDirection(AppLanguage.direction());
         scroller.setLayoutDirection(AppLanguage.direction());
@@ -403,7 +411,7 @@ public final class MainActivity extends Activity {
         filterSummary.setOnClickListener(v -> homeFiltersDialog());
         root.addView(filterSummary, margin(dp(3), 0));
         emptyState=panel();root.addView(emptyState,margin(dp(8),0));
-        results.setAdapter(resultAdapter);
+        results.setAdapter(new ConcatAdapter(new HeaderAdapter(root),resultAdapter));
         buildSidebar();
         page.requestApplyInsets();
     }
@@ -467,6 +475,11 @@ public final class MainActivity extends Activity {
         ScrollView scroll=new ScrollView(this);LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(0,dp(12),0,dp(8));scroll.addView(content);sidebar.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         sidebarTls=sidebarCheck(AppLanguage.t(R.string.ui_038),DistributionPolicy.encryptedOnly());sidebarTls.setEnabled(!DistributionPolicy.play());sidebarTls.setOnCheckedChangeListener((b,on)->{if(on!=DistributionPolicy.encryptedOnly())changeTlsMode(on);});content.addView(sidebarTls,sized(dp(48),0));
         sidebarAuto=sidebarCheck(AppLanguage.t(R.string.ui_039),getSharedPreferences("persiansocks",MODE_PRIVATE).getBoolean("auto-switch",true));sidebarAuto.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("auto-switch",on).apply());content.addView(sidebarAuto,sized(dp(48),0));
+        CheckBox upkeep=sidebarCheck(AppLanguage.t(R.string.ui_maintenance),getSharedPreferences("persiansocks",0).getBoolean("background-maintenance",true));
+        upkeep.setOnCheckedChangeListener((b,on)->{getSharedPreferences("persiansocks",0).edit().putBoolean("background-maintenance",on).apply();ProxyMaintenance.schedule(this);});content.addView(upkeep,sized(dp(48),0));
+        CheckBox cronet=sidebarCheck(AppLanguage.t(R.string.ui_cronet),getSharedPreferences("persiansocks",0).getBoolean("cronet-experimental",false));
+        cronet.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",0).edit().putBoolean("cronet-experimental",on).apply());content.addView(cronet,sized(dp(48),0));
+        content.addView(text(AppLanguage.t(R.string.ui_maintenance_help),11,SECONDARY,false),margin(dp(4),0));
         LinearLayout tools=horizontal();sidebarIcon(tools,UiIconButton.Kind.SPLIT,AppLanguage.t(R.string.ui_254),()->startActivity(new Intent(this,SplitTunnelActivity.class)));sidebarIcon(tools,UiIconButton.Kind.SOURCE,AppLanguage.t(R.string.ui_227),this::sourceDialog);sidebarIcon(tools,UiIconButton.Kind.TARGET,AppLanguage.t(R.string.ui_047),this::targetsDialog);sidebarIcon(tools,UiIconButton.Kind.PRIVACY,AppLanguage.t(R.string.ui_276),()->VpnDisclosure.showPrivacy(this));content.addView(tools,margin(dp(12),0));
         content.addView(text(AppLanguage.t(R.string.ui_041),14,PRIMARY,true),margin(dp(18),0));
         EditText scanCount=new EditText(this);scanCount.setText(scanAll?"":Integer.toString(maxTests));scanCount.setHint("Max");scanCount.setTextColor(Color.WHITE);scanCount.setTextSize(16);scanCount.setSingleLine(true);scanCount.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);scanCount.setTextDirection(View.TEXT_DIRECTION_LTR);content.addView(scanCount,sized(dp(48),0));
@@ -492,7 +505,7 @@ public final class MainActivity extends Activity {
         for(int i=0;i<urls.size();i++){android.widget.RadioButton b=new android.widget.RadioButton(this);b.setId(i+1);b.setText(labels.get(i));b.setTextColor(Color.WHITE);b.setTextSize(13);b.setButtonTintList(ColorStateList.valueOf(PRIMARY));b.setMinHeight(dp(48));b.setLayoutDirection(AppLanguage.direction());choices.addView(b);if(urls.get(i).equals(selected))b.setChecked(true);}panel.addView(choices);
         LinearLayout actions=horizontal();Button save=button(AppLanguage.t(R.string.ui_065),true),cancel=button(AppLanguage.t(R.string.ui_067),false);actions.addView(save,weighted(48,1,6));actions.addView(cancel,weighted(48,1,0));panel.addView(actions,margin(dp(12),0));
         ScrollView scroll=new ScrollView(this);scroll.addView(panel);AlertDialog dialog=new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_target_ping)).setView(scroll).create();cancel.setOnClickListener(v->dialog.dismiss());
-        save.setOnClickListener(v->{int index=choices.getCheckedRadioButtonId()-1;if(index<0||index>=urls.size())index=0;String url=urls.get(index);if(only.isChecked()&&url.isEmpty()){Toast.makeText(this,AppLanguage.t(R.string.ui_target_choose),Toast.LENGTH_SHORT).show();return;}getSharedPreferences("persiansocks",0).edit().putBoolean("scan-ping-only",only.isChecked()).putString("ping-target-url",url).apply();ScanInputs.configureTests(this);renderedRevision=-1;dialog.dismiss();render();});dialog.show();
+        save.setOnClickListener(v->{int index=choices.indexOfChild(choices.findViewById(choices.getCheckedRadioButtonId()));if(index<0||index>=urls.size())index=0;String url=urls.get(index);if(only.isChecked()&&url.isEmpty()){Toast.makeText(this,AppLanguage.t(R.string.ui_target_choose),Toast.LENGTH_SHORT).show();return;}getSharedPreferences("persiansocks",0).edit().putBoolean("scan-ping-only",only.isChecked()).putString("ping-target-url",url).apply();ScanInputs.configureTests(this);renderedRevision=-1;dialog.dismiss();render();});dialog.show();
     }
     private void speedTargetDialog(){
         if(testSettingsBusy())return;
@@ -688,6 +701,7 @@ public final class MainActivity extends Activity {
     private String sortLabel() {
         if(smoothResults)return AppLanguage.t(R.string.ui_081);
         switch (sort) {
+            case QUALITY: return AppLanguage.t(R.string.ui_quality_sort);
             case DOWNLOAD: return AppLanguage.t(R.string.ui_082);
             case MOST_SERVICES: return AppLanguage.t(R.string.ui_083);
             case RECENT: return AppLanguage.t(R.string.ui_084);
@@ -831,6 +845,7 @@ public final class MainActivity extends Activity {
         PreparedScanner.Listener listener=new PreparedScanner.Listener(){
             public void onResult(int index,Socks5Probe.Result result){
                 if(!scanning||token!=scanGeneration)return;
+                QualityHistory.probe(network,work.candidate(index),result);
                 if(result.endpoint!=null)healthy.accept(result.endpoint);
                 else if(ProbeFailurePolicy.invalidates(result.failure) && healthy.find(work.candidate(index).key())!=null)
                     healthy.reject(work.candidate(index).key(),work.finishedAt(index));
@@ -851,11 +866,11 @@ public final class MainActivity extends Activity {
         try {
             if(work.mode.equals("LATENCY"))preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},(p,slow,cancel,sockets)->{
                 ProxyEndpoint current=healthy.find(p.key());
-                if(current==null)return ScanProbePolicy.profile().inspect(p,slow,cancel,sockets,network::socket,network::resolve);
-                Socks5Probe.Result measured=Socks5Probe.inspectTarget(current,SingleProxyTest.latencyTarget(current,latencyFilter),slow,cancel,sockets,network::socket,network::resolve);
+                if(current==null)return ScanProbePolicy.profile().inspect(p,slow,cancel,sockets,network,network);
+                Socks5Probe.Result measured=Socks5Probe.inspectTarget(current,SingleProxyTest.latencyTarget(current,latencyFilter),slow,cancel,sockets,network,network);
                 return measured.endpoint==null?measured:new Socks5Probe.Result(current.withLatency(measured.endpoint.latencyMs,SingleProxyTest.latencyTarget(current,latencyFilter).url()),Socks5Probe.Failure.NONE,true,true);
             },listener);
-            else preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},network::socket,network::resolve,listener);
+            else preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},network,network,listener);
         }catch(Exception ex){scanning=false;status.setText(AppLanguage.t(R.string.ui_129)+ex.getMessage());render();}
     }
     private void reloadSaved() {
@@ -875,7 +890,7 @@ public final class MainActivity extends Activity {
         });
     }
     private boolean hasSelected(){return selected!=null&&(healthy.find(selected.key())!=null||favorites.containsKey(selected.key()));}
-    private String criteria(){return filter+"|"+protocol+"|"+sort+"|"+pingLimit+"|"+smoothResults+"|"+measurementRevision+"|"+showFavorites+"|"+favoritesRevision+"|"+(ProxyVpnService.phase()==ProxyVpnService.CONNECTED?ProxyVpnService.activeEndpoint():"");}
+    private String criteria(){return filter+"|"+protocol+"|"+sort+"|"+pingLimit+"|"+smoothResults+"|"+measurementRevision+"|"+QualityHistory.revision()+"|"+QualityHistory.scope()+"|"+showFavorites+"|"+favoritesRevision+"|"+(ProxyVpnService.phase()==ProxyVpnService.CONNECTED?ProxyVpnService.activeEndpoint():"");}
     private List<ProxyEndpoint> favoriteSnapshots(){
         List<ProxyEndpoint> items=new ArrayList<>();
         for(ProxyEndpoint saved:favorites.values()){
@@ -956,16 +971,22 @@ public final class MainActivity extends Activity {
         final List<ProxyEndpoint> snapshot=favoritesMode?favoriteSnapshots():healthy.snapshot();
         final Map<String,Double> speeds=speedSnapshot();final boolean smooth=smoothResults;
         rankWorker.execute(()->{
+            try {
             List<ProxyEndpoint> visible=favoritesMode?snapshot:ProxyResults.visible(snapshot,service,order,kind,limit,speeds,smooth);
+            ProxyEndpoint connected=ProxyVpnService.phase()==ProxyVpnService.CONNECTED?healthy.find(ProxyVpnService.activeEndpoint()):null;
+            if(connected==null&&ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&selected!=null&&selected.key().equals(ProxyVpnService.activeEndpoint()))connected=selected;
+            List<ProxyEndpoint> pinned=ProxyResults.pinActive(visible,connected,!favoritesMode);
+            final long generation=System.currentTimeMillis()*1000+pageSequence.incrementAndGet()%1000;final int count=pinned.size();final ProxyEndpoint best=visible.isEmpty()?null:visible.get(0);
+            ProxyDatabase.get(MainActivity.this).data().publish(generation,pinned);
             ui.post(()->{
                 if(isDestroyed())return;ranking=false;
                 if(!requested.equals(criteria())){render();return;}
-                ProxyEndpoint connected=ProxyVpnService.phase()==ProxyVpnService.CONNECTED?healthy.find(ProxyVpnService.activeEndpoint()):null;if(connected==null&&ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&selected!=null&&selected.key().equals(ProxyVpnService.activeEndpoint()))connected=selected;ranked=ProxyResults.pinActive(visible,connected,!favoritesMode);renderedRevision=revision;renderedCriteria=requested;
+                resultCount=count;publishPages(generation);renderedRevision=revision;renderedCriteria=requested;
                 if(!userSelected&&!favoritesMode&&ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED&&!vpnRequestPending)
-                    selected=visible.isEmpty()?null:visible.get(0);
-                counter.setText(AppLanguage.display(ranked.size()+AppLanguage.t(R.string.ui_152)));
-                emptyState.removeAllViews();emptyState.setVisibility(ranked.isEmpty()?View.VISIBLE:View.GONE);
-                if(ranked.isEmpty()){
+                    selected=best;
+                counter.setText(AppLanguage.display(resultCount+AppLanguage.t(R.string.ui_152)));
+                emptyState.removeAllViews();emptyState.setVisibility(resultCount==0?View.VISIBLE:View.GONE);
+                if(resultCount==0){
                     if(favoritesMode){
                         emptyState.addView(text(AppLanguage.t(R.string.ui_153),16,Color.WHITE,true));
                         emptyState.addView(text(AppLanguage.t(R.string.ui_154),12,SECONDARY,false),margin(dp(8),0));
@@ -977,18 +998,30 @@ public final class MainActivity extends Activity {
                 resultAdapter.notifyDataSetChanged();updateActions();
                 if(revision!=healthy.revision())scheduleRender();
             });
+            }catch(RuntimeException ex){android.util.Log.e("PersianSocks","Result paging failed",ex);ui.post(()->{ranking=false;if(!isDestroyed())status.setText(AppLanguage.t(R.string.ui_128));});}
         });
     }
-    private final class ResultAdapter extends BaseAdapter {
-        public int getCount(){return ranked.size();}
-        public ProxyEndpoint getItem(int position){return ranked.get(position);}
-        public long getItemId(int position){return position;}
-        public View getView(int position,View recycled,ViewGroup parent){
-            CardHolder holder;
-            if(recycled==null){holder=new CardHolder();recycled=holder.wrapper;recycled.setTag(holder);}
-            else holder=(CardHolder)recycled.getTag();
-            holder.bind(getItem(position));return recycled;
-        }
+    private void publishPages(long generation){
+        if(pageStream!=null)pageStream.removeObservers(this);pageGeneration=generation;
+        Pager<Integer,ProxyDatabase.ResultRow> pager=new Pager<>(new PagingConfig(80,40,false,160,400),()->ProxyDatabase.get(this).data().pages(generation));
+        pageStream=PagingLiveData.getLiveData(pager);pageStream.observe(this,data->{if(pageGeneration==generation)resultAdapter.submitData(getLifecycle(),data);});
+    }
+    private final class HeaderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private final View header;HeaderAdapter(View h){header=h;}
+        public int getItemCount(){return 1;}
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup p,int type){if(header.getParent()!=null)((ViewGroup)header.getParent()).removeView(header);header.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));return new RecyclerView.ViewHolder(header){};}
+        public void onBindViewHolder(RecyclerView.ViewHolder h,int p){}
+    }
+    private final class ResultHolder extends RecyclerView.ViewHolder {
+        final CardHolder card;ResultHolder(CardHolder c){super(c.wrapper);card=c;c.wrapper.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));}
+    }
+    private final class ResultAdapter extends PagingDataAdapter<ProxyDatabase.ResultRow,ResultHolder> {
+        ResultAdapter(){super(new DiffUtil.ItemCallback<ProxyDatabase.ResultRow>(){
+            public boolean areItemsTheSame(ProxyDatabase.ResultRow a,ProxyDatabase.ResultRow b){return a.key.equals(b.key);}
+            public boolean areContentsTheSame(ProxyDatabase.ResultRow a,ProxyDatabase.ResultRow b){return a.payload.equals(b.payload);}
+        });}
+        public ResultHolder onCreateViewHolder(ViewGroup parent,int type){return new ResultHolder(new CardHolder());}
+        public void onBindViewHolder(ResultHolder holder,int position){ProxyDatabase.ResultRow r=getItem(position);if(r!=null)holder.card.bind(r.endpoint());}
     }
     private final class ServiceIcon extends LinearLayout {final ImageView image=new ImageView(MainActivity.this);final TextView mark=text("",11,SECONDARY,true);ServiceIcon(){super(MainActivity.this);setGravity(Gravity.CENTER);setLayoutDirection(View.LAYOUT_DIRECTION_LTR);image.setScaleType(ImageView.ScaleType.FIT_CENTER);addView(image,new LinearLayout.LayoutParams(dp(22),dp(22)));addView(mark,new LinearLayout.LayoutParams(dp(12),-2));}}
     private final class CardHolder {
@@ -1064,7 +1097,8 @@ public final class MainActivity extends Activity {
             favoriteButton.active(saved);favoriteButton.setContentDescription(saved?AppLanguage.t(R.string.ui_135):AppLanguage.t(R.string.ui_167));favoriteButton.setTooltipText(saved?AppLanguage.t(R.string.ui_135):AppLanguage.t(R.string.ui_167));
             row.setContentDescription(p.address()+AppLanguage.t(R.string.ui_168));
             String country=p.countryCode.isEmpty()?CountryLookup.lookup(p.host):p.countryCode;
-            detail.setText(AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())+"  •  "+AppLanguage.isolate(p.type.name())));detail.setTextColor(active?PRIMARY:SECONDARY);
+            QualityStats quality=QualityHistory.stats(p.key());String history=quality==null?"": " • "+AppLanguage.t(R.string.ui_quality_samples)+" "+quality.samples()+" • "+Math.round(quality.score(System.currentTimeMillis()))+"/100";
+            detail.setText(AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())+"  •  "+AppLanguage.isolate(p.type.name()))+history);detail.setTextColor(active?PRIMARY:SECONDARY);
             String shape=ScanCheckpoint.fingerprint();
             if(!shape.equals(targetSet)){
                 targetSet=shape;services.removeAllViews();serviceViews.clear();LinearLayout line=null;int count=0;
@@ -1304,8 +1338,9 @@ public final class MainActivity extends Activity {
             Socks5Probe.Result result = null; String error = "";
             try {
                 PhysicalTestNetwork network = PhysicalTestNetwork.capture(this);
-                result = latencyOnly ? test.latency(proxy, target, slow, network::socket, network::resolve) :
-                    test.connection(proxy, slow, network::socket, network::resolve);
+                result = latencyOnly ? test.latency(proxy, target, slow, network, network) :
+                    test.connection(proxy, slow, network, network);
+                if(!test.cancelled())QualityHistory.probe(network,proxy,result);
             } catch (Exception ex) { error = String.valueOf(ex.getMessage()); }
             final Socks5Probe.Result finished = result; final String failure = error;
             ui.post(() -> {
@@ -1361,7 +1396,7 @@ public final class MainActivity extends Activity {
             test.run(new DownloadSpeedTest.Transport() {
                 private long lastCheck; private boolean available = true;
                 public java.net.HttpURLConnection open(java.net.URL url) {
-                    return new ProxyHttpConnection(url, proxy, network::socket, network::resolve);
+                    return new ProxyHttpConnection(url, proxy, network, network);
                 }
                 public boolean valid() {
                     long now = System.nanoTime();

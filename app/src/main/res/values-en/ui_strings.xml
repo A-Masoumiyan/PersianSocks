@@ -183,7 +183,7 @@
     <string name="ui_180" formatted="false">"\nPing: "</string>
     <string name="ui_181" formatted="false">"Not tested"</string>
     <string name="ui_182" formatted="false">"\nPing is the HTTPS response time through this proxy."</string>
-    <string name="ui_183" formatted="false">"UDP advertised by the source; UDP connectivity is not guaranteed"</string>
+    <string name="ui_183" formatted="false">"A real UDP response through the relay was verified"</string>
     <string name="ui_184" formatted="false">"Only TCP verified"</string>
     <string name="ui_185" formatted="false">"Verified"</string>
     <string name="ui_186" formatted="false">"Not verified"</string>
@@ -544,4 +544,9 @@
     <string name="ui_instagram_priority" formatted="false">"Instagram priority"</string>
     <string name="ui_instagram_help" formatted="false">"Successful, faster Instagram responses take priority; your selected sorting is applied afterwards."</string>
     <string name="ui_filtered_ping">Retest ping for all filtered results</string>
+    <string name="ui_quality_sort">Quality on this network</string>
+    <string name="ui_quality_samples">tests</string>
+    <string name="ui_maintenance">Periodic refresh on Wi-Fi</string>
+    <string name="ui_cronet">Experimental downloads with Cronet</string>
+    <string name="ui_maintenance_help">Short refresh every 6 hours, on an unmetered connection with enough battery. Cronet affects only the app’s own downloads.</string>
 </resources>

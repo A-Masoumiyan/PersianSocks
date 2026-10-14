@@ -9,12 +9,15 @@ import java.net.*;
 import java.util.concurrent.*;
 
 /** A test captures one physical network and never falls back to a VPN or direct destination. */
-public final class PhysicalTestNetwork {
+public final class PhysicalTestNetwork implements Socks5Probe.SocketMaker, Socks5Probe.Resolver {
     private static final ExecutorService DNS = Executors.newFixedThreadPool(8, r -> {
         Thread thread = new Thread(r, "single-proxy-dns"); thread.setDaemon(true); return thread;
     });
     private final ConnectivityManager manager;
     private final Network network;
+    private final java.util.Set<String> initialAddresses;
+    private final java.util.Set<String> initialIpv4;
+    private final String category;
     // Cache belongs to this captured physical network, never to another network or VPN.
     private final ConcurrentHashMap<String,DnsAnswer> cache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String,CompletableFuture<InetAddress>> pending = new ConcurrentHashMap<>();
@@ -23,7 +26,10 @@ public final class PhysicalTestNetwork {
         final InetAddress address; final long expires,generation;
         DnsAnswer(InetAddress address,long generation) { this.address=address;this.generation=generation;expires=System.nanoTime()+30_000_000_000L; }
     }
-    private PhysicalTestNetwork(ConnectivityManager manager, Network network) { this.manager = manager; this.network = network; }
+    private PhysicalTestNetwork(ConnectivityManager manager, Network network) { this.manager = manager; this.network = network;
+        initialAddresses=addresses(manager.getLinkProperties(network));initialIpv4=new java.util.HashSet<>();for(String a:initialAddresses)if(!a.contains(":"))initialIpv4.add(a);NetworkCapabilities c=manager.getNetworkCapabilities(network);category=c!=null&&c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)?"wifi":c!=null&&c.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)?"mobile":"other";
+    }
+    private static java.util.Set<String> addresses(android.net.LinkProperties links){java.util.Set<String> out=new java.util.HashSet<>();if(links!=null)for(android.net.LinkAddress a:links.getLinkAddresses())out.add(a.getAddress().getHostAddress());return out;}
     public static PhysicalTestNetwork capture(Context context) throws IOException {
         ConnectivityManager manager = context.getSystemService(ConnectivityManager.class);
         Network defaultNetwork = manager.getActiveNetwork();
@@ -47,7 +53,10 @@ public final class PhysicalTestNetwork {
     public void invalidateDns(){dnsGeneration.incrementAndGet();cache.clear();pending.clear();}
     public void bind(Socket socket)throws IOException {if(!valid())throw new IOException("Physical network changed");network.bindSocket(socket);}
     public void bind(DatagramSocket socket)throws IOException {if(!valid())throw new IOException("Physical network changed");network.bindSocket(socket);}
-    public boolean valid() { return physical(manager.getNetworkCapabilities(network)); }
+    public boolean valid() { if(!physical(manager.getNetworkCapabilities(network)))return false;if(initialAddresses.isEmpty())return true;java.util.Set<String> now=addresses(manager.getLinkProperties(network));return !java.util.Collections.disjoint(initialIpv4.isEmpty()?initialAddresses:initialIpv4,now); }
+    @Override public Socket create() throws IOException {return socket();}
+    @Override public DatagramSocket datagram() throws IOException {DatagramSocket s=new DatagramSocket(null);try{s.bind(new InetSocketAddress(0));if(!ProxyVpnService.protectTestDatagram(s))throw new IOException("UDP protection failed");bind(s);return s;}catch(IOException|RuntimeException e){s.close();throw e;}}
+    public String scope(){return category;}
     public Socket socket() throws IOException {
         if (!valid()) throw new IOException("شبکهٔ تست قطع شد");
         Socket socket = new Socket();

@@ -11,10 +11,12 @@ android {
         buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(project.findProperty('privacyPolicyUrl') ?: '')
         minSdk 29
         targetSdk 36
-        versionCode 38
-        versionName '0.28.8'
+        versionCode 39
+        versionName '0.29.0'
     }
     buildFeatures { buildConfig true }
+    testOptions { unitTests.includeAndroidResources = true }
+    defaultConfig { javaCompileOptions { annotationProcessorOptions { arguments += ["room.schemaLocation": "$projectDir/schemas".toString()] } } }
     flavorDimensions 'distribution'
     productFlavors {
         personal { dimension 'distribution'; manifestPlaceholders = [playDistribution: 'false']; buildConfigField 'boolean', 'PLAY_DISTRIBUTION', 'false' }
@@ -89,4 +91,25 @@ tasks.configureEach {
 
 dependencies {
     implementation files('libs/hev-socks5-tunnel.aar')
+    implementation 'androidx.activity:activity:1.10.1'
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
+    implementation 'androidx.room:room-runtime:2.8.4'
+    implementation 'androidx.room:room-paging:2.8.4'
+    annotationProcessor 'androidx.room:room-compiler:2.8.4'
+    implementation 'androidx.paging:paging-runtime:3.4.2'
+    implementation 'androidx.paging:paging-guava:3.4.2'
+    implementation 'androidx.work:work-runtime:2.11.2'
+    implementation 'com.squareup.okhttp3:okhttp:5.3.2'
+    implementation 'org.chromium.net:cronet-bundled:500.1.0'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.16.1'
+    testImplementation 'androidx.room:room-testing:2.8.4'
+}
+
+// Propagate an explicitly configured build proxy to Robolectric's separate JVM.
+tasks.withType(Test).configureEach {
+    systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+    ['http.proxyHost','http.proxyPort','https.proxyHost','https.proxyPort'].each { key ->
+        if (System.getProperty(key) != null) systemProperty key, System.getProperty(key)
+    }
 }

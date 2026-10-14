@@ -60,6 +60,7 @@ public final class ProxyVpnService extends VpnService {
         return false;
     }
     public static int phase() { return phase; }
+    public static boolean protectTestDatagram(DatagramSocket socket) { ProxyVpnService s=instance.get();return s==null||s.tun==null||s.protect(socket); }
     public static boolean protectTestSocket(Socket socket) {
         ProxyVpnService service = instance.get();
         return service == null || service.tun==null || service.protect(socket);
@@ -84,7 +85,7 @@ public final class ProxyVpnService extends VpnService {
     private String verifiedServices = "";
     private boolean userRequested;
     private String requiredFilter = "ALL";
-    private ProxyResults.Sort requiredSort = ProxyResults.Sort.FASTEST;
+    private ProxyResults.Sort requiredSort = ProxyResults.Sort.QUALITY;
     private ProxyEndpoint lastProfile;
     private final FailoverPolicy failover = new FailoverPolicy();
     private final StringBuilder recoveryLog = new StringBuilder();
@@ -181,7 +182,7 @@ public final class ProxyVpnService extends VpnService {
             requiredFilter = intent.getStringExtra("filter");
             if (requiredFilter == null) requiredFilter = "ALL";
             try { requiredSort = ProxyResults.Sort.valueOf(intent.getStringExtra("sort")); }
-            catch (Exception ignored) { requiredSort = ProxyResults.Sort.FASTEST; }
+            catch (Exception ignored) { requiredSort = ProxyResults.Sort.QUALITY; }
             failover.reset(e.key()); recoveryLog.setLength(0);
             beginConnect(e);
         }
@@ -217,7 +218,7 @@ public final class ProxyVpnService extends VpnService {
             final ScanCheckpoint scan=autoCheckpoint;
             PhysicalTestNetwork network = PhysicalTestNetwork.capture(this);
             automaticScanner = new PreparedScanner();
-            automaticScanner.start(autoCheckpoint, state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(ProxyVpnService.this);files.save(state);}, network::socket, network::resolve, new PreparedScanner.Listener() {
+            automaticScanner.start(autoCheckpoint, state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(ProxyVpnService.this);files.save(state);}, network, network, new PreparedScanner.Listener() {
                 public void onProgress(int done, int total, int good) { handler.post(() -> {
                     if (!autoScanning || token != generation) return;
                     autoDone = done; autoTotal = total;
@@ -230,6 +231,7 @@ public final class ProxyVpnService extends VpnService {
                 }); }
                 public void onResult(int index,Socks5Probe.Result result) {
                     if(!autoScanning||token!=generation)return;
+                    QualityHistory.probe(network,scan.candidate(index),result);
                     if(result.endpoint!=null){ProxyStore.index().accept(result.endpoint);autoSelection.add(result.endpoint);}
                     else if(ProbeFailurePolicy.invalidates(result.failure)&&ProxyStore.index().find(scan.candidate(index).key())!=null)
                         ProxyStore.index().reject(scan.candidate(index).key(),scan.finishedAt(index));
@@ -271,6 +273,8 @@ public final class ProxyVpnService extends VpnService {
         });
     }
     private PhysicalTestNetwork tunnelPhysical;
+    private long qualityStarted;private String qualityScope="other",qualityKey="";
+    private void finishQuality(boolean failure){if(qualityStarted!=0){QualityHistory.session(qualityScope,qualityKey,Math.max(0,android.os.SystemClock.elapsedRealtime()-qualityStarted),failure);qualityStarted=0;qualityKey="";}}
     private void beginConnect(ProxyEndpoint proxy) {
         if(!DistributionPolicy.allows(proxy)){finishConnection(AppLanguage.t(R.string.ui_extra_032));return;}
         clearConnectionError();closeTunnel();
@@ -297,6 +301,7 @@ public final class ProxyVpnService extends VpnService {
                 return ConnectionPreflight.inspect(proxy,preflightTarget,stop,probeSockets,path::socket,path::resolve);
             },Thread::sleep,stop,attempt->handler.post(()->{if(token==generation&&!stop.get()&&attempt>1)announce(AppLanguage.t(R.string.ui_connect_retry)+attempt+"/3");}));
             final Socks5Probe.Result verified=checked;final PhysicalTestNetwork chosenPhysical=physical[0];
+            if(chosenPhysical!=null&&!stop.get())QualityHistory.probe(chosenPhysical,proxy,verified);
             handler.post(() -> {
                 if (token != generation || stop.get()) return;
                 if (verified.endpoint == null) {
@@ -431,6 +436,7 @@ public final class ProxyVpnService extends VpnService {
                 ProxyStore.index().accept(lastProfile);ProxyStore.save(this,ProxyStore.index());
                 verifiedServices = lastProfile.passedServices();
                 failover.connected(current);
+                qualityStarted=android.os.SystemClock.elapsedRealtime();qualityKey=current;qualityScope=tunnelPhysical==null?"other":tunnelPhysical.scope();
                 updatePhase(CONNECTED);
                 announce(AppLanguage.t(R.string.ui_extra_058) + verifiedServices + " • " + current, lastProfile);
                 getSystemService(NotificationManager.class).notify(ID, notification(AppLanguage.t(R.string.ui_extra_059) + verifiedServices));
@@ -521,6 +527,7 @@ public final class ProxyVpnService extends VpnService {
         }
         try { requiredSort = ProxyResults.Sort.valueOf(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("sort", requiredSort.name())); }
         catch (Exception ignored) {}
+        QualityHistory.select(this);
         final int token=generation;final String service=requiredFilter;final ProxyResults.Sort order=requiredSort;
         final ProxyResults.Protocol kind=ScanInputs.protocol(this);final ProxyResults.PingLimit limit=ScanInputs.pingLimit(this);
         announce(AppLanguage.t(R.string.ui_extra_063));
@@ -536,6 +543,7 @@ public final class ProxyVpnService extends VpnService {
         });
     }
     private void waitForNetwork() {
+        finishQuality(false);
         if(!userRequested)return;
         if(!autoSwitch()){finishConnection(AppLanguage.t(R.string.ui_extra_070));return;}
         waitingForPhysical=true;
@@ -594,7 +602,7 @@ public final class ProxyVpnService extends VpnService {
                     if(checkedGateway!=null&&checkedGateway.capacityRejections()>previousCapacity){saveVpnReport("LOCAL_CAPACITY: health sample inconclusive\n"+result.report);scheduleHealthCheck(token);return;}
                     if (failover.health(result.accepts(requiredFilter))) {
                         saveVpnReport(result.report);
-                        failConnection(AppLanguage.t(R.string.ui_extra_073)); return;
+                        finishQuality(true);failConnection(AppLanguage.t(R.string.ui_extra_073)); return;
                     }
                     if (!result.accepts(requiredFilter)) announce(AppLanguage.t(R.string.ui_extra_074));
                     else announce(AppLanguage.t(R.string.ui_extra_058) + verifiedServices + " • " + current);
@@ -604,6 +612,7 @@ public final class ProxyVpnService extends VpnService {
         }, 30000);
     }
     private void closeTunnel() {
+        finishQuality(false);
         if(trafficMeter!=null){sampleTraffic(false);trafficSnapshot=trafficMeter.stopped();persistTraffic();publishTraffic();}
         generation++;tunnelPhysical=null;waitingForPhysical=false;if(networkMonitor!=null)networkMonitor.clearActive();
         PreparedScanner stoppedScanner=automaticScanner;automaticScanner=null;
