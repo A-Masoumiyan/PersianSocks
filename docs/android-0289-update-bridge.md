@@ -1,6 +1,6 @@
 # Android 0.28.9: update bridge
 
-This release is built from the published 0.28.8 source. It retains that application's features and native packaging and changes only the updater, update messages and version metadata.
+This release is built from the published 0.28.8 source. It retains that application's features and native packaging and updates its updater, related messages and version metadata. The build uses Build Tools 35 and carries the already-reviewed radio-button ID and API-specific lint corrections from 0.29.0; permissions and connection features are unchanged.
 
 Installed 0.28.x updaters reject APK assets above 32 MiB. The full 0.29.x APK exceeds that limit. 0.28.9 fits the existing limit, so it can be offered inside the old app. It raises the APK ceiling to 512 MiB, extends the total download budget according to size up to one hour, and reports an unavailable newer release separately from “up to date.” All byte-count, SHA-256, package, higher version code and original signing-certificate checks remain.
 
