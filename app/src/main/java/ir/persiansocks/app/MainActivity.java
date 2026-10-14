@@ -124,6 +124,7 @@ public final class MainActivity extends Activity {
     private String filter = "ALL";
     private ProxyResults.Sort sort = ProxyResults.Sort.FASTEST;
     private boolean vpnRequestPending;
+    private int observedVpnPhase=-1;
     private volatile boolean scanning;
     private boolean observedAutoScan;
     private boolean userSelected;
@@ -565,7 +566,7 @@ public final class MainActivity extends Activity {
             options.setOnCheckedChangeListener((group,id)->{if(id>0&&id<=values.size())draft[section]=values.get(id-1);});
         };
         for(int i=0;i<4;i++){final int index=i;buttons[i]=new UiIconButton(this,kinds[i],AppLanguage.t(titles[i]));buttons[i].setOnClickListener(v->{category[0]=index;showOptions.run();});tabs.addView(buttons[i],weighted(48,1,i==3?0:6));}
-        panel.addView(tabs);panel.addView(heading,margin(dp(12),0));panel.addView(options);
+        panel.addView(tabs);panel.addView(text(AppLanguage.t(R.string.ui_instagram_help),11,SECONDARY,false),margin(dp(8),0));panel.addView(heading,margin(dp(12),0));panel.addView(options);
         LinearLayout actions=horizontal();Button save=button(AppLanguage.t(R.string.ui_065),true),reset=button(AppLanguage.t(R.string.ui_home_reset),false),cancel=button(AppLanguage.t(R.string.ui_067),false);
         actions.addView(save,weighted(48,1,6));actions.addView(reset,weighted(48,1,6));actions.addView(cancel,weighted(48,1,0));panel.addView(actions,margin(dp(12),0));
         ScrollView scroll=new ScrollView(this);scroll.addView(panel);AlertDialog dialog=new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_home_filters)).setView(scroll).create();
@@ -724,6 +725,7 @@ public final class MainActivity extends Activity {
             scanProgress.setIndeterminate(progress<0);scanProgress.setProgress(Math.max(0,progress));
         }
         int phase = vpnRequestPending ? ProxyVpnService.CONNECTING : ProxyVpnService.phase();
+        if(observedVpnPhase!=phase){observedVpnPhase=phase;renderedRevision=-1;scheduleRender();}
         boolean active = phase != ProxyVpnService.DISCONNECTED;
         vpnToggle.showState(phase==ProxyVpnService.CONNECTED,phase==ProxyVpnService.CONNECTING);
         vpnBadge.setText(AppLanguage.display(phase==ProxyVpnService.CONNECTED?AppLanguage.t(R.string.ui_091):"●  VPN"));
@@ -731,7 +733,7 @@ public final class MainActivity extends Activity {
         vpnStatus.setText(AppLanguage.display(connectionError));vpnStatus.setTextColor(DANGER);vpnStatus.setVisibility(connectionError.isEmpty()?View.GONE:View.VISIBLE);
         if(sidebarScan!=null)sidebarScan.setText(AppLanguage.t(R.string.ui_092)+(scanAll?"Max":maxTests)+AppLanguage.t(R.string.ui_093));
         String current = active ? ProxyVpnService.activeEndpoint() : "";
-        String address = selected != null ? selected.key() : current;
+        String address = !current.isEmpty()?current:selected!=null?selected.key():"";
         refreshPublicIp(false);
         ProxyEndpoint displayed = address.isEmpty() ? null : ProxyEndpoint.parse(address);
         selection.setText(displayed == null ? (address.isEmpty() ? AppLanguage.t(R.string.ui_095) : address) : displayed.address());
@@ -879,7 +881,7 @@ public final class MainActivity extends Activity {
         });
     }
     private boolean hasSelected(){return selected!=null&&(healthy.find(selected.key())!=null||favorites.containsKey(selected.key()));}
-    private String criteria(){return filter+"|"+protocol+"|"+sort+"|"+pingLimit+"|"+smoothResults+"|"+measurementRevision+"|"+showFavorites+"|"+favoritesRevision;}
+    private String criteria(){return filter+"|"+protocol+"|"+sort+"|"+pingLimit+"|"+smoothResults+"|"+measurementRevision+"|"+showFavorites+"|"+favoritesRevision+"|"+(ProxyVpnService.phase()==ProxyVpnService.CONNECTED?ProxyVpnService.activeEndpoint():"");}
     private List<ProxyEndpoint> favoriteSnapshots(){
         List<ProxyEndpoint> items=new ArrayList<>();
         for(ProxyEndpoint saved:favorites.values()){
@@ -929,7 +931,7 @@ public final class MainActivity extends Activity {
         if(selected!=null){ProxyEndpoint latest=healthy.find(selected.key());if(latest!=null)selected=latest;}
         String kindLabel = protocol == ProxyResults.Protocol.HTTP && DistributionPolicy.encryptedOnly() ? "HTTPS / TLS" : AppLanguage.display(protocol.label);
         boolean filtered = !filter.equals("ALL") || protocol != ProxyResults.Protocol.ALL || pingLimit != ProxyResults.PingLimit.NONE;
-        String summary=AppLanguage.display(ProxyResults.label(filter)+" • "+kindLabel+
+        String summary=AppLanguage.t(R.string.ui_instagram_priority)+" • "+AppLanguage.display(ProxyResults.label(filter)+" • "+kindLabel+
             (pingLimit==ProxyResults.PingLimit.NONE?"":" • "+AppLanguage.display(pingLimit.label))+" • "+sortLabel());
         filterSummary.setText(summary);filterSummary.setVisibility(showFavorites?View.GONE:View.VISIBLE);
         filterButton.active(filtered||smoothResults||sort!=ProxyResults.Sort.FASTEST);
@@ -959,12 +961,12 @@ public final class MainActivity extends Activity {
             ui.post(()->{
                 if(isDestroyed())return;ranking=false;
                 if(!requested.equals(criteria())){render();return;}
-                ranked=visible;renderedRevision=revision;renderedCriteria=requested;
+                ProxyEndpoint connected=ProxyVpnService.phase()==ProxyVpnService.CONNECTED?healthy.find(ProxyVpnService.activeEndpoint()):null;if(connected==null&&ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&selected!=null&&selected.key().equals(ProxyVpnService.activeEndpoint()))connected=selected;ranked=ProxyResults.pinActive(visible,connected,!favoritesMode);renderedRevision=revision;renderedCriteria=requested;
                 if(!userSelected&&!favoritesMode&&ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED&&!vpnRequestPending)
                     selected=visible.isEmpty()?null:visible.get(0);
-                counter.setText(AppLanguage.display(visible.size()+AppLanguage.t(R.string.ui_152)));
-                emptyState.removeAllViews();emptyState.setVisibility(visible.isEmpty()?View.VISIBLE:View.GONE);
-                if(visible.isEmpty()){
+                counter.setText(AppLanguage.display(ranked.size()+AppLanguage.t(R.string.ui_152)));
+                emptyState.removeAllViews();emptyState.setVisibility(ranked.isEmpty()?View.VISIBLE:View.GONE);
+                if(ranked.isEmpty()){
                     if(favoritesMode){
                         emptyState.addView(text(AppLanguage.t(R.string.ui_153),16,Color.WHITE,true));
                         emptyState.addView(text(AppLanguage.t(R.string.ui_154),12,SECONDARY,false),margin(dp(8),0));
@@ -1103,6 +1105,7 @@ public final class MainActivity extends Activity {
                 .append("\n").append(measured.probeError);
             if (!measured.probeInfo.isEmpty()) details.append("\n").append(measured.probeInfo);
         }
+        if(p.instagramLatency()!=Long.MAX_VALUE)details.append("\n").append(AppLanguage.t(R.string.ui_instagram_priority)).append(": ").append(p.instagramLatency()).append(" ms");
         if(!p.latencyTarget.isEmpty())details.append("\n").append(AppLanguage.t(R.string.ui_target_ping)).append(": ").append(p.latencyTarget);
         if(measured!=null){details.append("\n").append(AppLanguage.t(R.string.ui_target_speed)).append(": ").append(measured.speedTarget.isEmpty()?AppLanguage.t(R.string.ui_target_default):measured.speedTarget);if(!measured.speedError.isEmpty())details.append("\n").append(AppLanguage.t(R.string.ui_target_last)).append(measured.speedRequestTarget.isEmpty()?AppLanguage.t(R.string.ui_target_default):measured.speedRequestTarget);}
         if(measured!=null&&measured.speedAt>0)details.append("\n").append(AppLanguage.t(R.string.ui_v28_speed_time)).append(android.text.format.DateFormat.getDateFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt))).append(" ").append(android.text.format.DateFormat.getTimeFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt)));
@@ -1311,7 +1314,7 @@ public final class MainActivity extends Activity {
                     if (latencyOnly) {
                         ProxyEndpoint current = proxy;
                         ProxyEndpoint cached=healthy.find(proxy.key());if(cached!=null)current=cached;
-                        fresh = current.withLatency(fresh.latencyMs,target.url());
+                        Map<String,Long> timings=new java.util.HashMap<>(current.serviceLatencies);timings.put(target.url(),fresh.latencyMs);fresh = current.withLatency(fresh.latencyMs,target.url()).withServiceLatencies(timings);
                         record.probeInfo = AppLanguage.t(R.string.ui_241) + AppLanguage.display(target.name) + AppLanguage.t(R.string.ui_242);
                         note = AppLanguage.t(R.string.ui_144) + isolated(fresh.latencyMs + " ms");
                     } else { record.probeInfo = AppLanguage.t(R.string.ui_243); note = AppLanguage.t(R.string.ui_243); }

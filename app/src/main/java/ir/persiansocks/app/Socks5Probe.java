@@ -5,6 +5,8 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.*;
@@ -50,7 +52,7 @@ public final class Socks5Probe {
         int passed = 0, checked = 0;
         Set<String> extraPassed = new HashSet<>(), extraChecked = new HashSet<>();
         long latency = Long.MAX_VALUE;
-        boolean tcp = false, socks = false;Result measured=null;
+        boolean tcp = false, socks = false;Result measured=null;Map<String,Long> timings=new HashMap<>();
         for (ServiceTargets.Target target : ServiceTargets.current()) {
             if (cancelled.get()) return new Result(null, Failure.CANCELLED, tcp, socks);
             checked |= target.bit;
@@ -59,7 +61,7 @@ public final class Socks5Probe {
             tcp |= last.tcpReached; socks |= last.socksReached;
             if(measurementTarget!=null&&target.url().equals(measurementTarget.url()))measured=last;
             if (last.endpoint != null) {
-                passed |= target.bit; latency = Math.min(latency, last.endpoint.latencyMs);
+                passed |= target.bit; latency = Math.min(latency, last.endpoint.latencyMs);timings.put(target.url(),last.endpoint.latencyMs);
                 if (target.bit == 0) extraPassed.add(target.id);
             } else if (!last.socksReached && passed == 0 && extraPassed.isEmpty()) break;
         }
@@ -69,7 +71,7 @@ public final class Socks5Probe {
         boolean udp = e.type==ProxyEndpoint.Type.SOCKS5 && checkUdp(e, cancelled, active, maker, dns);
         if (cancelled.get()) return new Result(null, Failure.CANCELLED, tcp, socks);
         return new Result(new ProxyEndpoint(e.host, e.port, latency, udp, passed, checked, System.currentTimeMillis(),
-            extraPassed, extraChecked, CountryLookup.lookup(e.host),e.type).withLatency(latency,measurementTarget==null?"":measurementTarget.url()),
+            extraPassed, extraChecked, CountryLookup.lookup(e.host),e.type).withLatency(latency,measurementTarget==null?"":measurementTarget.url()).withServiceLatencies(timings),
             Failure.NONE, tcp, socks);
     }
     public static Result inspectTarget(ProxyEndpoint e, ServiceTargets.Target target, boolean slow,

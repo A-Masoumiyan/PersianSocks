@@ -1,6 +1,6 @@
 {
-  "sha256": "a0d263cb18921967b08796052cfd882273f7fe2eedfcb0ce6b5b0de0f666a4f8",
-  "bytes": 3909641,
+  "sha256": "54b549bedda7355555aace5753568d7f81524e998dacdbdda3040cbf8a556e47",
+  "bytes": 3926025,
   "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
   "permissions": [
     "android.permission.ACCESS_NETWORK_STATE",
@@ -13,16 +13,16 @@
     "ir.persiansocks.app.permission.INTERNAL_STATE"
   ],
   "status": "release integrity checks passed; Google review not performed",
-  "version": "0.28.4",
-  "versionCode": 34,
+  "version": "0.28.5",
+  "versionCode": 35,
   "hostSuitesPassed": true,
   "updateSelectionChecks": 30,
   "dnsAndFaviconPolicyChecks": 23,
-  "bilingualStrings": 540,
+  "bilingualStrings": 543,
   "largeScanRows": 96000,
   "largeScanFailedPruned": 95040,
   "largeScanHealthyPreserved": 960,
-  "largeScanPersistedBytes": 8848551,
+  "largeScanPersistedBytes": 8869671,
   "deviceUITested": false,
   "realPhoneVpnTested": false,
   "googleReviewPerformed": false,
@@ -38,5 +38,6 @@
     "www.facebook.com": "ICO 60x60"
   },
   "configuredTargetChecks": 37,
-  "tlsCandidateFeeds": 10
+  "tlsCandidateFeeds": 10,
+  "reconnectPriorityChecks": 340
 }

@@ -21,7 +21,7 @@ public final class ScanProbePolicy {
             Socks5Probe.Result result=Socks5Probe.inspectTarget(p,t,slow,stop,sockets,maker,resolver);
             if(result.endpoint==null)return result;
             Set<String> extra=t.bit==0?Collections.singleton(t.id):Collections.emptySet();
-            ProxyEndpoint verified=new ProxyEndpoint(p.host,p.port,result.endpoint.latencyMs,false,t.bit,t.bit,System.currentTimeMillis(),extra,extra,CountryLookup.lookup(p.host),p.type).withLatency(result.endpoint.latencyMs,t.url());
+            ProxyEndpoint verified=new ProxyEndpoint(p.host,p.port,result.endpoint.latencyMs,false,t.bit,t.bit,System.currentTimeMillis(),extra,extra,CountryLookup.lookup(p.host),p.type).withLatency(result.endpoint.latencyMs,t.url()).withServiceLatencies(Collections.singletonMap(t.url(),result.endpoint.latencyMs));
             return new Socks5Probe.Result(verified,Socks5Probe.Failure.NONE,result.tcpReached,result.socksReached);
         }
     }

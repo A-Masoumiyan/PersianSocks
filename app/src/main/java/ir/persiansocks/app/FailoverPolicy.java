@@ -24,7 +24,7 @@ public final class FailoverPolicy {
     public ProxyEndpoint nextRanked(List<ProxyEndpoint> ranked,String current,long now){
         if(attempted.size()>=MAX_ATTEMPTS)return null;
         int start=0;
-        for(int i=0;i<ranked.size();i++)if(ranked.get(i).key().equals(current)){start=i+1;break;}
+        // Always choose the highest-ranked eligible backup, rather than rotating past it.
         for(int step=0;step<ranked.size();step++) {
             ProxyEndpoint p=ranked.get((start+step)%ranked.size());
             if(p.key().equals(current)||attempted.contains(p.key())||cooldown.getOrDefault(p.key(),0L)>now)continue;
