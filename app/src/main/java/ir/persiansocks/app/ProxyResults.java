@@ -95,7 +95,8 @@ public final class ProxyResults {
         Comparator<ProxyEndpoint> comparator;
         switch (sort) {
             case QUALITY:
-                comparator=Comparator.comparingDouble((ProxyEndpoint p)->quality.applyAsDouble(p)).reversed().thenComparing(latency);break;
+                java.util.Map<String,Double> scores=new java.util.HashMap<>();for(ProxyEndpoint p:list)scores.put(p.key(),quality.applyAsDouble(p));
+                comparator=Comparator.comparingDouble((ProxyEndpoint p)->scores.get(p.key())).reversed().thenComparing(latency);break;
             case DOWNLOAD:
                 comparator = Comparator.comparingDouble((ProxyEndpoint p) -> rate(speeds.applyAsDouble(p)))
                     .reversed().thenComparing(latency);

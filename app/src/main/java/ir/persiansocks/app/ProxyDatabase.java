@@ -51,6 +51,8 @@ public abstract class ProxyDatabase extends RoomDatabase {
         @Insert(onConflict=OnConflictStrategy.REPLACE) abstract void insertFavorites(List<FavoriteRow> rows);
         @Transaction public void favorites(List<FavoriteRow> rows){clearFavorites();insertFavorites(rows);}
         @Query("SELECT * FROM quality WHERE scope=:scope") public abstract List<QualityRow> quality(String scope);
+        @Query("SELECT * FROM quality WHERE scope=:scope ORDER BY rowid DESC LIMIT :limit") public abstract List<QualityRow> recentQuality(String scope,int limit);
+        @Query("DELETE FROM quality WHERE scope=:scope AND rowid NOT IN (SELECT rowid FROM quality WHERE scope=:scope ORDER BY rowid DESC LIMIT :limit)") public abstract void trimQuality(String scope,int limit);
         @Insert(onConflict=OnConflictStrategy.REPLACE) public abstract void quality(QualityRow row);
         @Query("SELECT `key` FROM catalog ORDER BY position") public abstract List<String> catalog();
         @Query("SELECT COUNT(*) FROM catalog") public abstract int catalogCount();

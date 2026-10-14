@@ -9,6 +9,7 @@ public final class CountryLookup {
     private static volatile ByteBuffer ranges;
     private static volatile int count;
     private CountryLookup() {}
+    public static boolean initialized(){return ranges!=null;}
     public static synchronized void initialize(InputStream input) throws IOException {
         try (InputStream in = input; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             byte[] block = new byte[8192]; int n;

@@ -18,6 +18,8 @@ public final class QualityStats {
     }
     public synchronized void session(long durationMs,boolean remoteFailure,long now){sessions=Math.min(128,sessions+1);stableMs=Math.min(7L*86400000,stableMs+Math.max(0,durationMs));if(remoteFailure)disconnects=Math.min(128,disconnects+1);lastAt=now;}
     public synchronized int samples(){return successes+failures;}
+    public synchronized boolean useful(){return successes>0||sessions>0;}
+    public synchronized long lastObservedAt(){return lastAt;}
     public synchronized long median(){if(latencies.isEmpty())return -1;Long[] a=latencies.toArray(new Long[0]);Arrays.sort(a);return a[a.length/2];}
     public synchronized long jitter(){if(latencies.size()<2)return -1;long m=median();long[] a=new long[latencies.size()];int i=0;for(long n:latencies)a[i++]=Math.abs(n-m);Arrays.sort(a);return a[a.length/2];}
     public synchronized double score(long now){

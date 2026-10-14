@@ -14,6 +14,9 @@
         android:supportsRtl="true" android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme" >
         <meta-data android:name="ir.persiansocks.app.ENCRYPTED_ONLY" android:value="${playDistribution}" />
+        <provider android:name="androidx.startup.InitializationProvider" android:authorities="${applicationId}.androidx-startup" android:exported="false" tools:node="merge">
+            <meta-data android:name="androidx.work.WorkManagerInitializer" android:value="androidx.startup" tools:node="remove" />
+        </provider>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

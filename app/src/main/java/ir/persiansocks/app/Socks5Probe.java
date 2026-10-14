@@ -29,7 +29,7 @@ public final class Socks5Probe {
         Thread t = new Thread(r, "socks-probe-deadlines"); t.setDaemon(true); return t;
     });
     static { DEADLINES.setRemoveOnCancelPolicy(true); }
-    public interface SocketMaker { Socket create() throws Exception; default DatagramSocket datagram() throws Exception {throw new IOException("UDP route unavailable");} }
+    public interface SocketMaker { Socket create() throws Exception; default boolean valid(){return true;} default DatagramSocket datagram() throws Exception {throw new IOException("UDP route unavailable");} }
     public interface Resolver { InetAddress resolve(String host) throws Exception; }
     private static volatile Resolver resolver=InetAddress::getByName;
     public static void setResolver(Resolver r){resolver=r==null?InetAddress::getByName:r;}

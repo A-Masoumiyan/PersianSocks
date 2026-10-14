@@ -42,7 +42,7 @@ public final class PreparedScanner {
     public synchronized void start(ScanCheckpoint state, Persistence persistence, Socks5Probe.SocketMaker maker,
             Socks5Probe.Resolver resolver, Listener listener) throws Exception {
         ScanProbePolicy.Profile profile=ScanProbePolicy.profile();
-        start(state, persistence, (p, slow, stop, sockets) -> profile.inspect(p,slow,stop,sockets,maker,resolver), listener);
+        start(state, persistence, (p, slow, stop, sockets) -> ProbeFailurePolicy.observed(profile.inspect(p,slow,stop,sockets,maker,resolver),maker.valid()), listener);
     }
     public synchronized void start(ScanCheckpoint state, Persistence persistence, Probe probe, Listener listener) throws Exception {
         pause(); if (!state.compatible()) throw new IllegalArgumentException("تنظیمات تست تغییر کرده؛ اسکن را از ابتدا شروع کن");

@@ -11,7 +11,7 @@ public final class RetestEvidenceHarness {
    ScanFiles files=new ScanFiles(Files.createTempDirectory("retest-evidence").toFile());files.activate(state);files.save(state);
    ScanCheckpoint disk=files.checkpoint();check(disk.failure(0)==failure,"Failure reason survives disk restart: "+failure);
    ProxyIndex index=new ProxyIndex();index.accept(good());index.apply(disk);
-   check((index.find(good().key())==null)==ProbeFailurePolicy.invalidates(failure),"Transient failures preserve prior verification; protocol/TLS failures remove it: "+failure);
+   check((index.find(good().key())==null)==ProbeFailurePolicy.invalidates(failure),"Completed failed probes no longer remain in healthy results: "+failure);
    check((disk.merge(Collections.singletonList(good())).isEmpty())==ProbeFailurePolicy.invalidates(failure),"Merged checkpoint obeys failure policy: "+failure);
   }
   check(PublicIpEvidence.parse(" 1.1.1.1\n").equals("1.1.1.1"),"Parse actual public IPv4 response");
