@@ -47,6 +47,11 @@ public final class UpdateReleaseHarness {
         check(UpdateRelease.inspect(new JSONArray().put(oversized).toString(),"0.30.0").unavailableVersion==null,"equal installed release is current even with oversized asset");
         check(UpdateRelease.inspect(new JSONArray().put(mixed).toString(),"0.28.8").unavailableVersion==null,"Windows releases do not trigger unavailable Android warning");
         check(UpdateRelease.inspect("[]","0.28.8").unavailableVersion==null,"empty feed remains current");
+        JSONObject calendar=release("0.16.0").put("tag_name","v2026.10.12");
+        UpdateRelease.Check withCalendar=UpdateRelease.inspect(new JSONArray().put(calendar).put(release("0.29.3")).toString(),"0.29.1");
+        check(withCalendar.release.version.equals("0.29.3")&&withCalendar.unavailableVersion==null,"legacy combined calendar tag cannot block Android update offer");
+        check(UpdateRelease.inspect(new JSONArray().put(calendar).toString(),"0.29.3").unavailableVersion==null,"legacy calendar tag cannot block current Android version");
+        check(UpdateRelease.inspect(new JSONArray().put(release("2026.10.12")).toString(),"0.29.3").release!=null,"matching calendar-versioned APK remains supported");
         check(UpdateRelease.downloadBudgetMillis(43201604)>120000,"full APK gets longer than old two-minute budget");
         check(UpdateRelease.downloadBudgetMillis(200L*1024*1024)>UpdateRelease.downloadBudgetMillis(43201604),"download deadline scales with larger APK");
         check(UpdateRelease.downloadBudgetMillis(UpdateRelease.MAX_BYTES)==3600000,"download budget remains bounded at one hour");

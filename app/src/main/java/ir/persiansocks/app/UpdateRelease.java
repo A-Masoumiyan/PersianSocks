@@ -38,9 +38,15 @@ public final class UpdateRelease {
             JSONObject r=releases.getJSONObject(i);String tag=r.optString("tag_name");
             if(r.optBoolean("draft")||r.optBoolean("prerelease")||!tag.matches("v[0-9]{1,6}\\.[0-9]{1,6}\\.[0-9]{1,6}"))continue;
             String v=tag.substring(1);if(compare(v,installed)<=0)continue;
+            JSONArray releaseAssets=r.optJSONArray("assets");
+            // Historical combined Android/Windows releases use a calendar tag, not an APK version.
+            if(tag.matches("v(?:19|20)[0-9]{2}\\.(?:[1-9]|1[0-2])\\.(?:[1-9]|[12][0-9]|3[01])")){
+                boolean matching=false;if(releaseAssets!=null)for(int j=0;j<releaseAssets.length();j++)if(("PersianSocks-"+v+".apk").equals(releaseAssets.getJSONObject(j).optString("name"))){matching=true;break;}
+                if(!matching)continue;
+            }
             if(latest==null||compare(v,latest)>0)latest=v;
             if(best!=null&&compare(v,best.version)<=0)continue;
-            JSONArray assets=r.optJSONArray("assets");if(assets==null)continue;
+            JSONArray assets=releaseAssets;if(assets==null)continue;
             for(int j=0;j<assets.length();j++){
                 JSONObject a=assets.getJSONObject(j);String name="PersianSocks-"+v+".apk",u=a.optString("browser_download_url"),d=a.optString("digest");long size=a.optLong("size");
                 if(!name.equals(a.optString("name"))||!"uploaded".equals(a.optString("state"))||size<=0||size>MAX_BYTES||!d.matches("sha256:[0-9a-fA-F]{64}"))continue;

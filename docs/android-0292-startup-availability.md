@@ -13,3 +13,7 @@ Favorites are preserved. An unavailable favorite keeps its star but shows unavai
 SOCKS5, HTTP CONNECT and HTTPS CONNECT are unchanged. The original signing identity, four native ABIs, pinned Hev/Cronet libraries and 512 MiB in-app update budget remain. Experimental Cronet remains off by default. Features and bundled native libraries have not been removed to reduce APK size.
 
 Validation results are recorded in verification.txt. New coverage exercises completed failures, cancellation/route loss, stale labels, fresh recovery, favorite retention, immutable paging, bounded quality history and durable test-note migration. Device startup time and connectivity on the user's ISP require checking the installed APK; no physical Android device is attached to this environment.
+
+## Follow-up 0.29.3 / versionCode 42
+
+The live release feed revealed that the historical combined release v2026.10.12, whose APK is 0.16.0, could produce a false unavailable-version warning. Calendar tags without an APK matching the calendar version are now ignored. A matching calendar-versioned APK remains supported; genuine semantic-version releases with missing or invalid assets still produce the unavailable warning. Three focused updater regressions cover this distinction.
