@@ -1,54 +1,7 @@
-{
-  "sha256": "23914a4f0cb6e85b419060d60c42860eb8b2e640ec185fbb73cd4712644edc67",
-  "bytes": 3926025,
-  "certificate": "1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125",
-  "permissions": [
-    "android.permission.ACCESS_NETWORK_STATE",
-    "android.permission.FOREGROUND_SERVICE",
-    "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
-    "android.permission.INTERNET",
-    "android.permission.POST_NOTIFICATIONS",
-    "android.permission.QUERY_ALL_PACKAGES",
-    "android.permission.REQUEST_INSTALL_PACKAGES",
-    "ir.persiansocks.app.permission.INTERNAL_STATE"
-  ],
-  "status": "release integrity checks passed; Google review not performed",
-  "version": "0.28.7",
-  "versionCode": 37,
-  "hostSuitesPassed": true,
-  "updateSelectionChecks": 30,
-  "dnsAndFaviconPolicyChecks": 23,
-  "bilingualStrings": 544,
-  "largeScanRows": 96000,
-  "largeScanFailedPruned": 95040,
-  "largeScanHealthyPreserved": 960,
-  "largeScanPersistedBytes": 8869671,
-  "deviceUITested": false,
-  "realPhoneVpnTested": false,
-  "googleReviewPerformed": false,
-  "scanWorkerCaps": {
-    "foreground": 24,
-    "background": 8,
-    "connecting": 4
-  },
-  "liveSiteIconFetch": {
-    "web.telegram.org": "PNG 32x32",
-    "www.youtube.com": "ICO 48x48",
-    "www.instagram.com": "WebP 32x32",
-    "www.facebook.com": "ICO 60x60"
-  },
-  "configuredTargetChecks": 37,
-  "tlsCandidateFeeds": 10,
-  "reconnectPriorityChecks": 340,
-  "streamRecoveryChecks": 38,
-  "longStreamChecks": 4,
-  "longStreamProtocol": "HTTP",
-  "longStreamDurationMs": 310000,
-  "tcpIdleMillis": 300000,
-  "gatewayMaxSessions": 64,
-  "nativeMaxSessions": 64,
-  "releaseInputTests": 6,
-  "physicalRouteDeviceTested": false,
-  "longStreamDownloadedBytes": 1581312,
-  "longStreamUploadedBytes": 1580800
-}
+PersianSocks Android 0.28.9 update bridge / versionCode 39
+Base: published v0.28.8 (a769b87), with updater-only changes.
+Original release certificate SHA-256: 1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125
+Updater validation: 46 selection/version/cache/origin/size-budget checks, 512 MiB ceiling, full 0.29.0 and future 200 MiB APK support.
+Release validation: original certificate, package/SDK, exact native inventory, unchanged permissions, ZIP integrity and 16 KiB ZIP alignment; bridge size <= 32 MiB.
+Published-feed validation: frozen 0.28.8 updater selects 0.28.9; repaired bridge updater selects 0.29.1.
+Limit: no physical Android device attached; native TUN and actual installer actions not device-tested.

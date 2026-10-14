@@ -544,4 +544,6 @@
     <string name="ui_instagram_priority" formatted="false">"Instagram priority"</string>
     <string name="ui_instagram_help" formatted="false">"Successful, faster Instagram responses take priority; your selected sorting is applied afterwards."</string>
     <string name="ui_filtered_ping">Retest ping for all filtered results</string>
+    <string name="ui_update_018" formatted="false">"A newer version is published, but its installer is not ready or compatible with in-app download. Check again or open the official release page."</string>
+    <string name="ui_update_019" formatted="false">"Official release page"</string>
 </resources>

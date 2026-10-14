@@ -544,4 +544,6 @@
     <string name="ui_instagram_priority" formatted="false">"اولویت اینستاگرام"</string>
     <string name="ui_instagram_help" formatted="false">"اولویت نخست با پاسخ موفق و سریع‌تر اینستاگرام است؛ مرتب‌سازی انتخابی در مرحلهٔ بعد اعمال می‌شود."</string>
     <string name="ui_filtered_ping">پینگ مجدد همهٔ نتایج فیلترشده</string>
+    <string name="ui_update_018" formatted="false">"نسخهٔ جدید منتشر شده، اما فایل نصب آن برای دریافت از داخل برنامه آماده یا سازگار نیست. دوباره بررسی کن یا صفحهٔ رسمی نسخه را باز کن."</string>
+    <string name="ui_update_019" formatted="false">"صفحهٔ رسمی نسخه"</string>
 </resources>
