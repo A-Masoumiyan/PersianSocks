@@ -88,7 +88,9 @@ public final class MainActivity extends ComponentActivity {
     private static final java.util.concurrent.atomic.AtomicLong pageSequence=new java.util.concurrent.atomic.AtomicLong();
     private long pageGeneration;
     private int resultCount;
-    private LinearLayout emptyState;
+    private LinearLayout emptyState, loadingState;
+    private ProgressBar listLoadingSpinner;
+    private TextView loadingLabel, selectionCountry;
     private final ResultAdapter resultAdapter=new ResultAdapter();
 
     private final java.util.concurrent.ExecutorService rankWorker=java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -98,7 +100,7 @@ public final class MainActivity extends ComponentActivity {
     private final java.util.concurrent.atomic.AtomicBoolean redrawQueued=new java.util.concurrent.atomic.AtomicBoolean();
     private TextView status, listStatus, catalogInfo, counter, selection;
     private TextView vpnStatus, vpnBadge, activeProfile, selectionProtocol, filterSummary, trafficDown, trafficUp, trafficDownTotal, trafficUpTotal;
-    private Button speedButton, probeButton, filteredSpeedButton;
+    private Button filteredSpeedButton;
     private FilteredSpeedBatch speedBatch;
     private boolean preparingSpeedBatch;
     private int speedBatchGeneration;
@@ -316,7 +318,12 @@ public final class MainActivity extends ComponentActivity {
         selection.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         selection.setMaxLines(1); selection.setEllipsize(android.text.TextUtils.TruncateAt.END);
         selection.setAutoSizeTextTypeUniformWithConfiguration(14, 20, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
-        hero.addView(selection, margin(dp(5), 0));
+        LinearLayout selectedIdentity=horizontal();
+        selectedIdentity.addView(selection,new LinearLayout.LayoutParams(0,-2,1));
+        selectionCountry=text("",12,PRIMARY,false);selectionCountry.setMaxWidth(dp(105));
+        selectionCountry.setMaxLines(2);selectionCountry.setEllipsize(android.text.TextUtils.TruncateAt.END);selectionCountry.setVisibility(View.GONE);
+        LinearLayout.LayoutParams countryCell=new LinearLayout.LayoutParams(-2,-2);countryCell.setMarginStart(dp(8));selectedIdentity.addView(selectionCountry,countryCell);
+        hero.addView(selectedIdentity, margin(dp(5), 0));
         vpnStatus = text(AppLanguage.t(R.string.ui_005), 12, SECONDARY, false);
         vpnStatus.setMaxLines(2); vpnStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
         vpnStatus.setOnClickListener(v -> new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_006))
@@ -333,12 +340,6 @@ public final class MainActivity extends ComponentActivity {
             else connect();
         });
         LinearLayout.LayoutParams powerCell=new LinearLayout.LayoutParams(dp(56),dp(56));powerCell.setMarginEnd(dp(8));actions.addView(vpnToggle,powerCell);
-        probeButton = new UiIconButton(this,UiIconButton.Kind.CONNECT,AppLanguage.t(R.string.ui_009));
-        probeButton.setOnClickListener(v -> { if (singleTest != null) singleTest.cancel(); else startProxyProbe(selected, false); });
-        actions.addView(new android.widget.Space(this),new LinearLayout.LayoutParams(0,1,1));actions.addView(probeButton,iconCell(6));
-        speedButton = new UiIconButton(this,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_010));
-        speedButton.setOnClickListener(v -> { if (speedTest != null) speedTest.cancel(); else startSpeedTest(selected); });
-        actions.addView(speedButton,iconCell(0));
         hero.addView(actions, margin(dp(10), 0));
 
         LinearLayout traffic = horizontal();
@@ -407,6 +408,13 @@ public final class MainActivity extends ComponentActivity {
         filterSummary.setSingleLine(true); filterSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
         filterSummary.setOnClickListener(v -> homeFiltersDialog());
         root.addView(filterSummary, margin(dp(3), 0));
+        loadingState=horizontal();loadingState.setGravity(Gravity.CENTER);loadingState.setPadding(0,dp(18),0,dp(18));
+        listLoadingSpinner=new ProgressBar(this,null,android.R.attr.progressBarStyleSmall);listLoadingSpinner.setIndeterminate(true);
+        listLoadingSpinner.setIndeterminateTintList(ColorStateList.valueOf(PRIMARY));listLoadingSpinner.setContentDescription(AppLanguage.t(R.string.ui_loading_proxies));
+        loadingState.addView(listLoadingSpinner,new LinearLayout.LayoutParams(dp(28),dp(28)));
+        loadingLabel=text(AppLanguage.t(R.string.ui_loading_proxies),13,SECONDARY,false);loadingLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        LinearLayout.LayoutParams loadingCell=new LinearLayout.LayoutParams(-2,-2);loadingCell.setMarginStart(dp(10));loadingState.addView(loadingLabel,loadingCell);
+        root.addView(loadingState,margin(dp(8),0));
         emptyState=panel();root.addView(emptyState,margin(dp(8),0));
         results.setAdapter(new ConcatAdapter(new HeaderAdapter(root),resultAdapter));
         buildSidebar();
@@ -716,8 +724,11 @@ public final class MainActivity extends ComponentActivity {
         if (scanToggle == null) return;
         boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto;
         iconState(scanToggle,anyScan?UiIconButton.Kind.STOP:UiIconButton.Kind.SCAN,anyScan?AppLanguage.t(R.string.ui_087):AppLanguage.t(R.string.ui_home_scan),anyScan);
-        scanToggle.setEnabled(!collecting && !loading && !preparing && !stopping);
-        collectButton.setEnabled(!anyScan && !loading && !preparing && !stopping);
+        boolean dataBusy=!localDataLoaded||loading||preparing||stopping;
+        scanToggle.setEnabled(!collecting && !dataBusy);
+        collectButton.setEnabled(!anyScan && !dataBusy);
+        loadingState.setVisibility(!localDataLoaded||loading||preparing?View.VISIBLE:View.GONE);
+        loadingLabel.setText(AppLanguage.t(preparing?R.string.ui_117:R.string.ui_loading_proxies));
         iconState(collectButton,collecting?UiIconButton.Kind.STOP:UiIconButton.Kind.COLLECT,collecting?AppLanguage.t(R.string.ui_088):AppLanguage.t(R.string.ui_014),collecting);
         if (!collecting) listStatus.setText(AppLanguage.t(R.string.ui_089) + catalogCount + AppLanguage.t(R.string.ui_090));
         listStatus.setVisibility(collecting ? View.VISIBLE : View.GONE);
@@ -743,14 +754,14 @@ public final class MainActivity extends ComponentActivity {
         ProxyEndpoint displayed = address.isEmpty() ? null : ProxyEndpoint.parse(address);
         selection.setText(displayed == null ? (address.isEmpty() ? AppLanguage.t(R.string.ui_095) : address) : displayed.address());
         selectionProtocol.setText(displayed == null ? "—" : displayed.type.name());
-        selection.setContentDescription(address.isEmpty() ? AppLanguage.t(R.string.ui_004) : address);
+        ProxyEndpoint identity=displayed==null?null:healthy.find(address);
+        if(identity==null&&displayed!=null)identity=favorites.get(address);
+        if(identity==null&&selected!=null&&selected.key().equals(address))identity=selected;
+        String country=displayed==null?"":identity!=null&&!identity.countryCode.isEmpty()?identity.countryCode:CountryLookup.lookup(displayed.host);
+        selectionCountry.setText(displayed==null?"":AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())));
+        selectionCountry.setVisibility(displayed==null?View.GONE:View.VISIBLE);
+        selection.setContentDescription(address.isEmpty()?AppLanguage.t(R.string.ui_004):address+" • "+selectionCountry.getText());
         boolean busy = speedTest != null || singleTest != null || speedBatch != null || preparingSpeedBatch;
-        iconState(speedButton,speedTest!=null?UiIconButton.Kind.STOP:UiIconButton.Kind.DOWNLOAD,speedTest!=null?AppLanguage.t(R.string.ui_096):AppLanguage.t(R.string.ui_010),speedTest!=null);
-        iconState(probeButton,singleTest!=null?UiIconButton.Kind.STOP:UiIconButton.Kind.CONNECT,singleTest!=null?AppLanguage.t(R.string.ui_097):AppLanguage.t(R.string.ui_009),singleTest!=null);
-        speedButton.setEnabled(speedBatch == null && !preparingSpeedBatch && (speedTest != null || (selected != null && !busy)));
-        probeButton.setEnabled(singleTest != null || (selected != null && !busy));
-        speedButton.setAlpha(speedButton.isEnabled() ? 1f : .45f);
-        probeButton.setAlpha(probeButton.isEnabled() ? 1f : .45f);
         if(filteredSpeedButton!=null){
             iconState(filteredSpeedButton,speedBatch!=null||preparingSpeedBatch?UiIconButton.Kind.STOP:UiIconButton.Kind.DOWNLOAD,speedBatch!=null?AppLanguage.t(R.string.ui_098)+speedBatch.done()+" / "+speedBatch.total():preparingSpeedBatch?AppLanguage.t(R.string.ui_099):AppLanguage.t(R.string.ui_032),speedBatch!=null||preparingSpeedBatch);
             filteredSpeedButton.setEnabled(speedBatch!=null||preparingSpeedBatch||(!busy&&!healthy.isEmpty()));
@@ -964,6 +975,8 @@ public final class MainActivity extends ComponentActivity {
             pingBatch?AppLanguage.t(R.string.ui_v25_010)+" "+savedPingPosition+"/"+savedPingQueue.size():AppLanguage.t(R.string.ui_filtered_ping),pingBatch);
         filteredPingButton.setEnabled(pingBatch||(singleTest==null&&speedTest==null&&speedBatch==null&&!preparingSpeedBatch&&savedPingQueue==null&&!healthy.isEmpty()));
         updateActions();
+        // Startup data must finish before an old in-memory snapshot can be published.
+        if(!localDataLoaded){emptyState.setVisibility(View.GONE);return;}
         if(renderedRevision==healthy.revision()&&renderedCriteria.equals(criteria())){resultAdapter.notifyDataSetChanged();return;}
         if(ranking)return;
         ranking=true;final String requested=criteria();final String service=filter;
@@ -1025,7 +1038,7 @@ public final class MainActivity extends ComponentActivity {
             public boolean areContentsTheSame(ProxyEndpoint a,ProxyEndpoint b){return a==b;}
         });}
         public ResultHolder onCreateViewHolder(ViewGroup parent,int type){return new ResultHolder(new CardHolder());}
-        public void onBindViewHolder(ResultHolder holder,int position){ProxyEndpoint p=getItem(position);if(p==null)return;ProxyEndpoint live=healthy.find(p.key());boolean hidden=!showFavorites&&live==null&&healthy.rejected(p.key());holder.card.wrapper.setVisibility(hidden?View.GONE:View.VISIBLE);holder.card.wrapper.getLayoutParams().height=hidden?0:ViewGroup.LayoutParams.WRAP_CONTENT;if(!hidden)holder.card.bind(live==null?p:live);}
+        public void onBindViewHolder(ResultHolder holder,int position){ProxyEndpoint p=getItem(position);if(p==null)return;ProxyEndpoint live=healthy.find(p.key());boolean hidden=!localDataLoaded||!showFavorites&&live==null&&healthy.rejected(p.key());holder.card.wrapper.setVisibility(hidden?View.GONE:View.VISIBLE);holder.card.wrapper.getLayoutParams().height=hidden?0:ViewGroup.LayoutParams.WRAP_CONTENT;if(!hidden)holder.card.bind(live==null?p:live);}
     }
     private final class ServiceIcon extends LinearLayout {final ImageView image=new ImageView(MainActivity.this);final TextView mark=text("",11,SECONDARY,true);ServiceIcon(){super(MainActivity.this);setGravity(Gravity.CENTER);setLayoutDirection(View.LAYOUT_DIRECTION_LTR);image.setScaleType(ImageView.ScaleType.FIT_CENTER);addView(image,new LinearLayout.LayoutParams(dp(22),dp(22)));addView(mark,new LinearLayout.LayoutParams(dp(12),-2));}}
     private final class CardHolder {

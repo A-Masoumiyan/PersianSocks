@@ -98,7 +98,7 @@ public final class PreparedScanner {
     private static void submit(CompletionService<Completed> tasks, Run run, Probe probe, int index) {
         tasks.submit(() -> {
             boolean entered=false;
-            try{while(!run.cancelled.get()) {int n=active.get();if(n<run.adaptive.limit(connecting?4:foreground?24:8)&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
+            try{while(!run.cancelled.get()) {int n=active.get();if(n<run.adaptive.limit(connecting?4:foreground?24:10)&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
                 AdaptiveScanPolicy.enter(run.adaptive.budget(run.state.slow));
                 return new Completed(index,entered?probe.inspect(run.state.candidate(index),run.state.slow,run.cancelled,run.sockets):new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false));
             }finally{AdaptiveScanPolicy.leave();if(entered)active.decrementAndGet();}

@@ -552,4 +552,5 @@
     <string name="ui_cronet">Experimental downloads with Cronet</string>
     <string name="ui_maintenance_help">Short refresh every 6 hours, on an unmetered connection with enough battery. Cronet affects only the app’s own downloads.</string>
     <string name="ui_proxy_unavailable" formatted="false">"Unavailable"</string>
+    <string name="ui_loading_proxies">Loading proxies…</string>
 </resources>

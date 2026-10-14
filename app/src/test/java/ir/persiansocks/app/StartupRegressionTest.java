@@ -79,6 +79,52 @@ public class StartupRegressionTest {
             assertEquals(1234,reloaded.get(key).probeAt);assertEquals("Connection refused",reloaded.get(key).probeError);
         }finally{owner.destroy();}
     }
+    @Test public void initialLoadingFinishesBeforeCachedResultsArePublished()throws Exception{
+        ProxyEndpoint p=good("18.157.123.132",19394,System.currentTimeMillis());
+        ProxyDatabase.ProxyRow row=new ProxyDatabase.ProxyRow();row.key=p.key();row.changed=p.testedAt;row.payload=p.json().toString();
+        db.data().putAll(Collections.singletonList(row));db.data().meta(new ProxyDatabase.MetaRow("legacy-v1","1"));db.data().catalog(Collections.singletonList(new ProxyDatabase.CatalogRow(p.key(),0)));
+        // Integration tests share this sandbox; force a cold store load against this test's Room DB.
+        boolean loadedBefore=ProxyStore.loaded();List<ProxyIndex.Record> previousRecords=ProxyStore.index().records();
+        java.util.function.Consumer<ProxyIndex.Record> previousListener=ReflectionHelpers.getField(ProxyStore.index(),"listener");
+        Map<Object,Object> backends=ReflectionHelpers.getStaticField(ScanFiles.class,"BACKENDS");Map<Object,Object> previousBackends=new HashMap<>(backends);
+        ReflectionHelpers.setStaticField(ProxyStore.class,"loaded",false);
+        org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            MainActivity activity=owner.get();android.view.View spinner=ReflectionHelpers.getField(activity,"loadingState");android.widget.ProgressBar progress=ReflectionHelpers.getField(activity,"listLoadingSpinner");
+            assertEquals(android.view.View.VISIBLE,spinner.getVisibility());assertTrue(progress.isIndeterminate());assertNull(ReflectionHelpers.getField(activity,"pageStream"));
+            assertFalse(((android.widget.Button)ReflectionHelpers.getField(activity,"scanToggle")).isEnabled());
+            ReflectionHelpers.callInstanceMethod(activity,"reloadSaved");ProxyStore.IO.submit(()->{}).get(15,TimeUnit.SECONDS);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            ((ExecutorService)ReflectionHelpers.getField(activity,"rankWorker")).submit(()->{}).get(10,TimeUnit.SECONDS);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            assertTrue((Boolean)ReflectionHelpers.getField(activity,"localDataLoaded"));assertEquals(android.view.View.GONE,spinner.getVisibility());assertNotNull(ReflectionHelpers.getField(activity,"pageStream"));
+            assertEquals("loaded catalog",1,(int)ReflectionHelpers.getField(activity,"catalogCount"));assertNotNull(ProxyStore.index().find(p.key()));assertTrue((int)ReflectionHelpers.getField(activity,"resultCount")>=1);
+            ReflectionHelpers.setField(activity,"preparing",true);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(android.view.View.VISIBLE,spinner.getVisibility());
+            assertEquals(AppLanguage.t(R.string.ui_117),((TextView)ReflectionHelpers.getField(activity,"loadingLabel")).getText().toString());
+            ReflectionHelpers.setField(activity,"preparing",false);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(android.view.View.GONE,spinner.getVisibility());
+        }finally{
+            owner.destroy();ProxyStore.IO.submit(()->{}).get(10,TimeUnit.SECONDS);
+            ProxyIndex index=ProxyStore.index();index.listener(null);((Map<?,?>)ReflectionHelpers.getField(index,"good")).clear();((Map<?,?>)ReflectionHelpers.getField(index,"changed")).clear();
+            for(ProxyIndex.Record record:previousRecords)index.restore(record.json());index.listener(previousListener);
+            backends.clear();backends.putAll(previousBackends);ReflectionHelpers.setStaticField(ProxyStore.class,"loaded",loadedBefore);
+        }
+    }
+    private static int descendants(android.view.View view,Class<?> type){int n=type.isInstance(view)?1:0;if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++)n+=descendants(group.getChildAt(i),type);}return n;}
+    @Test public void heroCountrySharesAddressRowWithoutTestButtonsInBothLanguages(){
+        Context c=RuntimeEnvironment.getApplication();
+        for(String language:new String[]{"fa","en"}){
+            AppLanguage.select(c,language);org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
+            try{
+                MainActivity activity=owner.get();ProxyEndpoint selected=new ProxyEndpoint("18.157.123.132",19395,100,false,7,7,System.currentTimeMillis(),Collections.emptySet(),Collections.emptySet(),"DE");
+                ReflectionHelpers.setField(activity,"selected",selected);ReflectionHelpers.callInstanceMethod(activity,"updateActions");
+                TextView address=ReflectionHelpers.getField(activity,"selection"),country=ReflectionHelpers.getField(activity,"selectionCountry");
+                assertSame(address.getParent(),country.getParent());assertEquals(selected.address(),address.getText().toString());assertEquals(CountryLookup.display("DE",AppLanguage.locale()),country.getText().toString());
+                android.view.ViewGroup hero=(android.view.ViewGroup)((android.view.View)address.getParent()).getParent();assertEquals(0,descendants(hero,UiIconButton.class));assertEquals(1,descendants(hero,PowerToggle.class));
+                int width=(int)(320*c.getResources().getDisplayMetrics().density);hero.measure(android.view.View.MeasureSpec.makeMeasureSpec(width,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(0,android.view.View.MeasureSpec.UNSPECIFIED));hero.layout(0,0,width,hero.getMeasuredHeight());
+                assertTrue(address.getMeasuredWidth()>0);assertTrue(country.getMeasuredWidth()>0);assertTrue(address.getRight()<=country.getLeft()||country.getRight()<=address.getLeft());
+                ReflectionHelpers.setField(activity,"selected",ProxyEndpoint.parse("https://example.org:443"));ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(AppLanguage.t(R.string.ui_extra_102),country.getText().toString());
+                ReflectionHelpers.setField(activity,"selected",null);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(android.view.View.GONE,country.getVisibility());
+            }finally{owner.destroy();}
+        }
+    }
     private PhysicalTestNetwork physical()throws Exception{
         Context c=RuntimeEnvironment.getApplication();android.net.ConnectivityManager manager=c.getSystemService(android.net.ConnectivityManager.class);org.robolectric.shadows.ShadowConnectivityManager shadow=Shadows.shadowOf(manager);shadow.clearAllNetworks();
         android.net.Network n=ReflectionHelpers.callConstructor(android.net.Network.class,ReflectionHelpers.ClassParameter.from(int.class,193));android.net.NetworkInfo info=org.robolectric.shadows.ShadowNetworkInfo.newInstance(android.net.NetworkInfo.DetailedState.CONNECTED,android.net.ConnectivityManager.TYPE_WIFI,0,true,true);shadow.addNetwork(n,info);shadow.setActiveNetworkInfo(info);
