@@ -1,0 +1,11 @@
+# Android 0.29.4 / versionCode 43
+
+Adaptive scanning starts with 12 concurrent tests instead of 8. Each healthy 12-sample cohort can add 3 instead of 2, up to the unchanged foreground maximum of 24. Background scanning is capped at 10 instead of 8; VPN connection setup remains capped at 4. Congestion still halves capacity down to 2, cancellations do not count toward a cohort, and probe timeouts/slow-mode budgets are unchanged. This increases capacity; it does not promise a fixed wall-clock scan speed or lower network RTT.
+
+A visible spinner appears immediately while initial proxy data loads and while scan input is prepared. Startup does not publish the previous in-memory snapshot before favorites, test notes and stored availability have loaded. The existing scan/fetch controls remain disabled until data is ready; after initial loading the ranked results appear. Reloading an already open screen keeps its existing results visible while showing the spinner.
+
+The upper connection card retains only the power control. Its connection-test and download-test buttons are removed; per-proxy actions, gestures and filtered-result testing remain available. Country flag/name appears beside the proxy address in both languages, using existing endpoint metadata or the offline country database. Unknown hosts show Unknown rather than an invented flag. The row reserves bounded space for the country and lets long addresses fit with the existing automatic font sizing.
+
+Source prioritization is unchanged and covered by HProxySourceHarness: manual input and previously verified endpoints precede quality-filtered HProxy candidates, which precede raw feeds. Within HProxy candidates, freshness tier, uptime, test count and provider latency determine order. Catalog refresh preserves incoming priority and appends older-only entries. A paused scan retains its original order. Provider scores never count as local connection success.
+
+Publication requires host transport/scanner tests, Android regression tests, localization, lint and signed-APK audit. Original certificate, native library inventory, four ABIs, 512 MiB updater support, user favorites and protocols are preserved. No physical Android device is attached; device startup time, public proxy availability and ISP throughput are not measured here.
