@@ -33,7 +33,6 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.CheckBox;
-import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.content.res.ColorStateList;
 
@@ -114,13 +113,14 @@ public final class MainActivity extends ComponentActivity {
     private int scanTypes=7;
     private ProxyResults.Protocol protocol=ProxyResults.Protocol.ALL;
     private ProxyResults.PingLimit pingLimit = ProxyResults.PingLimit.NONE;
-    private Button scanToggle, collectButton;
+    private Button scanToggle, collectButton, scanRestart;
+    private TextView scanTotal,scanChecked;
+    private int lastScanDone,lastScanTotal;
     private boolean smoothResults;
     private long measurementRevision;
     private PowerToggle vpnToggle;
     private String connectionError="";
     private CheckBox sidebarTls,sidebarAuto;
-    private Button sidebarScan;
     private Button sidebarToggle, sidebarClose;
     private volatile boolean foregroundVisible=true;
     private AppUpdater appUpdater;
@@ -163,7 +163,7 @@ public final class MainActivity extends ComponentActivity {
             if(intent.getBooleanExtra("traffic-only",false)){updateTraffic();return;}
             vpnRequestPending = false;
             boolean auto=ProxyVpnService.autoScanning();
-            if(observedAutoScan&&!auto&&!scanning)reloadSaved();
+            if(observedAutoScan&&!auto&&!scanning){lastScanDone=ProxyVpnService.autoScanDone();lastScanTotal=ProxyVpnService.autoScanTotal();saveScanCounts();reloadSaved();}
             observedAutoScan=auto;
             String state = intent.getStringExtra(ProxyVpnService.EXTRA_MESSAGE);
             if(intent.hasExtra("connection-error"))connectionError=intent.getStringExtra("connection-error");
@@ -183,6 +183,7 @@ public final class MainActivity extends ComponentActivity {
         maxTests = Math.max(100, Math.min(ProxyScanner.MAX_TESTS,
             getSharedPreferences("persiansocks", MODE_PRIVATE).getInt("max-tests", 5000)));
         slowScan = getSharedPreferences("persiansocks", MODE_PRIVATE).getBoolean("slow-scan", false);
+        lastScanDone=getSharedPreferences("persiansocks",MODE_PRIVATE).getInt("last-scan-done",0);lastScanTotal=getSharedPreferences("persiansocks",MODE_PRIVATE).getInt("last-scan-total",0);
         scanTypes=DistributionPolicy.scanTypes(getSharedPreferences("persiansocks",MODE_PRIVATE).getInt("scan-types",7));
         protocol=ScanInputs.protocol(this);
         pingLimit=ScanInputs.pingLimit(this);
@@ -358,22 +359,22 @@ public final class MainActivity extends ComponentActivity {
 
         LinearLayout scanPanel = panel();
         scanPanel.setPadding(dp(12), dp(8), dp(12), dp(8));
-        LinearLayout scanTitle = horizontal();
-        collectButton = new UiIconButton(this,UiIconButton.Kind.COLLECT,AppLanguage.t(R.string.ui_014));
-        collectButton.setOnClickListener(v -> { if (collecting) stopCollection(); else collectList(); });
-        scanTitle.addView(collectButton,iconCell(6));
-        scanToggle = new UiIconButton(this,UiIconButton.Kind.SCAN,AppLanguage.t(R.string.ui_home_scan));
-        scanToggle.setOnClickListener(v -> { if (scanning || ProxyVpnService.autoScanning()) stopScan(); else scanMenu(); });
-        scanTitle.addView(scanToggle,iconCell(6));
+        LinearLayout scanTitle=horizontal();scanTitle.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        LinearLayout scanCounts=new LinearLayout(this);scanCounts.setOrientation(LinearLayout.VERTICAL);scanCounts.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        scanTotal=scanCountBadge(scanCounts,R.drawable.ic_scan_total,AppLanguage.t(R.string.ui_scan_total));
+        scanChecked=scanCountBadge(scanCounts,R.drawable.ic_scan_checked,AppLanguage.t(R.string.ui_scan_checked));
+        scanTitle.addView(scanCounts,new LinearLayout.LayoutParams(0,-2,1));
+        scanRestart=new UiIconButton(this,UiIconButton.Kind.RESTART,AppLanguage.t(R.string.ui_scan_restart));
+        scanRestart.setOnClickListener(v->chooseScanMode(false));scanTitle.addView(scanRestart,iconCell(6));
+        scanToggle=new UiIconButton(this,UiIconButton.Kind.PLAY,AppLanguage.t(R.string.ui_home_scan));
+        scanToggle.setOnClickListener(v->{if(scanning||ProxyVpnService.autoScanning())stopScan();else continueOrStartScan();});scanTitle.addView(scanToggle,iconCell(6));
+        collectButton=new UiIconButton(this,UiIconButton.Kind.COLLECT,AppLanguage.t(R.string.ui_014));
+        collectButton.setOnClickListener(v->{if(collecting)stopCollection();else collectList();});scanTitle.addView(collectButton,iconCell(0));
         scanPanel.addView(scanTitle);
-        listStatus = text("", 11, SECONDARY, false); listStatus.setVisibility(View.GONE);
-        listStatus.setMaxLines(1); listStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        LinearLayout scanText=new LinearLayout(this);scanText.setOrientation(LinearLayout.VERTICAL);scanText.setLayoutDirection(AppLanguage.direction());scanText.setGravity(AppLanguage.gravity());scanText.addView(listStatus,new LinearLayout.LayoutParams(-1,-2));
-        status = text(checkpoint != null && !checkpoint.complete() ? AppLanguage.t(R.string.ui_016) + checkpoint.done() + AppLanguage.t(R.string.ui_017) + checkpoint.total() :
-            catalogCount == 0 ? AppLanguage.t(R.string.ui_018) : catalogCount + AppLanguage.t(R.string.ui_019), 12, SECONDARY, false);
-        status.setMaxLines(1); status.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        status.setOnClickListener(v -> showReport());
-        scanText.addView(status,new LinearLayout.LayoutParams(-1,-2));scanTitle.addView(scanText,new LinearLayout.LayoutParams(0,-2,1));
+        listStatus=text("",11,SECONDARY,false);listStatus.setVisibility(View.GONE);listStatus.setMaxLines(1);listStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        scanPanel.addView(listStatus,margin(dp(4),0));
+        status=text(checkpoint!=null&&!checkpoint.complete()?AppLanguage.t(R.string.ui_016)+checkpoint.done()+AppLanguage.t(R.string.ui_017)+checkpoint.total():catalogCount==0?AppLanguage.t(R.string.ui_018):catalogCount+AppLanguage.t(R.string.ui_019),11,SECONDARY,false);
+        status.setMaxLines(1);status.setEllipsize(android.text.TextUtils.TruncateAt.END);status.setOnClickListener(v->showReport());scanPanel.addView(status,margin(dp(4),0));
         scanProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         scanProgress.setMax(100);
         scanProgress.setProgressTintList(ColorStateList.valueOf(PRIMARY));
@@ -421,6 +422,14 @@ public final class MainActivity extends ComponentActivity {
         page.requestApplyInsets();
     }
 
+    private TextView scanCountBadge(LinearLayout parent,int icon,String label){
+        LinearLayout row=horizontal();row.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        ImageView image=new ImageView(this);image.setImageResource(icon);image.setImageTintList(ColorStateList.valueOf(SECONDARY));image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);row.addView(image,new LinearLayout.LayoutParams(dp(16),dp(16)));
+        TextView value=text(label+" —",11,SECONDARY,false);value.setGravity(Gravity.LEFT);value.setSingleLine(true);value.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(0,-2,1);cell.setMarginStart(dp(5));row.addView(value,cell);parent.addView(row,margin(dp(2),dp(2)));return value;
+    }
+    private boolean resumableScan(){return checkpoint!=null&&!checkpoint.complete()&&checkpoint.compatible();}
+    private void saveScanCounts(){getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putInt("last-scan-done",lastScanDone).putInt("last-scan-total",lastScanTotal).apply();}
     private LinearLayout metricColumn(String label) {
         LinearLayout column = new LinearLayout(this); column.setOrientation(LinearLayout.VERTICAL);
         column.setLayoutDirection(AppLanguage.direction());column.setGravity(AppLanguage.gravity());
@@ -491,7 +500,7 @@ public final class MainActivity extends ComponentActivity {
         final int[] values={5000,10000,20000,ProxyScanner.MAX_TESTS};final boolean[] choosing={false};
         ScanLimitView limits=new ScanLimitView(this,scanAll?3:maxTests==5000?0:maxTests==10000?1:maxTests==20000?2:-1,index->{choosing[0]=true;scanAll=index==3;maxTests=values[index];scanCount.setText(scanAll?"":Integer.toString(maxTests));scanCount.setHint("Max");saveScanLimit();choosing[0]=false;});content.addView(limits,sized(dp(64),0));
         scanCount.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence x,int a,int c,int f){}public void onTextChanged(CharSequence x,int a,int before,int count){if(choosing[0])return;try{int n=Integer.parseInt(x.toString());if(n<100||n>ProxyScanner.MAX_TESTS){scanCount.setError(AppLanguage.t(R.string.ui_v28_limit));return;}scanCount.setError(null);scanAll=false;maxTests=n;limits.selected(n==5000?0:n==10000?1:n==20000?2:-1);saveScanLimit();}catch(NumberFormatException ignored){}}public void afterTextChanged(android.text.Editable e){}});
-        LinearLayout testOptions=horizontal();sidebarIcon(testOptions,UiIconButton.Kind.PING,AppLanguage.t(R.string.ui_target_ping),this::pingTargetDialog);sidebarIcon(testOptions,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_target_speed),this::speedTargetDialog);content.addView(testOptions,margin(dp(8),0));
+        LinearLayout testOptions=horizontal();sidebarIcon(testOptions,UiIconButton.Kind.PING,AppLanguage.t(R.string.ui_target_ping),this::pingTargetDialog);sidebarIcon(testOptions,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_target_speed),this::speedTargetDialog);sidebarIcon(testOptions,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_scan_healthy),()->chooseScanMode(true));content.addView(testOptions,margin(dp(8),0));
         LinearLayout footer=horizontal();sidebarIcon(footer,UiIconButton.Kind.INFO,AppLanguage.t(R.string.ui_054),this::aboutDialog);sidebarIcon(footer,UiIconButton.Kind.TELEGRAM,"Telegram @HTpink",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse("https://t.me/HTpink")));}catch(Exception ignored){}});
         TextView version=text("v"+AppLanguage.version(this),10,SECONDARY,false);version.setTextDirection(View.TEXT_DIRECTION_LTR);footer.addView(version,new LinearLayout.LayoutParams(0,-2,1));
         LinearLayout updateBox=new LinearLayout(this);updateBox.setOrientation(LinearLayout.VERTICAL);updateBox.setGravity(Gravity.CENTER);UiIconButton update=new UiIconButton(this,UiIconButton.Kind.UPDATE,AppLanguage.t(R.string.ui_update_000));updateBox.addView(update,new LinearLayout.LayoutParams(dp(46),dp(46)));TextView available=text("",9,SECONDARY,false);available.setGravity(Gravity.CENTER);available.setTextDirection(AppLanguage.textDirection());available.setSingleLine(true);updateBox.addView(available);footer.addView(updateBox,new LinearLayout.LayoutParams(dp(104),-2));appUpdater=new AppUpdater(this,update,available);sidebar.addView(footer,margin(dp(12),0));
@@ -672,7 +681,7 @@ public final class MainActivity extends ComponentActivity {
             }
             if (scanning||ProxyVpnService.autoScanning()) stopScan();
             boolean haveSaved = !healthy.isEmpty();
-            customTargets.add(target); filter = target.id; saveTargets(); dialog.dismiss(); if (haveSaved) doScan(true); else status.setText(AppLanguage.t(R.string.ui_077));
+            customTargets.add(target); filter = target.id; saveTargets(); dialog.dismiss(); if (haveSaved) chooseScanMode(true); else status.setText(AppLanguage.t(R.string.ui_077));
         }));
         dialog.show();
     }
@@ -723,10 +732,17 @@ public final class MainActivity extends ComponentActivity {
         if(!foregroundVisible)return;
         if (scanToggle == null) return;
         boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto;
-        iconState(scanToggle,anyScan?UiIconButton.Kind.STOP:UiIconButton.Kind.SCAN,anyScan?AppLanguage.t(R.string.ui_087):AppLanguage.t(R.string.ui_home_scan),anyScan);
+        boolean resumable=resumableScan();
+        iconState(scanToggle,anyScan?UiIconButton.Kind.PAUSE:UiIconButton.Kind.PLAY,AppLanguage.t(anyScan?R.string.ui_scan_pause:resumable?R.string.ui_scan_resume:R.string.ui_home_scan),anyScan||resumable);
         boolean dataBusy=!localDataLoaded||loading||preparing||stopping;
         scanToggle.setEnabled(!collecting && !dataBusy);
         collectButton.setEnabled(!anyScan && !dataBusy);
+        scanRestart.setEnabled(!anyScan&&!collecting&&!dataBusy&&catalogCount>0);
+        int total=auto?ProxyVpnService.autoScanTotal():checkpoint!=null?checkpoint.total():lastScanTotal>0?lastScanTotal:catalogCount;
+        int done=auto?ProxyVpnService.autoScanDone():checkpoint!=null?checkpoint.done():lastScanDone;
+        scanTotal.setText(AppLanguage.t(R.string.ui_scan_total)+" "+AppLanguage.isolate(localDataLoaded?Integer.toString(total):"—"));
+        scanChecked.setText(AppLanguage.t(R.string.ui_scan_checked)+" "+AppLanguage.isolate(localDataLoaded?Integer.toString(done):"—"));
+        scanTotal.setContentDescription(AppLanguage.t(R.string.ui_scan_total)+": "+total);scanChecked.setContentDescription(AppLanguage.t(R.string.ui_scan_checked)+": "+done);
         loadingState.setVisibility(!localDataLoaded||loading||preparing?View.VISIBLE:View.GONE);
         loadingLabel.setText(AppLanguage.t(preparing?R.string.ui_117:R.string.ui_loading_proxies));
         iconState(collectButton,collecting?UiIconButton.Kind.STOP:UiIconButton.Kind.COLLECT,collecting?AppLanguage.t(R.string.ui_088):AppLanguage.t(R.string.ui_014),collecting);
@@ -735,7 +751,8 @@ public final class MainActivity extends ComponentActivity {
         status.setVisibility(collecting ? View.GONE : View.VISIBLE);
         if (catalogInfo != null) catalogInfo.setText(AppLanguage.t(R.string.ui_089) + catalogCount + AppLanguage.t(R.string.ui_090));
         scanToggle.setTextColor(anyScan ? DANGER : Color.WHITE);
-        scanProgress.setVisibility(anyScan || collecting ? View.VISIBLE : View.GONE);
+        scanProgress.setVisibility(anyScan||collecting||resumable?View.VISIBLE:View.GONE);
+        if(!anyScan&&!collecting&&resumable){scanProgress.setIndeterminate(false);scanProgress.setProgress(total==0?0:(int)(100L*done/total));}
         if(auto){
             int progress=ProxyVpnService.autoProgress();
             scanProgress.setIndeterminate(progress<0);scanProgress.setProgress(Math.max(0,progress));
@@ -747,7 +764,6 @@ public final class MainActivity extends ComponentActivity {
         vpnBadge.setText(AppLanguage.display(phase==ProxyVpnService.CONNECTED?AppLanguage.t(R.string.ui_091):"●  VPN"));
         vpnBadge.setTextColor(phase==ProxyVpnService.CONNECTED?PRIMARY:phase==ProxyVpnService.CONNECTING?WARNING:SECONDARY);
         vpnStatus.setText(AppLanguage.display(connectionError));vpnStatus.setTextColor(DANGER);vpnStatus.setVisibility(connectionError.isEmpty()?View.GONE:View.VISIBLE);
-        if(sidebarScan!=null)sidebarScan.setText(AppLanguage.t(R.string.ui_092)+(scanAll?"Max":maxTests)+AppLanguage.t(R.string.ui_093));
         String current = active ? ProxyVpnService.activeEndpoint() : "";
         String address = !current.isEmpty()?current:selected!=null?selected.key():"";
         refreshPublicIp(false);
@@ -783,20 +799,16 @@ public final class MainActivity extends ComponentActivity {
                 saveTestResults();saveReport();status.setText(AppLanguage.display(note));render();});
         });
     }
-    private void scanMenu() {
-        PopupMenu popup = new PopupMenu(this, scanToggle);
-        if (checkpoint != null && !checkpoint.complete() && checkpoint.compatible())
-            popup.getMenu().add(0, 1, 0, AppLanguage.t(R.string.ui_107) + checkpoint.done() + AppLanguage.t(R.string.ui_017) + checkpoint.total() + ")");
-        popup.getMenu().add(0, 2, 1, AppLanguage.t(R.string.ui_108));
-        popup.getMenu().add(0, 3, 2, AppLanguage.t(R.string.ui_109) + healthy.size() + ")");
-        popup.getMenu().add(0,4,3,AppLanguage.t(R.string.ui_target_ping));popup.getMenu().add(0,5,4,AppLanguage.t(R.string.ui_target_speed));popup.getMenu().add(0,6,5,AppLanguage.t(R.string.ui_032));
-        popup.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 1) runPrepared(checkpoint);
-            else if (item.getItemId() == 2) doScan(false);
-            else if (item.getItemId() == 3) doScan(true);
-            else if(item.getItemId()==4)pingTargetDialog();else if(item.getItemId()==5)speedTargetDialog();else if(item.getItemId()==6)prepareFilteredSpeed();
-            return true;
-        }); popup.show();
+    private void continueOrStartScan(){
+        if(scanning||ProxyVpnService.autoScanning()||collecting||preparing||loading||stopping||!localDataLoaded)return;
+        if(resumableScan())runPrepared(checkpoint);else chooseScanMode(false);
+    }
+    private void chooseScanMode(boolean savedOnly){
+        if(scanning||ProxyVpnService.autoScanning()||collecting||preparing||loading||stopping||!localDataLoaded)return;
+        if(savedOnly?healthy.isEmpty():catalogCount==0){Toast.makeText(this,AppLanguage.t(savedOnly?R.string.ui_118:R.string.ui_119),Toast.LENGTH_SHORT).show();return;}
+        new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_scan_choose))
+            .setItems(new String[]{AppLanguage.t(R.string.ui_scan_fast),AppLanguage.t(R.string.ui_scan_deep)},(dialog,which)->doScan(savedOnly,which==1))
+            .setNegativeButton(AppLanguage.t(R.string.ui_007),null).show();
     }
     private void stopCollection() {
         collectGeneration++; collecting = false; scanner.stop();
@@ -815,6 +827,7 @@ public final class MainActivity extends ComponentActivity {
                 final int count;try{count=scanFiles.catalogCount();}catch(Exception ex){onFailed(AppLanguage.t(R.string.ui_114));return;}
                 ui.post(()->{if(!collecting||token!=collectGeneration||isDestroyed())return;
                     collecting=false;catalogCount=count;
+                    if(checkpoint==null||checkpoint.complete()){lastScanDone=lastScanTotal=0;saveScanCounts();}
                     getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("collection-report",report).apply();
                     updateActions();status.setText(AppLanguage.display(count+AppLanguage.t(R.string.ui_115)));});
             }
@@ -827,10 +840,11 @@ public final class MainActivity extends ComponentActivity {
         updateActions();
     }
 
-    private void doScan(boolean savedOnly) {
+    private void doScan(boolean savedOnly,boolean deep) {
         if(scanning||collecting||preparing||stopping||loading)return;
+        slowScan=deep;getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("slow-scan",deep).apply();
         preparing=true;updateActions();status.setText(AppLanguage.t(R.string.ui_117));
-        final ProxyScanner.Options options=savedOnly?new ProxyScanner.Options(maxTests,slowScan,true,7):new ProxyScanner.Options(maxTests,slowScan,scanAll,scanTypes);
+        final ProxyScanner.Options options=savedOnly?new ProxyScanner.Options(maxTests,deep,true,7):new ProxyScanner.Options(maxTests,deep,scanAll,scanTypes);
         ProxyStore.IO.execute(()->{
             ScanCheckpoint work=null;String error="";
             try{List<ProxyEndpoint> input=savedOnly?healthy.snapshot():scanFiles.catalog();
@@ -848,7 +862,7 @@ public final class MainActivity extends ComponentActivity {
         PhysicalTestNetwork network;
         try{network=PhysicalTestNetwork.capture(this);}catch(Exception ex){status.setText(AppLanguage.display(ex.getMessage()));return;}
         checkpoint=work;scanFiles.activate(work);scanning=true;final int token=++scanGeneration;scanProgress.setIndeterminate(false);
-        status.setText(AppLanguage.t(R.string.ui_092)+work.done()+AppLanguage.t(R.string.ui_017)+work.total());render();
+        status.setText(AppLanguage.t(work.slow?R.string.ui_scan_deep:R.string.ui_scan_fast)+" • "+AppLanguage.t(R.string.ui_092)+work.done()+AppLanguage.t(R.string.ui_017)+work.total());render();
         final String latencyFilter=filter;
         PreparedScanner.Listener listener=new PreparedScanner.Listener(){
             public void onResult(int index,Socks5Probe.Result result){
@@ -860,7 +874,7 @@ public final class MainActivity extends ComponentActivity {
             }
             public void onProgress(int done,int total,int good){ui.post(()->{
                 if(!scanning||token!=scanGeneration||isDestroyed()||!foregroundVisible)return;
-                status.setText(AppLanguage.t(R.string.ui_125)+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_126)+good);
+                status.setText(AppLanguage.t(work.slow?R.string.ui_scan_deep:R.string.ui_scan_fast)+" • "+AppLanguage.t(R.string.ui_125)+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_126)+good);
                 scanProgress.setProgress(total==0?0:(int)(100L*done/total));
                 scanReport=work.mode+"\n"+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_127)+good;scheduleRender();});}
             public void onFinished(ScanCheckpoint state,String message){
@@ -868,6 +882,7 @@ public final class MainActivity extends ComponentActivity {
                 ProxyStore.IO.execute(()->{boolean committed=false;try{ProxyStore.flush(MainActivity.this);if(state.complete())scanFiles.discardComplete();committed=true;}catch(Exception ex){android.util.Log.e("PersianSocks","Final cache commit failed",ex);}
                     final boolean saved=committed;
                     ui.post(()->{if(!scanning||token!=scanGeneration||isDestroyed())return;scanning=false;
+                        lastScanDone=state.done();lastScanTotal=state.total();saveScanCounts();
                         checkpoint=state.complete()&&saved?null:state;saveTestResults();saveReport();status.setText(AppLanguage.display(saved?message:AppLanguage.t(R.string.ui_128)));render();});});
             }
         };

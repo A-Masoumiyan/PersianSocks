@@ -553,4 +553,13 @@
     <string name="ui_maintenance_help">Short refresh every 6 hours, on an unmetered connection with enough battery. Cronet affects only the app’s own downloads.</string>
     <string name="ui_proxy_unavailable" formatted="false">"Unavailable"</string>
     <string name="ui_loading_proxies">Loading proxies…</string>
+    <string name="ui_scan_fast">Fast scan</string>
+    <string name="ui_scan_deep">Deep scan</string>
+    <string name="ui_scan_choose">Choose scan type</string>
+    <string name="ui_scan_pause">Pause scan</string>
+    <string name="ui_scan_resume">Resume scan</string>
+    <string name="ui_scan_restart">Scan from beginning</string>
+    <string name="ui_scan_total">Total</string>
+    <string name="ui_scan_checked">Checked</string>
+    <string name="ui_scan_healthy">Rescan healthy proxies</string>
 </resources>

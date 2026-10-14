@@ -17,10 +17,13 @@ public final class PreparedScanner {
     private static final class Run {
         final ScanCheckpoint state; final Persistence persistence;
         final AtomicBoolean cancelled = new AtomicBoolean(); final Set<Socket> sockets = ConcurrentHashMap.newKeySet();
-        final ExecutorService workers = Executors.newFixedThreadPool(24,r->{Thread t=new Thread(r,"proxy-scan-worker");t.setPriority(Thread.MIN_PRIORITY);return t;});
-        final AdaptiveScanPolicy adaptive=new AdaptiveScanPolicy();
+        final ExecutorService workers;
+        final AdaptiveScanPolicy adaptive;
         Thread coordinator;
-        Run(ScanCheckpoint state, Persistence persistence) { this.state = state; this.persistence = persistence; }
+        Run(ScanCheckpoint state, Persistence persistence) {
+            this.state=state;this.persistence=persistence;adaptive=new AdaptiveScanPolicy(state.slow);
+            workers=Executors.newFixedThreadPool(AdaptiveScanPolicy.hardCap(state.slow,true,false),r->{Thread t=new Thread(r,"proxy-scan-worker");t.setPriority(Thread.MIN_PRIORITY);return t;});
+        }
         void close() {
             cancelled.set(true); workers.shutdownNow();
             for (Socket socket : sockets) try { socket.close(); } catch (Exception ignored) {}
@@ -65,8 +68,10 @@ public final class PreparedScanner {
             listener.onProgress(state.done(), state.total(), state.goodCount());
             CompletionService<Completed> tasks = new ExecutorCompletionService<>(run.workers);
             int submitted = 0, received = 0; int batchEnd=Math.min(ScanCheckpoint.BATCH_SIZE,pending.length); long progressAt = 0, savedAt = System.nanoTime();
-            while (submitted < Math.min(48, batchEnd)) submit(tasks, run, probe, pending[submitted++]);
             while (received < pending.length && !run.cancelled.get()) {
+                // Dispatch in catalog order; waiting workers must not overtake higher-priority candidates.
+                int capacity=run.adaptive.limit(AdaptiveScanPolicy.hardCap(state.slow,foreground,connecting));
+                while(submitted<batchEnd&&submitted-received<capacity&&!run.cancelled.get())submit(tasks,run,probe,pending[submitted++]);
                 Future<Completed> task = tasks.poll(250, TimeUnit.MILLISECONDS); if (task == null) continue;
                 Completed completed = task.get(); received++;
                 synchronized (this) {
@@ -79,8 +84,7 @@ public final class PreparedScanner {
                 }
                 long now=System.nanoTime();
                 if(now-savedAt>15_000_000_000L){run.persistence.save(state);savedAt=System.nanoTime();}
-                if(received==batchEnd){run.persistence.save(state);savedAt=System.nanoTime();batchEnd=Math.min(pending.length,batchEnd+ScanCheckpoint.BATCH_SIZE);while(submitted<Math.min(batchEnd,received+48)&&!run.cancelled.get())submit(tasks,run,probe,pending[submitted++]);}
-                else if (submitted < batchEnd && !run.cancelled.get()) submit(tasks, run, probe, pending[submitted++]);
+                if(received==batchEnd){run.persistence.save(state);savedAt=System.nanoTime();batchEnd=Math.min(pending.length,batchEnd+ScanCheckpoint.BATCH_SIZE);}
             }
             run.persistence.save(state);
             synchronized (this) {
@@ -98,7 +102,7 @@ public final class PreparedScanner {
     private static void submit(CompletionService<Completed> tasks, Run run, Probe probe, int index) {
         tasks.submit(() -> {
             boolean entered=false;
-            try{while(!run.cancelled.get()) {int n=active.get();if(n<run.adaptive.limit(connecting?4:foreground?24:10)&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
+            try{while(!run.cancelled.get()) {int n=active.get();if(n<run.adaptive.limit(AdaptiveScanPolicy.hardCap(run.state.slow,foreground,connecting))&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
                 AdaptiveScanPolicy.enter(run.adaptive.budget(run.state.slow));
                 return new Completed(index,entered?probe.inspect(run.state.candidate(index),run.state.slow,run.cancelled,run.sockets):new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false));
             }finally{AdaptiveScanPolicy.leave();if(entered)active.decrementAndGet();}
