@@ -71,6 +71,8 @@ public final class MainActivity extends Activity {
     private Button favoritesButton,savedPingButton,savedSpeedButton;
     private List<ProxyEndpoint> savedPingQueue;
     private int savedPingPosition;
+    private boolean filteredPingMode;
+    private Button filteredPingButton;
     private PublicIpCheck ipCheck;
     private String ipRoute="";
     private long ipCheckedAt;
@@ -393,7 +395,7 @@ public final class MainActivity extends Activity {
         savedSpeedButton=new UiIconButton(this,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_v25_009));
         savedSpeedButton.setOnClickListener(v->{if(speedBatch!=null)stopFilteredSpeed();else confirmSpeedBatch(new FilteredSpeedBatch(favoriteSnapshots()));render();});
         toolbar.addView(savedPingButton,weighted(48,1,6));toolbar.addView(savedSpeedButton,weighted(48,1,6));
-        UiIconButton reset=new UiIconButton(this,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_022));reset.setOnClickListener(v->resetFilters());toolbar.addView(reset,weighted(48,1,0));
+        filteredPingButton=new UiIconButton(this,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_filtered_ping));filteredPingButton.setOnClickListener(v->{if(savedPingQueue!=null&&filteredPingMode)cancelSingleTests();else startFilteredPings();render();});toolbar.addView(filteredPingButton,weighted(48,1,0));
         savedPingButton.setVisibility(View.GONE);savedSpeedButton.setVisibility(View.GONE);root.addView(toolbar,margin(dp(4),0));
         rebuildFilters();
         filterSummary = text("", 11, SECONDARY, false);
@@ -576,14 +578,6 @@ public final class MainActivity extends Activity {
             getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("filter",filter).putString("protocol-filter",protocol.name()).putInt("ping-limit-ms",pingLimit.milliseconds).putString("sort",sort.name()).putBoolean("smooth-results",smoothResults).apply();
             if(ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED&&!vpnRequestPending&&(changed||!userSelected))selectBest();dialog.dismiss();render();});
         showOptions.run();dialog.show();
-    }
-    private void resetFilters() {
-        filter="ALL"; protocol=DistributionPolicy.encryptedOnly() ? ProxyResults.Protocol.HTTP : ProxyResults.Protocol.ALL;
-        pingLimit=ProxyResults.PingLimit.NONE; sort=ProxyResults.Sort.FASTEST; smoothResults=false;
-        getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putString("filter",filter)
-            .putString("protocol-filter",protocol.name()).putInt("ping-limit-ms",0).putString("sort",sort.name()).putBoolean("smooth-results",false).apply();
-        if (ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED && !vpnRequestPending) { userSelected=false; selectBest(); }
-        render();
     }
     private void rebuildFilters() {
         filterKeys.clear();
@@ -947,6 +941,11 @@ public final class MainActivity extends Activity {
         savedSpeedButton.setEnabled(speedBatch!=null||(singleTest==null&&speedTest==null&&savedPingQueue==null&&!preparingSpeedBatch));
         filterButton.setVisibility(showFavorites?View.GONE:View.VISIBLE);
         filteredSpeedButton.setVisibility(showFavorites?View.GONE:View.VISIBLE);
+        filteredPingButton.setVisibility(showFavorites?View.GONE:View.VISIBLE);
+        boolean pingBatch=savedPingQueue!=null&&filteredPingMode;
+        iconState(filteredPingButton,pingBatch?UiIconButton.Kind.STOP:UiIconButton.Kind.SYNC,
+            pingBatch?AppLanguage.t(R.string.ui_v25_010)+" "+savedPingPosition+"/"+savedPingQueue.size():AppLanguage.t(R.string.ui_filtered_ping),pingBatch);
+        filteredPingButton.setEnabled(pingBatch||(singleTest==null&&speedTest==null&&speedBatch==null&&!preparingSpeedBatch&&savedPingQueue==null&&!healthy.isEmpty()));
         updateActions();
         if(renderedRevision==healthy.revision()&&renderedCriteria.equals(criteria())){resultAdapter.notifyDataSetChanged();return;}
         if(ranking)return;
@@ -1157,13 +1156,19 @@ public final class MainActivity extends Activity {
     }
     private void startSavedPings() {
         if(singleTest!=null||speedTest!=null||speedBatch!=null||preparingSpeedBatch)return;
-        savedPingQueue=favoriteSnapshots();savedPingPosition=0;nextSavedPing();
+        filteredPingMode=false;savedPingQueue=favoriteSnapshots();savedPingPosition=0;nextSavedPing();
+    }
+    private void startFilteredPings() {
+        if(singleTest!=null||speedTest!=null||speedBatch!=null||preparingSpeedBatch||savedPingQueue!=null)return;
+        // Freeze matching healthy results before measurements can change the ranking/filter membership.
+        savedPingQueue=ProxyResults.visible(healthy.snapshot(),filter,sort,protocol,pingLimit,speedSnapshot(),smoothResults);
+        filteredPingMode=true;savedPingPosition=0;nextSavedPing();
     }
     private void nextSavedPing() {
         if(savedPingQueue==null)return;
         while(savedPingPosition<savedPingQueue.size()){
             ProxyEndpoint proxy=savedPingQueue.get(savedPingPosition++);
-            if(favorites.containsKey(proxy.key())&&DistributionPolicy.allows(proxy)){startProxyProbe(proxy,true);return;}
+            if((filteredPingMode||favorites.containsKey(proxy.key()))&&DistributionPolicy.allows(proxy)){startProxyProbe(proxy,true);return;}
         }
         savedPingQueue=null;updateActions();
     }
