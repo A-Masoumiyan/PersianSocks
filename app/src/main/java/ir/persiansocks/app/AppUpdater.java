@@ -52,18 +52,24 @@ public final class AppUpdater {
         if(DistributionPolicy.play()){activity.startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://play.google.com/store/apps/details?id="+activity.getPackageName())));return;}
         busy=true;cancelled=false;button.setText(t(R.string.ui_update_002));button.setEnabled(false);
         worker.execute(()->{
-            UpdateRelease found=null;boolean success=false;
+            UpdateRelease found=null;String unavailable=null;boolean success=false;
             try{
                 HttpURLConnection c=open("https://api.github.com/repos/A-Masoumiyan/PersianSocks/releases?per_page=100",network(),false,System.nanoTime()+30_000_000_000L);
                 try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){
                     byte[] buf=new byte[8192];int n;long deadline=System.nanoTime()+30_000_000_000L;
                     while((n=in.read(buf))!=-1){if(cancelled||System.nanoTime()>deadline||out.size()+n>2*1024*1024)throw new IOException("Metadata limit");out.write(buf,0,n);}
-                    found=UpdateRelease.newest(out.toString("UTF-8"),AppLanguage.version(activity));success=true;
+                    UpdateRelease.Check checked=UpdateRelease.inspect(out.toString("UTF-8"),AppLanguage.version(activity));found=checked.release;unavailable=checked.unavailableVersion;success=true;
                 }finally{c.disconnect();}
             }catch(Exception ignored){}finally{connection=null;}
-            final UpdateRelease result=found;final boolean ok=success;
-            post(()->{busy=false;if(ok){release=result;try{activity.getSharedPreferences("persiansocks",0).edit().putLong("update-checked",System.currentTimeMillis()).putString("update-release",result==null?"[]":result.cache()).apply();}catch(Exception ignored){}}label();if(manual){if(ok&&release!=null)offer();else Toast.makeText(activity,t(ok?R.string.ui_update_003:R.string.ui_update_004),Toast.LENGTH_LONG).show();}});
+            final UpdateRelease result=found;final String blocked=unavailable;final boolean ok=success;
+            post(()->{busy=false;if(ok){release=result;try{activity.getSharedPreferences("persiansocks",0).edit().putLong("update-checked",System.currentTimeMillis()).putString("update-release",result==null?"[]":result.cache()).apply();}catch(Exception ignored){}}label();if(manual){if(ok&&blocked!=null)unavailable(blocked);else if(ok&&release!=null)offer();else Toast.makeText(activity,t(ok?R.string.ui_update_003:R.string.ui_update_004),Toast.LENGTH_LONG).show();}});
         });
+    }
+    private void unavailable(String version){
+        new AlertDialog.Builder(activity,R.style.AppDialogTheme).setTitle(t(R.string.ui_update_001)+" "+AppLanguage.isolate(version))
+            .setMessage(t(R.string.ui_update_018)).setNeutralButton(t(R.string.ui_update_017),(d,w)->check(true))
+            .setPositiveButton(t(R.string.ui_update_019),(d,w)->{try{activity.startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(UpdateRelease.REPO+"/releases/tag/v"+version)));}catch(Exception e){Toast.makeText(activity,t(R.string.ui_update_004),Toast.LENGTH_LONG).show();}})
+            .setNegativeButton(t(R.string.ui_update_007),null).show();
     }
     private void offer(){
         new AlertDialog.Builder(activity,R.style.AppDialogTheme).setTitle(t(R.string.ui_update_001)+" "+AppLanguage.isolate(release.version))
@@ -80,7 +86,7 @@ public final class AppUpdater {
                 File dir=new File(activity.getCacheDir(),"updates");if(!dir.isDirectory()&&!dir.mkdirs())throw new IOException("Storage");
                 File[] old=dir.listFiles();if(old!=null)for(File f:old)if(System.currentTimeMillis()-f.lastModified()>86400000L)f.delete();
                 verified=new File(dir,"update-"+UUID.randomUUID()+".apk");part=new File(dir,verified.getName()+".part");
-                long deadline=System.nanoTime()+120_000_000_000L;HttpURLConnection c=open(selected.url,network(),true,deadline);
+                long deadline=System.nanoTime()+TimeUnit.MILLISECONDS.toNanos(UpdateRelease.downloadBudgetMillis(selected.bytes));HttpURLConnection c=open(selected.url,network(),true,deadline);
                 MessageDigest hash=MessageDigest.getInstance("SHA-256");long total=0;int last=-1;
                 try(InputStream in=c.getInputStream();OutputStream out=new FileOutputStream(part)){
                     byte[] buf=new byte[32768];int n;

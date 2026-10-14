@@ -512,6 +512,8 @@
     <string name="ui_update_015" formatted="false">"Android requires permission to install unknown apps for PersianSocks to install this APK. The choice is yours; Play Protect stays enabled."</string>
     <string name="ui_update_016" formatted="false">"Open settings"</string>
     <string name="ui_update_017" formatted="false">"Check again"</string>
+    <string name="ui_update_018" formatted="false">"A newer version is published, but its installer is not ready or compatible with in-app download. Check again or open the official release page."</string>
+    <string name="ui_update_019" formatted="false">"Official release page"</string>
     <string name="ui_v28_limit" formatted="false">"Enter a number between 100 and 100000."</string>
     <string name="ui_v28_sources" formatted="false">"Built-in sources are used automatically. To add a source, select its proxy types and enter one HTTPS link per line."</string>
     <string name="ui_v28_type" formatted="false">"Select at least one type."</string>
