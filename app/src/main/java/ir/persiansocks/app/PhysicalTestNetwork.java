@@ -18,9 +18,10 @@ public final class PhysicalTestNetwork {
     // Cache belongs to this captured physical network, never to another network or VPN.
     private final ConcurrentHashMap<String,DnsAnswer> cache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String,CompletableFuture<InetAddress>> pending = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicLong dnsGeneration=new java.util.concurrent.atomic.AtomicLong();
     private static final class DnsAnswer {
-        final InetAddress address; final long expires;
-        DnsAnswer(InetAddress address) { this.address=address; expires=System.nanoTime()+30_000_000_000L; }
+        final InetAddress address; final long expires,generation;
+        DnsAnswer(InetAddress address,long generation) { this.address=address;this.generation=generation;expires=System.nanoTime()+30_000_000_000L; }
     }
     private PhysicalTestNetwork(ConnectivityManager manager, Network network) { this.manager = manager; this.network = network; }
     public static PhysicalTestNetwork capture(Context context) throws IOException {
@@ -43,6 +44,7 @@ public final class PhysicalTestNetwork {
             !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
     }
     public Network network(){return network;}
+    public void invalidateDns(){dnsGeneration.incrementAndGet();cache.clear();pending.clear();}
     public void bind(Socket socket)throws IOException {if(!valid())throw new IOException("Physical network changed");network.bindSocket(socket);}
     public void bind(DatagramSocket socket)throws IOException {if(!valid())throw new IOException("Physical network changed");network.bindSocket(socket);}
     public boolean valid() { return physical(manager.getNetworkCapabilities(network)); }
@@ -59,12 +61,14 @@ public final class PhysicalTestNetwork {
     public InetAddress resolve(String host) throws Exception {
         if (!valid()) throw new IOException("شبکهٔ تست قطع شد");
         if (host.matches("[0-9.]+")) return InetAddress.getByName(host);
+        final long requestGeneration=dnsGeneration.get();
         DnsAnswer cached=cache.get(host);
-        if(cached!=null&&System.nanoTime()<cached.expires)return cached.address;
+        if(cached!=null&&cached.generation==requestGeneration&&System.nanoTime()<cached.expires)return cached.address;
         CompletableFuture<InetAddress> created=new CompletableFuture<>();
         CompletableFuture<InetAddress> query=pending.putIfAbsent(host,created);
         if(query==null){
             query=created;
+            final long generation=requestGeneration;
             DNS.execute(()->{
                 try {
                     if(!valid())throw new IOException("شبکهٔ تست قطع شد");
@@ -72,15 +76,15 @@ public final class PhysicalTestNetwork {
                     for(InetAddress answer:answers)if(answer instanceof Inet4Address){best=answer;break;}
                     if(best==null&&answers.length>0)best=answers[0];
                     if(best==null)throw new UnknownHostException(host);
-                    if(!valid())throw new IOException("شبکهٔ تست قطع شد");
+                    if(!valid()||generation!=dnsGeneration.get())throw new IOException("Physical DNS route changed");
                     if(cache.size()>=256)cache.clear();
-                    cache.put(host,new DnsAnswer(best));created.complete(best);
+                    cache.put(host,new DnsAnswer(best,generation));created.complete(best);
                 }catch(Exception ex){created.completeExceptionally(ex);}
                 finally{pending.remove(host,created);}
             });
         }
         InetAddress answer=query.get(6,TimeUnit.SECONDS);
-        if(!valid())throw new IOException("شبکهٔ تست قطع شد");
+        if(!valid()||requestGeneration!=dnsGeneration.get())throw new IOException("Physical DNS route changed");
         return answer;
     }
 }
