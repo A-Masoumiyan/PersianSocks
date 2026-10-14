@@ -183,7 +183,7 @@
     <string name="ui_180" formatted="false">"\nپینگ: "</string>
     <string name="ui_181" formatted="false">"تست‌نشده"</string>
     <string name="ui_182" formatted="false">"\nپینگ، زمان پاسخ HTTPS از مسیر این پروکسی است."</string>
-    <string name="ui_183" formatted="false">"UDP اعلام‌شده توسط منبع؛ تضمین اتصال UDP نیست"</string>
+    <string name="ui_183" formatted="false">"پاسخ واقعی UDP از رله تأیید شد"</string>
     <string name="ui_184" formatted="false">"فقط TCP تأییدشده"</string>
     <string name="ui_185" formatted="false">"تأیید شد"</string>
     <string name="ui_186" formatted="false">"تأیید نشد"</string>
@@ -544,4 +544,9 @@
     <string name="ui_instagram_priority" formatted="false">"اولویت اینستاگرام"</string>
     <string name="ui_instagram_help" formatted="false">"اولویت نخست با پاسخ موفق و سریع‌تر اینستاگرام است؛ مرتب‌سازی انتخابی در مرحلهٔ بعد اعمال می‌شود."</string>
     <string name="ui_filtered_ping">پینگ مجدد همهٔ نتایج فیلترشده</string>
+    <string name="ui_quality_sort">کیفیت روی این شبکه</string>
+    <string name="ui_quality_samples">تست</string>
+    <string name="ui_maintenance">تازه‌سازی دوره‌ای روی وای‌فای</string>
+    <string name="ui_cronet">دریافت آزمایشی با Cronet</string>
+    <string name="ui_maintenance_help">تازه‌سازی کوتاه هر ۶ ساعت، روی اینترنت بدون هزینهٔ حجمی و با باتری مناسب. Cronet فقط دریافت‌های خود برنامه را تغییر می‌دهد.</string>
 </resources>

@@ -29,7 +29,7 @@ public final class Socks5Probe {
         Thread t = new Thread(r, "socks-probe-deadlines"); t.setDaemon(true); return t;
     });
     static { DEADLINES.setRemoveOnCancelPolicy(true); }
-    public interface SocketMaker { Socket create() throws Exception; }
+    public interface SocketMaker { Socket create() throws Exception; default DatagramSocket datagram() throws Exception {throw new IOException("UDP route unavailable");} }
     public interface Resolver { InetAddress resolve(String host) throws Exception; }
     private static volatile Resolver resolver=InetAddress::getByName;
     public static void setResolver(Resolver r){resolver=r==null?InetAddress::getByName:r;}
@@ -81,8 +81,9 @@ public final class Socks5Probe {
     }
     private static Result attempt(ProxyEndpoint e, ServiceTargets.Target target, boolean slow,
             AtomicBoolean cancelled, Set<Socket> active, SocketMaker maker, Resolver dns) {
-        int connectTimeout = slow ? 6000 : 2500;
-        int readTimeout = slow ? 9000 : 4500;
+        AdaptiveScanPolicy.Budget budget=AdaptiveScanPolicy.current(slow);
+        int connectTimeout = budget.connectMs;
+        int readTimeout = budget.readMs;
         long start = System.nanoTime();
         boolean tcp = false, socks = false;
         int phase = 0;
@@ -91,7 +92,7 @@ public final class Socks5Probe {
         catch (Exception ex) { return new Result(null, Failure.IO_ERROR, false, false); }
         AtomicBoolean expired = new AtomicBoolean(false);
         if (active != null) active.add(s);
-        ScheduledFuture<?> timeout = DEADLINES.schedule(() -> { expired.set(true); close(s); }, slow ? 20 : 11, TimeUnit.SECONDS);
+        ScheduledFuture<?> timeout = DEADLINES.schedule(() -> { expired.set(true); close(s); }, budget.totalMs, TimeUnit.MILLISECONDS);
         try (Socket owned = s) {
             if (cancelled.get()) return new Result(null, Failure.CANCELLED, false, false);
             s.setTcpNoDelay(true);
@@ -128,20 +129,21 @@ public final class Socks5Probe {
         for(int i=0;i<n+2;i++) if(in.read()<0) return false;
         return true;
     }
-    private static boolean checkUdp(ProxyEndpoint e, AtomicBoolean cancelled, Set<Socket> active,
+    static boolean checkUdp(ProxyEndpoint e, AtomicBoolean cancelled, Set<Socket> active,
             SocketMaker maker, Resolver dns) {
-        Socket s;
-        try { s=maker.create(); } catch(Exception ex) { return false; }
+        Socket s; DatagramSocket udp;
+        try { udp=maker.datagram();try{s=maker.create();}catch(Exception e1){udp.close();throw e1;} } catch(Exception ex) { return false; }
         if(active!=null) active.add(s);
-        ScheduledFuture<?> timeout=DEADLINES.schedule(() -> close(s),1800,TimeUnit.MILLISECONDS);
-        try(Socket owned=s) {
+        ScheduledFuture<?> timeout=DEADLINES.schedule(() -> {close(s);udp.close();},3500,TimeUnit.MILLISECONDS);
+        try(Socket owned=s;DatagramSocket ownedUdp=udp) {
             if(cancelled.get()) return false;
             s.connect(new InetSocketAddress(dns.resolve(e.host),e.port),900); s.setSoTimeout(900);
             InputStream in=s.getInputStream(); OutputStream out=s.getOutputStream();
             out.write(new byte[]{5,1,0}); out.flush();
             if(in.read()!=5 || in.read()!=0) return false;
             out.write(new byte[]{5,3,0,1,0,0,0,0,0,0}); out.flush();
-            return readReply(in);
+            InetSocketAddress relay=UdpRoundTrip.relay(in,s.getInetAddress(),dns);
+            return UdpRoundTrip.exchange(udp,relay,cancelled);
         } catch(Exception ex) { return false; }
         finally { timeout.cancel(false); if(active!=null) active.remove(s); }
     }

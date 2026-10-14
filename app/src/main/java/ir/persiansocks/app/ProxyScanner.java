@@ -11,6 +11,9 @@ import java.util.regex.*;
 /** Downloads published lists; never enumerates address ranges. */
 public final class ProxyScanner {
     public static final int MAX_TESTS = 100000;
+    public interface HttpFactory {HttpURLConnection open(URL url)throws Exception;}
+    private static volatile HttpFactory http=url->(HttpURLConnection)url.openConnection();
+    public static void httpFactory(HttpFactory factory){http=factory;}
     public static final class Source {
         public enum Format { TEXT, HPROXY_QUALITY }
         public final String name, url, mirror;
@@ -284,10 +287,10 @@ public final class ProxyScanner {
     }
     private static String downloadMetadata(String url,ScanSession session)throws Exception {
         if(session.cancelled.get())throw new IOException("Cancelled");
-        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();session.downloads.add(c);
+        HttpURLConnection c=http.open(new URL(url));session.downloads.add(c);
         ScheduledFuture<?> deadline=session.deadlines.schedule(c::disconnect,14,TimeUnit.SECONDS);
         c.setConnectTimeout(4000);c.setReadTimeout(5000);c.setInstanceFollowRedirects(true);
-        c.setRequestProperty("User-Agent","PersianSocks/0.28.8");c.setRequestProperty("Accept","application/json");
+        c.setRequestProperty("User-Agent","PersianSocks/0.29.0");c.setRequestProperty("Accept","application/json");
         try{
             int code=c.getResponseCode();
             if(code==429)throw new HProxySource.RateLimited(HProxySource.retryDelay(c.getHeaderField("Retry-After"),System.currentTimeMillis()));
@@ -309,7 +312,7 @@ public final class ProxyScanner {
     }
     private static List<ProxyEndpoint> download(String url,ScanSession session,ProxyEndpoint.Type type) throws Exception {
         if(session.cancelled.get()) return Collections.emptyList();
-        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
+        HttpURLConnection c=http.open(new URL(url));
         session.downloads.add(c);
         ScheduledFuture<?> deadline=session.deadlines.schedule(c::disconnect,14,TimeUnit.SECONDS);
         c.setConnectTimeout(4000); c.setReadTimeout(5000);
@@ -346,7 +349,7 @@ public final class ProxyScanner {
         if(done>0 && healthy==0) b.append("\nهیچ‌کدام از تلگرام، یوتیوب یا اینستاگرام تأیید نشد. از این نتیجه به‌تنهایی نمی‌شود خرابی سرورها را از محدودیت شبکه جدا کرد.\n");
         b.append("\nوضعیت منابع:\n");
         for(String row:rows) b.append(row).append('\n');
-        b.append("\nتلگرام، یوتیوب و اینستاگرام همگی آزمایش می‌شوند. حداقل یک پاسخ ۲۰۰ تا ۳۹۹ با گواهی معتبر لازم است. تأیید UDP فقط پذیرش فرمان است.");
+        b.append("\nتلگرام، یوتیوب و اینستاگرام همگی آزمایش می‌شوند. حداقل یک پاسخ ۲۰۰ تا ۳۹۹ با گواهی معتبر لازم است. تأیید UDP به پاسخ واقعی بستهٔ DNS از رله نیاز دارد.");
         return b.toString();
     }
 }

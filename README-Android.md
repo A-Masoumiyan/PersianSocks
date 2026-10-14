@@ -1,6 +1,8 @@
-# PersianSocks Android 0.28.8
+# PersianSocks Android 0.29.0
 
-نسخهٔ release با package `ir.persiansocks.app`، versionCode 38، حداقل Android 10 / API 29 و target/compile SDK 36 ساخته می‌شود و گواهی رسمی فعلی آن حفظ می‌شود. HProxy فیلترشده در منابع پیش‌فرض SOCKS5 قرار دارد؛ پایداری، تأخیر، سابقه و تازگی بررسی می‌شوند و نامزدهای مناسب پیش از منابع خام قرار می‌گیرند. [جزئیات](docs/android-0288-filtered-sources.md). اصلاحات تشخیص بیکاری TCP، ظرفیت نشست‌ها و بازیابی مسیر فیزیکی نسخهٔ ۰٫۲۸٫۷ حفظ شده‌اند؛ [آزمون قبلی و محدودیت تست گوشی](docs/android-0287-stream-recovery.md).
+هفت ارتقا پیاده شده‌اند: سابقهٔ کیفیت محلی، اسکن تطبیقی، پاسخ واقعی UDP، Room و Paging 3 با RecyclerView، OkHttp، WorkManager و Cronet آزمایشی. [شرح و محدودیت‌های آزمون](docs/android-029-quality-platform.md).
+
+نسخهٔ release با package `ir.persiansocks.app`، versionCode 39، حداقل Android 10 / API 29 و target/compile SDK 36 ساخته می‌شود و گواهی رسمی فعلی آن حفظ می‌شود. HProxy فیلترشده در منابع پیش‌فرض SOCKS5 قرار دارد؛ پایداری، تأخیر، سابقه و تازگی بررسی می‌شوند و نامزدهای مناسب پیش از منابع خام قرار می‌گیرند. [جزئیات](docs/android-0288-filtered-sources.md). اصلاحات تشخیص بیکاری TCP، ظرفیت نشست‌ها و بازیابی مسیر فیزیکی نسخهٔ ۰٫۲۸٫۷ حفظ شده‌اند؛ [آزمون قبلی و محدودیت تست گوشی](docs/android-0287-stream-recovery.md).
 
 ## نسخهٔ ۰.۱۶.۰ — فهرست سبک‌تر، حذف نامعتبرها و کنترل اتصال ساده
 

@@ -82,7 +82,7 @@ public final class ProxyEndpoint {
     public JSONObject json() {
         JSONObject o = new JSONObject();
         try {
-            o.put("host", host); o.put("port", port); o.put("latency", latencyMs); o.put("udp", udpAdvertised);
+            o.put("udpEvidence",2); o.put("host", host); o.put("port", port); o.put("latency", latencyMs); o.put("udp", udpAdvertised);
             o.put("services", serviceMask); o.put("checked", checkedMask); o.put("testedAt", testedAt);
             o.put("latencyAt",latencyAt);o.put("latencyTarget",latencyTarget);o.put("serviceLatencies",new JSONObject(serviceLatencies));
             o.put("extraPassed", new JSONArray(extraPassed)); o.put("extraChecked", new JSONArray(extraChecked));
@@ -92,7 +92,7 @@ public final class ProxyEndpoint {
         return o;
     }
     public static ProxyEndpoint fromJson(JSONObject o) {
-        ProxyEndpoint p=new ProxyEndpoint(o.optString("host"), o.optInt("port"), o.optLong("latency", -1), o.optBoolean("udp", false),
+        ProxyEndpoint p=new ProxyEndpoint(o.optString("host"), o.optInt("port"), o.optLong("latency", -1), o.optInt("udpEvidence",0)>=2 && o.optBoolean("udp", false),
             o.optInt("services", 0), o.optInt("checked", 0), o.optLong("testedAt", 0),
             strings(o.optJSONArray("extraPassed")), strings(o.optJSONArray("extraChecked")), o.optString("country"), typeOf(o.optString("type","SOCKS5")),o.optLong("latencyAt",o.optLong("testedAt",0)),o.optString("latencyTarget"));
         Map<String,Long> timings=new HashMap<>();JSONObject values=o.optJSONObject("serviceLatencies");if(values!=null){java.util.Iterator<String> keys=values.keys();while(keys.hasNext()&&timings.size()<16){String key=keys.next();long value=values.optLong(key,-1);if(key.length()<=1300&&value>0)timings.put(key,value);}}return p.withServiceLatencies(timings);

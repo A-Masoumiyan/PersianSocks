@@ -8,6 +8,10 @@ import org.json.*;
 
 /** Separate atomic files keep a refreshed catalog from replacing a paused scan's inputs. */
 public final class ScanFiles {
+    public interface CatalogBackend {void save(List<ProxyEndpoint> list)throws Exception;List<ProxyEndpoint> load()throws Exception;int count()throws Exception;void prune(Set<String> keys)throws Exception;void merge(List<ProxyEndpoint> incoming)throws Exception;}
+    private static final Map<Path,CatalogBackend> BACKENDS=new java.util.concurrent.ConcurrentHashMap<>();
+    public static void catalogBackend(File path,CatalogBackend backend){BACKENDS.put(path.toPath(),backend);}
+    private CatalogBackend backend(){return BACKENDS.get(directory);}
     private final Path directory;
     private String journalId="";
     private java.lang.ref.WeakReference<ScanCheckpoint> persisted=new java.lang.ref.WeakReference<>(null);
@@ -20,22 +24,31 @@ public final class ScanFiles {
         catch (AtomicMoveNotSupportedException ex) { Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING); }
     }
     public synchronized void saveCatalog(List<ProxyEndpoint> catalog) throws Exception {
+        if(backend()!=null){backend().save(catalog);Files.deleteIfExists(directory.resolve("catalog-pruned.txt"));return;}
         JSONObject value = new JSONObject(); JSONArray list = new JSONArray();
         Set<String> unique = new HashSet<>(); for (ProxyEndpoint p : catalog) if (unique.add(p.key())) list.put(p.key());
         value.put("items", list); value.put("receivedAt", System.currentTimeMillis()); write("proxy-catalog.json", value);
         JSONObject meta=new JSONObject();meta.put("count",unique.size());meta.put("baseline",unique.size());write("catalog-meta.json",meta);Files.deleteIfExists(directory.resolve("catalog-pruned.txt"));
     }
     public synchronized void mergeCatalog(List<ProxyEndpoint> incoming)throws Exception {
+        if(backend()!=null){backend().merge(incoming);return;}
         // Fresh source priorities must survive a refresh; retain older-only entries afterward.
         Map<String,ProxyEndpoint> unique=new LinkedHashMap<>();for(ProxyEndpoint e:incoming)unique.putIfAbsent(e.key(),e);for(ProxyEndpoint e:catalog())unique.putIfAbsent(e.key(),e);saveCatalog(new ArrayList<>(unique.values()));
     }
     private Set<String> pruned()throws Exception {Path file=directory.resolve("catalog-pruned.txt");if(!Files.exists(file))return Collections.emptySet();return new HashSet<>(Files.readAllLines(file,StandardCharsets.UTF_8));}
     private synchronized void pruneCatalog(Set<String> keys)throws Exception {
-        if(keys.isEmpty())return;int count=catalogCount();
+        if(keys.isEmpty())return;
+        if(backend()!=null){
+            // Keep the crash-recovery tombstones alongside the unchanged checkpoint journal.
+            Files.createDirectories(directory);
+            try(FileOutputStream raw=new FileOutputStream(directory.resolve("catalog-pruned.txt").toFile(),true);BufferedWriter out=new BufferedWriter(new OutputStreamWriter(raw,StandardCharsets.UTF_8))){for(String key:keys){out.write(key);out.newLine();}out.flush();raw.getFD().sync();}
+            backend().prune(keys);return;
+        }int count=catalogCount();
         try(FileOutputStream raw=new FileOutputStream(directory.resolve("catalog-pruned.txt").toFile(),true);BufferedWriter out=new BufferedWriter(new OutputStreamWriter(raw,StandardCharsets.UTF_8))){for(String key:keys){out.write(key);out.newLine();}out.flush();raw.getFD().sync();}
         JSONObject meta=new JSONObject(new String(Files.readAllBytes(directory.resolve("catalog-meta.json")),StandardCharsets.UTF_8));meta.put("baseline",meta.optInt("baseline",count));meta.put("count",Math.max(0,count-keys.size()));write("catalog-meta.json",meta);
     }
     public synchronized List<ProxyEndpoint> catalog() throws Exception {
+        if(backend()!=null)return backend().load();
         Path file = directory.resolve("proxy-catalog.json"); if (!Files.exists(file)) return new ArrayList<>();
         JSONArray rows = new JSONObject(new String(Files.readAllBytes(file), StandardCharsets.UTF_8)).getJSONArray("items");
         Set<String> removed=pruned();Map<String, ProxyEndpoint> result = new LinkedHashMap<>();
@@ -68,6 +81,7 @@ public final class ScanFiles {
         Set<String> removed=pruned();state.recoverPruned(removed);Path metaFile=directory.resolve("catalog-meta.json");if(Files.exists(metaFile)){JSONObject meta=new JSONObject(new String(Files.readAllBytes(metaFile),StandardCharsets.UTF_8));if(meta.has("baseline")){meta.put("count",Math.max(0,meta.getInt("baseline")-removed.size()));write("catalog-meta.json",meta);}}return state;
     }
     public synchronized int catalogCount()throws Exception {
+        if(backend()!=null)return backend().count();
         Path meta=directory.resolve("catalog-meta.json");
         if(Files.exists(meta))return new JSONObject(new String(Files.readAllBytes(meta),StandardCharsets.UTF_8)).optInt("count",0);
         Path file=directory.resolve("proxy-catalog.json");if(!Files.exists(file))return 0;

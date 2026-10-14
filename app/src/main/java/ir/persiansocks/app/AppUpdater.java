@@ -39,7 +39,7 @@ public final class AppUpdater {
         for(int count=0;count<6;count++){
             if(cancelled||Thread.currentThread().isInterrupted()||System.nanoTime()>deadline)throw new IOException("Cancelled or expired");
             if(!address.startsWith("https://")||redirects&&!UpdateRelease.trustedDownload(address))throw new IOException("Untrusted download");
-            HttpURLConnection c=(HttpURLConnection)network.openConnection(new URL(address));connection=c;
+            HttpURLConnection c=AppHttp.open(new URL(address),network);connection=c;
             c.setConnectTimeout(10000);c.setReadTimeout(10000);c.setInstanceFollowRedirects(false);c.setRequestProperty("User-Agent","PersianSocks-Updater");c.setRequestProperty("Accept",redirects?"application/octet-stream":"application/vnd.github+json");
             int status=c.getResponseCode();
             if(status>=300&&status<=399&&redirects){String location=c.getHeaderField("Location");c.disconnect();if(location==null)throw new IOException("Missing redirect");address=new URL(new URL(address),location).toString();continue;}

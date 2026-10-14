@@ -1,0 +1,11 @@
+{
+  "artifacts": {
+    "org.chromium.net/cronet-bundled/500.1.0/5d36e13c1ec78f6b7ae8797a7908945cff970c15/cronet-bundled-500.1.0.aar": "fa286aeebe66dcab4a64df017d566cb8ec563c3bb63af527997c3a4e056bf295"
+  },
+  "native": {
+    "lib/arm64-v8a/libcronet.155.0.8059.16.so": "a1e67b83633a7cd848d6e5b023c77a89c4536360ee9ddd1db58688fff43abe38",
+    "lib/armeabi-v7a/libcronet.155.0.8059.16.so": "5b7e2326be04e690548bd1fd85125b4a847b487a026ddf1c020075615f30c3c4",
+    "lib/x86/libcronet.155.0.8059.16.so": "5e8bae529f820f3a4071592b3df9611c2dc10d90e2366b35597d74973508d4cf",
+    "lib/x86_64/libcronet.155.0.8059.16.so": "c177e52f3dfcf8d89f42c15e30278a543f68a93aa181604c1621d39afc65026b"
+  }
+}

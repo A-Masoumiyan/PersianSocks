@@ -43,6 +43,8 @@ public final class VpnTileService extends TileService {
         super.onClick();
         if(isLocked())unlockAndRun(this::openCommand);else openCommand();
     }
+    // The Intent overload is required on API 29–33; API 34+ uses PendingIntent above.
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
     private void openCommand(){
         if(Build.VERSION.SDK_INT>=34)startActivityAndCollapse(QuickControls.command(this,QuickControls.TOGGLE,411));
         else startActivityAndCollapse(new Intent(this,ControlActivity.class).setAction(QuickControls.TOGGLE)

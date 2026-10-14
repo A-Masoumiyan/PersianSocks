@@ -8,6 +8,9 @@ public final class ProxyIndex extends AbstractList<ProxyEndpoint> {
     private final LinkedHashMap<String,ProxyEndpoint> good = new LinkedHashMap<>();
     private final Map<String,Long> changed = new HashMap<>();
     private long revision;
+    private java.util.function.Consumer<Record> listener;
+    public synchronized void listener(java.util.function.Consumer<Record> listener){this.listener=listener;}
+    private void changed(String key,long time,ProxyEndpoint p){if(listener!=null)listener.accept(new Record(key,time,p));}
     public synchronized long revision() { return revision; }
     public synchronized int size() { return good.size(); }
     public synchronized ProxyEndpoint get(int index) { return snapshot().get(index); }
@@ -16,7 +19,7 @@ public final class ProxyIndex extends AbstractList<ProxyEndpoint> {
     @Override public Iterator<ProxyEndpoint> iterator() { return snapshot().iterator(); }
     @Override public synchronized boolean add(ProxyEndpoint p) { return accept(p); }
     @Override public synchronized void add(int index,ProxyEndpoint p) { accept(p); }
-    @Override public synchronized void clear() { good.clear(); changed.clear(); revision++; }
+    @Override public synchronized void clear() {for(String key:new ArrayList<>(changed.keySet()))reject(key,System.currentTimeMillis());revision++;}
     @Override public synchronized boolean removeIf(java.util.function.Predicate<? super ProxyEndpoint> predicate) {
         boolean removed=false;
         for (ProxyEndpoint p:snapshot()) if(predicate.test(p)) { reject(p.key(),System.currentTimeMillis()); removed=true; }
@@ -28,12 +31,12 @@ public final class ProxyIndex extends AbstractList<ProxyEndpoint> {
         if (time < changed.getOrDefault(p.key(),0L)) return false;
         // A success must be newer than a remembered failure, even if the clock has millisecond ties.
         if (!good.containsKey(p.key()) && changed.containsKey(p.key()) && time == changed.get(p.key())) return false;
-        good.put(p.key(),p); changed.put(p.key(),time); revision++; return true;
+        good.put(p.key(),p); changed.put(p.key(),time); revision++; changed(p.key(),time,p); return true;
     }
     public synchronized boolean reject(String key,long time) {
         if(time < changed.getOrDefault(key,0L)) return false;
         boolean existed=good.remove(key)!=null;
-        changed.put(key,time); revision++; return existed;
+        changed.put(key,time); revision++; changed(key,time,null); return existed;
     }
     public synchronized boolean rejected(String key) { return changed.containsKey(key) && !good.containsKey(key); }
     public void apply(ScanCheckpoint checkpoint) {
