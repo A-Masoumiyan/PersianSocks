@@ -16,7 +16,7 @@ root=Path(__file__).resolve().parents[1]
 subprocess.run([sys.executable,str(root/'tests/check-localization.py')],check=True)
 jdk=Path(a.jdk).resolve();json=Path(a.json).resolve()
 names=['PhysicalRouteTracker','ConnectionPreflight','IdleStopPolicy','ScanProbePolicy','TestDownloadPolicy','IconRetryPolicy','DnsMessage','IconPolicy','UpdateRelease','ProbeFailurePolicy','PublicIpEvidence','ProxyEndpoint','ProxyTransport','ProxyResults','ServiceTargets','CountryLookup','Socks5Probe','ProxyScanner',
-    'SourceCatalog','ProtectedSocksGateway','TunnelVerifier','AutoScanSelection','FailoverPolicy','QuickControlState','TrafficMeter','DownloadSpeedTest','DistributionPolicy','SingleProxyTest','ProxyHttpConnection','ProxyTestResult','ScanCheckpoint','ScanFiles','PreparedScanner','ProxyIndex','ProxyCacheFile','SplitTunnelPolicy','FilteredSpeedBatch']
+    'SourceCatalog','HProxySource','ProtectedSocksGateway','TunnelVerifier','AutoScanSelection','FailoverPolicy','QuickControlState','TrafficMeter','DownloadSpeedTest','DistributionPolicy','SingleProxyTest','ProxyHttpConnection','ProxyTestResult','ScanCheckpoint','ScanFiles','PreparedScanner','ProxyIndex','ProxyCacheFile','SplitTunnelPolicy','FilteredSpeedBatch']
 with tempfile.TemporaryDirectory(prefix='persiansocks-tests-') as tmp:
     work=Path(tmp);classes=work/'classes';classes.mkdir();tls=work/'tls.p12'
     def run(*args):subprocess.run([str(x) for x in args],check=True)
@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='persiansocks-tests-') as tmp:
     flag.write_text('package ir.persiansocks.app; public final class BuildConfig { public static final boolean PLAY_DISTRIBUTION = false; }')
     src=[root/'app/src/main/java/ir/persiansocks/app'/(name+'.java') for name in names]+list((root/'tests').glob('*.java'))+[flag]
     run(jdk/'bin/javac','-encoding','UTF-8','-cp',json,'-d',classes,*src)
-    for name,extra in [('StreamRecoveryHarness',[tls]),('ScanHarness',[tls]),('FeatureHarness',[root/'app/src/main/assets/ip-country.bin']),
+    for name,extra in [('HProxySourceHarness',[]),('StreamRecoveryHarness',[tls]),('ScanHarness',[tls]),('FeatureHarness',[root/'app/src/main/assets/ip-country.bin']),
             ('ReconnectPriorityHarness',[tls]),('ConfiguredTargetsHarness',[tls]),('UpdateReleaseHarness',[]),('DnsIconHarness',[]),('ScanPressureHarness',[]),('ScanJournalHarness',[]),('ScanConcurrencyHarness',[]),('ControlsHarness',[]),('ResultsHarness',[]),('DownloadRankingHarness',[]),('PingFilterHarness',[]),('SplitTunnelHarness',[]),('FilteredSpeedHarness',[]),('MaxScanHarness',[]),('ProtocolTrafficHarness',[tls]),('OptionalTlsHarness',[tls]),('SingleProxyHarness',[tls]),('ResultDisplayHarness',[]),('ScanResumeHarness',[tls]),('LargeCacheHarness',[]),('ScanRouteHarness',[tls]),('BatchCompactionHarness',[]),('RetestEvidenceHarness',[]),('GatewaySecurityHarness',[]),('DownloadFallbackHarness',[])]:
         run(jdk/'bin/java',*(['-Xmx128m'] if name in ['LargeCacheHarness','ScanPressureHarness'] else []),'-cp',str(classes)+os.pathsep+str(json),name,*extra)
     # Compile the whole transport stack again for Play; javac inlines the immutable flag.

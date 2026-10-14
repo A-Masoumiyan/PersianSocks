@@ -26,7 +26,8 @@ public final class ScanFiles {
         JSONObject meta=new JSONObject();meta.put("count",unique.size());meta.put("baseline",unique.size());write("catalog-meta.json",meta);Files.deleteIfExists(directory.resolve("catalog-pruned.txt"));
     }
     public synchronized void mergeCatalog(List<ProxyEndpoint> incoming)throws Exception {
-        Map<String,ProxyEndpoint> unique=new LinkedHashMap<>();for(ProxyEndpoint e:catalog())unique.put(e.key(),e);for(ProxyEndpoint e:incoming)unique.putIfAbsent(e.key(),e);saveCatalog(new ArrayList<>(unique.values()));
+        // Fresh source priorities must survive a refresh; retain older-only entries afterward.
+        Map<String,ProxyEndpoint> unique=new LinkedHashMap<>();for(ProxyEndpoint e:incoming)unique.putIfAbsent(e.key(),e);for(ProxyEndpoint e:catalog())unique.putIfAbsent(e.key(),e);saveCatalog(new ArrayList<>(unique.values()));
     }
     private Set<String> pruned()throws Exception {Path file=directory.resolve("catalog-pruned.txt");if(!Files.exists(file))return Collections.emptySet();return new HashSet<>(Files.readAllLines(file,StandardCharsets.UTF_8));}
     private synchronized void pruneCatalog(Set<String> keys)throws Exception {
