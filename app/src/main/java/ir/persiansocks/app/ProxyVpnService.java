@@ -62,7 +62,7 @@ public final class ProxyVpnService extends VpnService {
     public static int phase() { return phase; }
     public static boolean protectTestSocket(Socket socket) {
         ProxyVpnService service = instance.get();
-        return service == null || service.protect(socket);
+        return service == null || service.tun==null || service.protect(socket);
     }
     public static String activeEndpoint() { return activeEndpoint; }
     public static boolean autoScanning() { return autoScanning; }
@@ -74,8 +74,9 @@ public final class ProxyVpnService extends VpnService {
     private static final String CH = "persiansocks_vpn";
     private static final int ID = 901;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private ParcelFileDescriptor tun;
+    private volatile ParcelFileDescriptor tun;
     private volatile int generation = 0;
+    private int commandStartId;private boolean destroying;
     private String current = "";
     private ProtectedSocksGateway gateway;
     private AtomicBoolean cancelled = new AtomicBoolean(true);
@@ -109,13 +110,14 @@ public final class ProxyVpnService extends VpnService {
     @Override public IBinder onBind(Intent intent) { return super.onBind(intent); }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if(startId>0)commandStartId=startId;
         if (intent == null) return START_NOT_STICKY;
         ScanInputs.initializePolicy(this);
         if (DISCONNECT.equals(intent.getAction())) {
             clearConnectionError();userRequested = false;
             closeTunnel();
             announce(AppLanguage.t(R.string.ui_extra_011));
-            stopSelf();
+            scheduleIdleStop();
             return START_NOT_STICKY;
         }
         if((CONNECT.equals(intent.getAction())||CONNECT_CACHED.equals(intent.getAction())||SCAN_CONNECT.equals(intent.getAction()))&&!VpnDisclosure.accepted(this)){
@@ -152,7 +154,7 @@ public final class ProxyVpnService extends VpnService {
             clearConnectionError();
             String input = intent.getStringExtra(EXTRA_ENDPOINT);
             ProxyEndpoint e = ProxyEndpoint.parse(input);
-            if (e == null) { announce(AppLanguage.t(R.string.ui_extra_017)); stopSelf(); return START_NOT_STICKY; }
+            if (e == null) { announce(AppLanguage.t(R.string.ui_extra_017)); scheduleIdleStop(); return START_NOT_STICKY; }
             newSessionPending=true;
             if(!DistributionPolicy.allows(e)){finishConnection(AppLanguage.t(R.string.ui_extra_018));return START_NOT_STICKY;}
             userRequested = true;
@@ -251,7 +253,7 @@ public final class ProxyVpnService extends VpnService {
     private PhysicalTestNetwork tunnelPhysical;
     private void beginConnect(ProxyEndpoint proxy) {
         if(!DistributionPolicy.allows(proxy)){finishConnection(AppLanguage.t(R.string.ui_extra_032));return;}
-        closeTunnel();
+        clearConnectionError();closeTunnel();
         resetTrafficSession();
         int token = ++generation;
         cancelled = new AtomicBoolean(false);
@@ -265,25 +267,26 @@ public final class ProxyVpnService extends VpnService {
             Notification n = notification(AppLanguage.t(R.string.ui_extra_035));
             if (Build.VERSION.SDK_INT >= 34) startForeground(ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(ID, n);
-        } catch (Throwable t) { saveVpnReport(AppLanguage.t(R.string.ui_extra_036) + t); announce(AppLanguage.t(R.string.ui_extra_037) + t.getMessage()); closeTunnel(); stopSelf(); return; }
+        } catch (Throwable t) { saveVpnReport(AppLanguage.t(R.string.ui_extra_036) + t); announce(AppLanguage.t(R.string.ui_extra_037) + t.getMessage()); userRequested=false;closeTunnel(); scheduleIdleStop(); return; }
         announce(AppLanguage.t(R.string.ui_extra_038) + ProxyResults.label(requiredFilter) + "»: " + current);
+        final ServiceTargets.Target preflightTarget=ConnectionPreflight.target(requiredFilter,ProxyStore.index().find(proxy.key()));
         new Thread(() -> {
-            Socks5Probe.Result checked;PhysicalTestNetwork physical=null;
-            try {physical=PhysicalTestNetwork.capture(this);checked=Socks5Probe.inspect(proxy,true,stop,probeSockets,physical::socket,physical::resolve);
-                if(checked.endpoint==null&&ProbeFailurePolicy.transientFailure(checked.failure)&&!stop.get()){Thread.sleep(350);checked=Socks5Probe.inspect(proxy,true,stop,probeSockets,physical::socket,physical::resolve);}}
-            catch(Exception ex){checked=new Socks5Probe.Result(null,Socks5Probe.Failure.IO_ERROR,false,false);}
-            final Socks5Probe.Result verified=checked;final PhysicalTestNetwork chosenPhysical=physical;
+            final PhysicalTestNetwork[] physical={null};
+            Socks5Probe.Result checked=ConnectionPreflight.run(()->{
+                PhysicalTestNetwork path=PhysicalTestNetwork.capture(this);physical[0]=path;
+                return ConnectionPreflight.inspect(proxy,preflightTarget,stop,probeSockets,path::socket,path::resolve);
+            },Thread::sleep,stop,attempt->handler.post(()->{if(token==generation&&!stop.get()&&attempt>1)announce(AppLanguage.t(R.string.ui_connect_retry)+attempt+"/3");}));
+            final Socks5Probe.Result verified=checked;final PhysicalTestNetwork chosenPhysical=physical[0];
             handler.post(() -> {
                 if (token != generation || stop.get()) return;
-                if (verified.endpoint == null || !ProxyResults.accepts(verified.endpoint, requiredFilter)) {
+                if (verified.endpoint == null) {
                     String msg = AppLanguage.t(R.string.ui_extra_039) + Socks5Probe.describe(verified.failure);
                     if (verified.endpoint != null) msg = AppLanguage.t(R.string.ui_extra_040) + ProxyResults.label(requiredFilter) + AppLanguage.t(R.string.ui_extra_041);
                     failConnection(msg,verified.endpoint==null&&ProbeFailurePolicy.invalidates(verified.failure)); return;
                 }
-                ProxyStore.index().accept(verified.endpoint);ProxyStore.save(this,ProxyStore.index());
                 lastProfile = verified.endpoint;tunnelPhysical=chosenPhysical;
-                announce(AppLanguage.t(R.string.ui_extra_042) + verified.endpoint.passedServices(), verified.endpoint);
-                openTunnel(verified.endpoint, token);
+                announce(AppLanguage.t(R.string.ui_extra_042) + verified.endpoint.passedServices());
+                handler.postDelayed(()->{if(token==generation&&!stop.get())openTunnel(verified.endpoint,token);},300);
             });
         }, "vpn-service-preflight").start();
     }
@@ -465,9 +468,13 @@ public final class ProxyVpnService extends VpnService {
         }
         return false;
     }
+    private void scheduleIdleStop(){
+        final int stoppedGeneration=generation,stoppedStart=commandStartId;
+        handler.postDelayed(()->{if(!destroying&&IdleStopPolicy.allowed(stoppedGeneration,generation,stoppedStart,commandStartId,userRequested)&&tun==null&&!autoScanning){if(stoppedStart>0)stopSelfResult(stoppedStart);else stopSelf();}},1000);
+    }
     private void finishConnection(String message){finishConnection(message,true);}
     private void finishConnection(String message,boolean error){
-        userRequested=false;saveVpnReport(message);if(!error)clearConnectionError();closeTunnel();if(error)announceError(message);else announce(message);stopSelf();
+        userRequested=false;saveVpnReport(message);if(!error)clearConnectionError();closeTunnel();if(error)announceError(message);else announce(message);scheduleIdleStop();
     }
     private void failConnection(String reason){failConnection(reason,false);}
     private void failConnection(String reason,boolean invalidates) {
@@ -561,7 +568,7 @@ public final class ProxyVpnService extends VpnService {
     }
     private void closeTunnel() {
         if(trafficMeter!=null){sampleTraffic(false);trafficSnapshot=trafficMeter.stopped();persistTraffic();publishTraffic();}
-        generation++;
+        generation++;tunnelPhysical=null;
         PreparedScanner stoppedScanner=automaticScanner;automaticScanner=null;
         if(stoppedScanner!=null){stoppedScanner.requestStop();ProxyStore.IO.execute(()->{try{ScanCheckpoint saved=stoppedScanner.pause();if(saved!=null)ProxyStore.index().apply(saved);ProxyStore.save(this,ProxyStore.index());}catch(Exception ex){android.util.Log.e("PersianSocks","Stop save failed",ex);}});}
         if(autoScanning&&autoSelection!=null){
@@ -572,7 +579,7 @@ public final class ProxyVpnService extends VpnService {
         cancelled.set(true);
         Socks5Probe.setSocketMaker(null);Socks5Probe.setResolver(null);
         verifiedServices = "";
-        for (Socket s : probeSockets) { try { s.close(); } catch (Exception ignored) {} }
+        for (Socket s : probeSockets) { try { s.close(); } catch (Exception ignored) {} }probeSockets.clear();
         handler.removeCallbacksAndMessages(null);
         if (gateway != null) { gateway.close(); gateway = null; }
         try { TProxyService.TProxyStopService(); } catch (Throwable ignored) {}
@@ -629,9 +636,9 @@ public final class ProxyVpnService extends VpnService {
             .addAction(new Notification.Action.Builder(null, autoScanning?AppLanguage.t(R.string.ui_extra_079):AppLanguage.t(R.string.ui_extra_080), stopPi).build())
             .build();
     }
-    @Override public void onRevoke() { userRequested=false; closeTunnel(); announce(AppLanguage.t(R.string.ui_extra_081)); stopSelf(); super.onRevoke(); }
+    @Override public void onRevoke() { userRequested=false; closeTunnel(); announce(AppLanguage.t(R.string.ui_extra_081)); scheduleIdleStop(); super.onRevoke(); }
     @Override public void onDestroy() {
-        userRequested=false;closeTunnel();
+        destroying=true;userRequested=false;closeTunnel();
         if(instance.get()==this)instance.clear();
         super.onDestroy();
     }

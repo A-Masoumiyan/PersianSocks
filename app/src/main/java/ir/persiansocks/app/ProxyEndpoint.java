@@ -18,6 +18,7 @@ public final class ProxyEndpoint {
     public final long testedAt;
     public final long latencyAt;
     public final String latencyTarget;
+    public final Map<String,Long> serviceLatencies;
     public final Set<String> extraPassed, extraChecked;
     public final String countryCode;
 
@@ -44,6 +45,11 @@ public final class ProxyEndpoint {
     }
     private ProxyEndpoint(String host,int port,long latencyMs,boolean udpAdvertised,int serviceMask,int checkedMask,
             long testedAt,Set<String> extraPassed,Set<String> extraChecked,String countryCode,Type type,long latencyAt,String latencyTarget) {
+        this(host,port,latencyMs,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,latencyAt,latencyTarget,Collections.emptyMap());
+    }
+    private ProxyEndpoint(String host,int port,long latencyMs,boolean udpAdvertised,int serviceMask,int checkedMask,
+            long testedAt,Set<String> extraPassed,Set<String> extraChecked,String countryCode,Type type,long latencyAt,String latencyTarget,Map<String,Long> timings) {
+        this.serviceLatencies=timings.isEmpty()?Collections.emptyMap():Collections.unmodifiableMap(new HashMap<>(timings));
         this.latencyTarget=latencyTarget;this.type=type;
         this.host = host;
         this.port = port;
@@ -59,9 +65,11 @@ public final class ProxyEndpoint {
     }
     public String address() { return host + ":" + port; }
     public String key(){return type==Type.SOCKS5?address():type.name().toLowerCase(Locale.US)+"://"+address();}
-    public ProxyEndpoint withType(Type t){return new ProxyEndpoint(host,port,latencyMs,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,t,latencyAt,latencyTarget);}
-    public ProxyEndpoint withLatency(long value){return new ProxyEndpoint(host,port,value,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,System.currentTimeMillis(),latencyTarget);}
-    public ProxyEndpoint withLatency(long value,String target){return new ProxyEndpoint(host,port,value,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,System.currentTimeMillis(),target);}
+    public ProxyEndpoint withType(Type t){return new ProxyEndpoint(host,port,latencyMs,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,t,latencyAt,latencyTarget,serviceLatencies);}
+    public ProxyEndpoint withLatency(long value){return new ProxyEndpoint(host,port,value,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,System.currentTimeMillis(),latencyTarget,serviceLatencies);}
+    public ProxyEndpoint withLatency(long value,String target){return new ProxyEndpoint(host,port,value,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,System.currentTimeMillis(),target,serviceLatencies);}
+    public ProxyEndpoint withServiceLatencies(Map<String,Long> timings){return new ProxyEndpoint(host,port,latencyMs,udpAdvertised,serviceMask,checkedMask,testedAt,extraPassed,extraChecked,countryCode,type,latencyAt,latencyTarget,timings);}
+    public long instagramLatency(){if(!passed(INSTAGRAM))return Long.MAX_VALUE;long value=serviceLatencies.getOrDefault(ServiceTargets.ALL[2].url(),Long.MAX_VALUE);return value>0?value:Long.MAX_VALUE;}
     public boolean isPublicIpv4() {
         String[] parts = host.split("\\.");
         if(parts.length!=4 || !host.matches("[0-9.]+"))return false;
@@ -76,7 +84,7 @@ public final class ProxyEndpoint {
         try {
             o.put("host", host); o.put("port", port); o.put("latency", latencyMs); o.put("udp", udpAdvertised);
             o.put("services", serviceMask); o.put("checked", checkedMask); o.put("testedAt", testedAt);
-            o.put("latencyAt",latencyAt);o.put("latencyTarget",latencyTarget);
+            o.put("latencyAt",latencyAt);o.put("latencyTarget",latencyTarget);o.put("serviceLatencies",new JSONObject(serviceLatencies));
             o.put("extraPassed", new JSONArray(extraPassed)); o.put("extraChecked", new JSONArray(extraChecked));
             o.put("country", countryCode); o.put("type",type.name());
         }
@@ -87,7 +95,7 @@ public final class ProxyEndpoint {
         ProxyEndpoint p=new ProxyEndpoint(o.optString("host"), o.optInt("port"), o.optLong("latency", -1), o.optBoolean("udp", false),
             o.optInt("services", 0), o.optInt("checked", 0), o.optLong("testedAt", 0),
             strings(o.optJSONArray("extraPassed")), strings(o.optJSONArray("extraChecked")), o.optString("country"), typeOf(o.optString("type","SOCKS5")),o.optLong("latencyAt",o.optLong("testedAt",0)),o.optString("latencyTarget"));
-        return p;
+        Map<String,Long> timings=new HashMap<>();JSONObject values=o.optJSONObject("serviceLatencies");if(values!=null){java.util.Iterator<String> keys=values.keys();while(keys.hasNext()&&timings.size()<16){String key=keys.next();long value=values.optLong(key,-1);if(key.length()<=1300&&value>0)timings.put(key,value);}}return p.withServiceLatencies(timings);
     }
     private static Type typeOf(String value){try{return Type.valueOf(value);}catch(Exception ignored){return Type.SOCKS5;}}
     private static Set<String> strings(JSONArray array) {

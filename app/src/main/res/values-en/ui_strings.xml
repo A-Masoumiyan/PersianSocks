@@ -540,4 +540,7 @@
     <string name="ui_target_html" formatted="false">"The file URL returned an HTML page"</string>
     <string name="ui_target_domain_error" formatted="false">"The URL host must be a configured test domain"</string>
     <string name="ui_target_url_error" formatted="false">"Invalid file URL"</string>
+    <string name="ui_connect_retry" formatted="false">"Retrying with a fresh network path: "</string>
+    <string name="ui_instagram_priority" formatted="false">"Instagram priority"</string>
+    <string name="ui_instagram_help" formatted="false">"Successful, faster Instagram responses take priority; your selected sorting is applied afterwards."</string>
 </resources>

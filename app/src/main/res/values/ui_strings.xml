@@ -540,4 +540,7 @@
     <string name="ui_target_html" formatted="false">"لینک فایل به صفحهٔ HTML پاسخ داد"</string>
     <string name="ui_target_domain_error" formatted="false">"دامنهٔ لینک باید در دامنه‌های تست باشد"</string>
     <string name="ui_target_url_error" formatted="false">"لینک فایل معتبر نیست"</string>
+    <string name="ui_connect_retry" formatted="false">"تلاش مجدد با مسیر شبکهٔ تازه: "</string>
+    <string name="ui_instagram_priority" formatted="false">"اولویت اینستاگرام"</string>
+    <string name="ui_instagram_help" formatted="false">"اولویت نخست با پاسخ موفق و سریع‌تر اینستاگرام است؛ مرتب‌سازی انتخابی در مرحلهٔ بعد اعمال می‌شود."</string>
 </resources>

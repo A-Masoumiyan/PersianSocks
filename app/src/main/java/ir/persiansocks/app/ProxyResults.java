@@ -7,6 +7,9 @@ import java.util.List;
 /** Presentation choices operate on a copy, preserving scanner and connection state. */
 public final class ProxyResults {
     private ProxyResults() {}
+    private static volatile boolean instagramFirst;
+    public static void instagramFirst(boolean value){instagramFirst=value;}
+    public static List<ProxyEndpoint> pinActive(List<ProxyEndpoint> rows,ProxyEndpoint active,boolean includeMissing){List<ProxyEndpoint> copy=new ArrayList<>(rows);if(active==null)return copy;boolean existed=copy.removeIf(p->p.key().equals(active.key()));if(existed||includeMissing)copy.add(0,active);return copy;}
     public enum Filter {
         ALL("همه", 0), TELEGRAM("تلگرام", ProxyEndpoint.TELEGRAM),
         YOUTUBE("یوتیوب", ProxyEndpoint.YOUTUBE), INSTAGRAM("اینستاگرام", ProxyEndpoint.INSTAGRAM), FULL("کامل", 7);
@@ -104,6 +107,7 @@ public final class ProxyResults {
                 break;
             default: comparator = latency;
         }
+        if(instagramFirst)comparator=Comparator.comparingInt((ProxyEndpoint p)->p.passed(ProxyEndpoint.INSTAGRAM)?0:1).thenComparingLong(ProxyEndpoint::instagramLatency).thenComparing(comparator);
         list.sort(comparator.thenComparing(ProxyEndpoint::key));
         return list;
     }

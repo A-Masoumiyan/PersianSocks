@@ -17,7 +17,7 @@ public final class ScanInputs {
         // Mask 4 was persisted by the old fixed-TLS build; ordinary UI choices are 1, 6 or 7.
         if(!DistributionPolicy.play()&&p.getInt("scan-types",7)==4)p.edit().putInt("scan-types",7).apply();
         DistributionPolicy.setUserTlsOnly(p.getBoolean("tls-only",false));
-        configureTests(context);
+        configureTests(context);ProxyResults.instagramFirst(true);
     }
     public static void configureTests(Context context){SharedPreferences p=prefs(context);ScanProbePolicy.configure(p.getBoolean("scan-ping-only",false),p.getString("ping-target-url",""));}
     public static String speedUrl(Context context){return prefs(context).getString("speed-target-url","");}
