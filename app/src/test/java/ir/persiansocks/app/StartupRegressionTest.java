@@ -125,6 +125,34 @@ public class StartupRegressionTest {
             }finally{owner.destroy();}
         }
     }
+    @Test public void newAndRestartScansShowOnlyTwoModesWhileResumeSkipsTheDialog()throws Exception{
+        Context c=RuntimeEnvironment.getApplication();Shadows.shadowOf(c.getSystemService(android.net.ConnectivityManager.class)).clearAllNetworks();
+        org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            MainActivity activity=owner.get();ReflectionHelpers.setField(activity,"localDataLoaded",true);ReflectionHelpers.setField(activity,"catalogCount",10);ReflectionHelpers.callInstanceMethod(activity,"updateActions");
+            android.widget.Button play=ReflectionHelpers.getField(activity,"scanToggle"),restart=ReflectionHelpers.getField(activity,"scanRestart");play.performClick();
+            android.app.AlertDialog first=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(2,first.getListView().getAdapter().getCount());assertEquals(AppLanguage.t(R.string.ui_scan_fast),first.getListView().getAdapter().getItem(0));assertEquals(AppLanguage.t(R.string.ui_scan_deep),first.getListView().getAdapter().getItem(1));first.dismiss();
+            ScanCheckpoint paused=new ScanCheckpoint(Arrays.asList(ProxyEndpoint.parse("8.8.8.8:1080"),ProxyEndpoint.parse("9.9.9.9:1080")),new ProxyScanner.Options(100,true),"CATALOG");paused.record(0,new Socks5Probe.Result(good("8.8.8.8",1080,System.currentTimeMillis()),Socks5Probe.Failure.NONE,true,true));
+            ReflectionHelpers.setField(activity,"checkpoint",paused);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(UiIconButton.Kind.PLAY,ReflectionHelpers.getField(play,"kind"));assertEquals(AppLanguage.t(R.string.ui_scan_resume),play.getContentDescription().toString());
+            play.performClick();assertSame(first,org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());assertSame(paused,ReflectionHelpers.getField(activity,"checkpoint"));assertTrue(paused.slow);
+            restart.performClick();android.app.AlertDialog again=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertNotSame(first,again);assertEquals(2,again.getListView().getAdapter().getCount());again.dismiss();
+            ReflectionHelpers.setField(activity,"scanning",true);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(UiIconButton.Kind.PAUSE,ReflectionHelpers.getField(play,"kind"));assertFalse(restart.isEnabled());ReflectionHelpers.setField(activity,"scanning",false);
+        }finally{owner.destroy();}
+    }
+    @Test public void pausedCountersStayLeftOfControlsAndKeepOriginalDenominator(){
+        Context c=RuntimeEnvironment.getApplication();
+        for(String language:new String[]{"fa","en"}){
+            AppLanguage.select(c,language);org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
+            try{
+                MainActivity activity=owner.get();ReflectionHelpers.setField(activity,"localDataLoaded",true);ReflectionHelpers.setField(activity,"catalogCount",500);
+                ScanCheckpoint paused=new ScanCheckpoint(Arrays.asList(ProxyEndpoint.parse("8.8.8.8:1080"),ProxyEndpoint.parse("9.9.9.9:1080")),new ProxyScanner.Options(100,false),"CATALOG");paused.record(0,new Socks5Probe.Result(good("8.8.8.8",1080,System.currentTimeMillis()),Socks5Probe.Failure.NONE,true,true));ReflectionHelpers.setField(activity,"checkpoint",paused);ReflectionHelpers.callInstanceMethod(activity,"updateActions");
+                TextView total=ReflectionHelpers.getField(activity,"scanTotal"),checked=ReflectionHelpers.getField(activity,"scanChecked");assertTrue(total.getText().toString().contains("2"));assertTrue(checked.getText().toString().contains("1"));
+                android.view.View counts=(android.view.View)((android.view.View)total.getParent()).getParent();android.view.View restart=ReflectionHelpers.getField(activity,"scanRestart");android.view.ViewGroup row=(android.view.ViewGroup)counts.getParent();
+                int width=(int)(320*c.getResources().getDisplayMetrics().density);row.measure(android.view.View.MeasureSpec.makeMeasureSpec(width,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(0,android.view.View.MeasureSpec.UNSPECIFIED));row.layout(0,0,width,row.getMeasuredHeight());assertTrue(counts.getRight()<=restart.getLeft());
+                android.widget.ProgressBar bar=ReflectionHelpers.getField(activity,"scanProgress");assertEquals(android.view.View.VISIBLE,bar.getVisibility());assertFalse(bar.isIndeterminate());assertEquals(50,bar.getProgress());
+            }finally{owner.destroy();}
+        }
+    }
     private PhysicalTestNetwork physical()throws Exception{
         Context c=RuntimeEnvironment.getApplication();android.net.ConnectivityManager manager=c.getSystemService(android.net.ConnectivityManager.class);org.robolectric.shadows.ShadowConnectivityManager shadow=Shadows.shadowOf(manager);shadow.clearAllNetworks();
         android.net.Network n=ReflectionHelpers.callConstructor(android.net.Network.class,ReflectionHelpers.ClassParameter.from(int.class,193));android.net.NetworkInfo info=org.robolectric.shadows.ShadowNetworkInfo.newInstance(android.net.NetworkInfo.DetailedState.CONNECTED,android.net.ConnectivityManager.TYPE_WIFI,0,true,true);shadow.addNetwork(n,info);shadow.setActiveNetworkInfo(info);

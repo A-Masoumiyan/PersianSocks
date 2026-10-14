@@ -553,4 +553,13 @@
     <string name="ui_maintenance_help">تازه‌سازی کوتاه هر ۶ ساعت، روی اینترنت بدون هزینهٔ حجمی و با باتری مناسب. Cronet فقط دریافت‌های خود برنامه را تغییر می‌دهد.</string>
     <string name="ui_proxy_unavailable" formatted="false">"در دسترس نیست"</string>
     <string name="ui_loading_proxies">بارگذاری پروکسی‌ها…</string>
+    <string name="ui_scan_fast">اسکن سریع</string>
+    <string name="ui_scan_deep">اسکن عمیق</string>
+    <string name="ui_scan_choose">نوع اسکن را انتخاب کن</string>
+    <string name="ui_scan_pause">مکث اسکن</string>
+    <string name="ui_scan_resume">ادامهٔ اسکن</string>
+    <string name="ui_scan_restart">اسکن از ابتدا</string>
+    <string name="ui_scan_total">کل</string>
+    <string name="ui_scan_checked">بررسی‌شده</string>
+    <string name="ui_scan_healthy">اسکن مجدد سالم‌ها</string>
 </resources>

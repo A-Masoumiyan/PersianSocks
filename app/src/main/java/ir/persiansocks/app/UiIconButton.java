@@ -6,7 +6,7 @@ import android.content.res.ColorStateList;
 import android.widget.Button;
 /** Small vector actions with a generous touch target and an accessible description. */
 public final class UiIconButton extends Button {
-    public enum Kind {STAR,INFO,SYNC,CONNECT,DOWNLOAD,SPLIT,SOURCE,TARGET,PRIVACY,TELEGRAM,UPDATE,FILTER,SORT,PING,PROTOCOL,COLLECT,SCAN,STOP,BACK}
+    public enum Kind {STAR,INFO,SYNC,CONNECT,DOWNLOAD,SPLIT,SOURCE,TARGET,PRIVACY,TELEGRAM,UPDATE,FILTER,SORT,PING,PROTOCOL,COLLECT,SCAN,PLAY,PAUSE,RESTART,STOP,BACK}
     private Kind kind;private boolean active;
     public UiIconButton(Context c,Kind k,String description){super(c);kind=k;setContentDescription(description);setTooltipText(description);setText("");setMinWidth(0);setMinHeight(0);setMinimumWidth(0);setMinimumHeight(0);setPadding(0,0,0,0);setBackgroundTintList(null);setStateListAnimator(null);setTextColor(Color.rgb(166,188,204));
         GradientDrawable bg=new GradientDrawable();bg.setColor(Color.rgb(23,33,49));bg.setCornerRadius(12*c.getResources().getDisplayMetrics().density);bg.setStroke(1,Color.rgb(48,65,80));setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(60,70,226,184)),bg,null));}
@@ -14,7 +14,7 @@ public final class UiIconButton extends Button {
     public void active(boolean on){active=on;invalidate();}
     @Override protected void onDraw(Canvas canvas){
         float d=getResources().getDisplayMetrics().density,s=Math.min(24*d,Math.min(getWidth(),getHeight())*.62f);canvas.save();canvas.translate((getWidth()-s)/2,(getHeight()-s)/2);canvas.scale(s/24,s/24);
-        Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setColor(kind==Kind.STOP?Color.rgb(255,89,107):active?Color.rgb(70,226,184):getCurrentTextColor());p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.8f);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);
+        Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setColor((kind==Kind.STOP||kind==Kind.PAUSE)?Color.rgb(255,89,107):active?Color.rgb(70,226,184):getCurrentTextColor());p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.8f);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);
         switch(kind){
             case FILTER:{Path path=new Path();path.moveTo(3,4);path.lineTo(21,4);path.lineTo(14,12);path.lineTo(14,20);path.lineTo(10,18);path.lineTo(10,12);path.close();canvas.drawPath(path,p);break;}
             case SORT:canvas.drawLine(4,6,20,6,p);canvas.drawLine(4,12,16,12,p);canvas.drawLine(4,18,11,18,p);break;
@@ -22,6 +22,9 @@ public final class UiIconButton extends Button {
             case PROTOCOL:canvas.drawRect(3,4,10,10,p);canvas.drawRect(14,14,21,20,p);canvas.drawLine(6,10,6,17,p);canvas.drawLine(6,17,14,17,p);canvas.drawLine(10,7,18,7,p);canvas.drawLine(18,7,18,14,p);break;
             case COLLECT:canvas.drawLine(6,3,6,13,p);canvas.drawLine(2,9,6,13,p);canvas.drawLine(6,13,10,9,p);canvas.drawLine(14,5,22,5,p);canvas.drawLine(14,10,22,10,p);canvas.drawLine(4,18,22,18,p);canvas.drawLine(4,22,22,22,p);break;
             case SCAN:canvas.drawCircle(10,10,7,p);canvas.drawLine(15,15,22,22,p);canvas.drawLine(10,6,10,14,p);canvas.drawLine(6,10,14,10,p);break;
+            case PLAY:{p.setStyle(Paint.Style.FILL);Path path=new Path();path.moveTo(7,4);path.lineTo(21,12);path.lineTo(7,20);path.close();canvas.drawPath(path,p);break;}
+            case PAUSE:p.setStyle(Paint.Style.FILL);canvas.drawRoundRect(5,4,10,20,1.5f,1.5f,p);canvas.drawRoundRect(14,4,19,20,1.5f,1.5f,p);break;
+            case RESTART:canvas.drawArc(4,4,20,20,200,300,false,p);canvas.drawLine(4,3,4,9,p);canvas.drawLine(4,9,10,9,p);break;
             case STOP:p.setStyle(Paint.Style.FILL);canvas.drawRoundRect(5,5,19,19,3,3,p);break;
             case BACK:canvas.drawLine(20,12,4,12,p);canvas.drawLine(4,12,10,6,p);canvas.drawLine(4,12,10,18,p);break;
             case STAR:{Path path=new Path();for(int i=0;i<10;i++){double a=-Math.PI/2+i*Math.PI/5;float r=i%2==0?10:4.5f;float x=12+(float)Math.cos(a)*r,y=12+(float)Math.sin(a)*r;if(i==0)path.moveTo(x,y);else path.lineTo(x,y);}path.close();if(active)p.setStyle(Paint.Style.FILL);canvas.drawPath(path,p);break;}

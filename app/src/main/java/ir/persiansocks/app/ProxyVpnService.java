@@ -67,6 +67,8 @@ public final class ProxyVpnService extends VpnService {
     }
     public static String activeEndpoint() { return activeEndpoint; }
     public static boolean autoScanning() { return autoScanning; }
+    public static int autoScanDone(){return autoDone;}
+    public static int autoScanTotal(){return autoTotal;}
     public static int autoProgress() { return autoTotal<=0?-1:(int)(100L*autoDone/autoTotal); }
     public static void cancelAutoScanFromUi(){
         ProxyVpnService service=instance.get();
