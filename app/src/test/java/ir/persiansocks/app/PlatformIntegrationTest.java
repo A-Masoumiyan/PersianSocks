@@ -71,6 +71,24 @@ public class PlatformIntegrationTest {
         Context c=RuntimeEnvironment.getApplication();AppLanguage.initialize(c);
         for(String language:new String[]{"fa","en"}){AppLanguage.select(c,language);assertEquals(AppLanguage.t(R.string.ui_quality_sort),AppLanguage.display("کیفیت روی این شبکه"));org.robolectric.android.controller.ActivityController<MainActivity> activity=Robolectric.buildActivity(MainActivity.class).create();assertNotNull(activity.get().findViewById(android.R.id.content));activity.destroy();}
     }
+    @Test public void unavailableUpdateOffersOfficialPageInBothLanguages(){
+        Context c=RuntimeEnvironment.getApplication();AppLanguage.initialize(c);
+        for(String language:new String[]{"fa","en"}){
+            AppLanguage.select(c,language);
+            org.robolectric.android.controller.ActivityController<android.app.Activity> owner=Robolectric.buildActivity(android.app.Activity.class).setup();
+            android.app.Activity activity=owner.get();activity.setTheme(R.style.AppTheme);
+            AppUpdater updater=new AppUpdater(activity,new android.widget.Button(activity),new android.widget.TextView(activity));
+            org.robolectric.util.ReflectionHelpers.callInstanceMethod(updater,"unavailable",org.robolectric.util.ReflectionHelpers.ClassParameter.from(String.class,"0.29.0"));
+            android.app.AlertDialog dialog=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+            assertEquals(AppLanguage.t(R.string.ui_update_018),((android.widget.TextView)dialog.findViewById(android.R.id.message)).getText().toString());
+            assertEquals(AppLanguage.t(R.string.ui_update_019),dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).getText().toString());
+            dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            android.content.Intent page=org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();
+            assertEquals(android.content.Intent.ACTION_VIEW,page.getAction());assertEquals(UpdateRelease.REPO+"/releases/tag/v0.29.0",page.getData().toString());
+            updater.close();owner.destroy();
+        }
+    }
     private static void addAddress(android.net.LinkProperties links,String ip,int prefix)throws Exception{
         android.net.LinkAddress address=org.robolectric.util.ReflectionHelpers.callConstructor(android.net.LinkAddress.class,org.robolectric.util.ReflectionHelpers.ClassParameter.from(InetAddress.class,InetAddress.getByName(ip)),org.robolectric.util.ReflectionHelpers.ClassParameter.from(int.class,prefix));
         org.robolectric.util.ReflectionHelpers.callInstanceMethod(links,"addLinkAddress",org.robolectric.util.ReflectionHelpers.ClassParameter.from(android.net.LinkAddress.class,address));

@@ -64,6 +64,8 @@ def check_archive(apk):
 
 def audit(apk, sdk, profile="personal"):
     security.verify_native(ROOT)
+    if profile == 'personal' and apk.stat().st_size > 512*1024*1024:
+        raise ValueError('APK exceeds the 512 MiB updater limit')
     check_archive(apk)
     bt = sdk/'build-tools/35.0.0'
     def run(*args):

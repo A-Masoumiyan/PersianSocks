@@ -512,6 +512,8 @@
     <string name="ui_update_015" formatted="false">"برای نصب APK این برنامه، اندروید به اجازهٔ «نصب برنامه‌های ناشناخته» برای PersianSocks نیاز دارد. تصمیم با توست؛ Play Protect فعال می‌ماند."</string>
     <string name="ui_update_016" formatted="false">"بازکردن تنظیمات"</string>
     <string name="ui_update_017" formatted="false">"بررسی دوباره"</string>
+    <string name="ui_update_018" formatted="false">"نسخهٔ جدید منتشر شده، اما فایل نصب آن برای دریافت از داخل برنامه آماده یا سازگار نیست. دوباره بررسی کن یا صفحهٔ رسمی نسخه را باز کن."</string>
+    <string name="ui_update_019" formatted="false">"صفحهٔ رسمی نسخه"</string>
     <string name="ui_v28_limit" formatted="false">"عدد بین ۱۰۰ تا ۱۰۰۰۰۰ وارد کن."</string>
     <string name="ui_v28_sources" formatted="false">"منابع داخلی خودکار استفاده می‌شوند. برای افزودن منبع دلخواه، نوع پروکسی را تیک بزن و هر لینک را در یک خط وارد کن."</string>
     <string name="ui_v28_type" formatted="false">"حداقل یک نوع را انتخاب کن."</string>
