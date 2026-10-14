@@ -12,7 +12,7 @@ android {
         minSdk 29
         targetSdk 36
         versionCode 42
-        versionName '0.29.2'
+        versionName '0.29.3'
     }
     buildFeatures { buildConfig true }
     testOptions { unitTests.includeAndroidResources = true }
