@@ -1,12 +1,12 @@
-PersianSocks Android 0.29.1 / versionCode 40
+PersianSocks Android 0.29.2 / versionCode 41
 Package: ir.persiansocks.app; minimum API 29; target/compile API 36.
 Original release certificate SHA-256: 1f2ee912ee98277749e2eba1eabcf6c969a20505161f7dceda9e8b3bee676125
 Pinned Hev 2.18.0 AAR SHA-256: 15ec8ed121663b562c99caa5bb602d1009f24e5b09e733438b81988f12feaaab
 Cronet bundled 500.1.0 native inventory: scripts/platform-native-sha256.json.
 Gradle dependencies: SHA-256 verification-metadata.xml; Gradle distribution checksum is pinned.
-Previous 0.29.0 validation: complete host transport/security suites passed (482 PASS output lines, including real UDP/quality/adaptive fixtures and Play security).
-Validation: eleven Robolectric integration tests passed; Android lint has no errors. Coverage includes actual Room/Paging, legacy migration, both language UIs, OkHttp redirects/cancellation, physical route loss, and WorkManager constraints/unique cancellation.
-Final APK digest/size are recorded on the v0.29.1 release with its downloadable asset. Release auditing checks certificate identity, exact native bytes, permission inventory, non-debug package/SDK, 16 KiB ZIP alignment and 64-bit ELF load alignment.
+Current validation: complete host transport/security suites passed, including 59 new availability checks, real transport/TLS/UDP fixtures and 33 Play security checks. PASS output lines are not counted as individual assertions.
+Validation: seventeen Robolectric tests passed (eleven integration tests and six startup/availability regressions). Coverage includes immutable paging without derived SQL writes, startup deferral, unavailable favorite retention, bounded quality history, durable test-note migration, both language UIs, physical route loss, and WorkManager constraints. Android lint and the signed APK audit are required before publication.
+Final APK digest/size are recorded on the v0.29.2 release with its downloadable asset. Release auditing checks certificate identity, exact native bytes, permission inventory, non-debug package/SDK, 16 KiB ZIP alignment and 64-bit ELF load alignment.
 Updater regression: host selection and size-budget checks, including full 0.29.0 and future 200/512 MiB APKs. The frozen 0.28.8 updater is checked against live release metadata after publication for 0.28.9, and the bridge parser for the full 0.29.1 APK.
 APK audit additionally enforces the new 512 MiB limit; all four ABIs and exact library hashes are retained.
-Limit: no physical Android device is attached; native TUN, live ISP connectivity and actual Cronet negotiation are not device-tested. No Google/Play review is claimed.
+Limit: startup wall-clock time is not measured on the user's phone. No physical Android device is attached; native TUN, live ISP connectivity and actual Cronet negotiation are not device-tested. No Google/Play review is claimed.

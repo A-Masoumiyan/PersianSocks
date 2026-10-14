@@ -22,6 +22,13 @@ public final class ProxyTestResult {
     }
     public String speedValue() { return speedError.isEmpty() ? speed(downloadMBps) : shortError(speedError); }
     public String pingValue(long latency) { return !probeError.isEmpty() ? shortError(probeError) : latency < 0 ? "تست نشده" : latency + " ms"; }
+    public String pingValue(ProxyEndpoint p){return !probeError.isEmpty()&&probeAt<Math.max(p.testedAt,p.latencyAt)?p.latencyMs<0?"تست نشده":p.latencyMs+" ms":pingValue(p.latencyMs);}
+    /** Repair stale successes kept by older releases after a later explicit failed probe. */
+    public boolean failedAfter(ProxyEndpoint p){
+        if(probeAt<=0||probeAt<Math.max(p.testedAt,p.latencyAt)||probeError.isEmpty())return false;
+        String error=probeError.toLowerCase(Locale.ROOT);
+        return !error.contains("cancel")&&!error.contains("متوقف")&&!error.contains("شبکه")&&!error.contains("network")&&!error.contains("offline")&&!error.contains("resolve")&&!error.contains("dns");
+    }
     public static String shortError(String error) {
         String lower = error.toLowerCase(Locale.ROOT);
         if(lower.contains("کافی"))return "دادهٔ کافی نیست";

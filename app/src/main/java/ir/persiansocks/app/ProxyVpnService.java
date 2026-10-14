@@ -304,6 +304,7 @@ public final class ProxyVpnService extends VpnService {
             if(chosenPhysical!=null&&!stop.get())QualityHistory.probe(chosenPhysical,proxy,verified);
             handler.post(() -> {
                 if (token != generation || stop.get()) return;
+                if(chosenPhysical!=null&&!chosenPhysical.valid()){waitForNetwork();return;}
                 if (verified.endpoint == null) {
                     String msg = AppLanguage.t(R.string.ui_extra_039) + Socks5Probe.describe(verified.failure);
                     if (verified.endpoint != null) msg = AppLanguage.t(R.string.ui_extra_040) + ProxyResults.label(requiredFilter) + AppLanguage.t(R.string.ui_extra_041);
@@ -602,7 +603,7 @@ public final class ProxyVpnService extends VpnService {
                     if(checkedGateway!=null&&checkedGateway.capacityRejections()>previousCapacity){saveVpnReport("LOCAL_CAPACITY: health sample inconclusive\n"+result.report);scheduleHealthCheck(token);return;}
                     if (failover.health(result.accepts(requiredFilter))) {
                         saveVpnReport(result.report);
-                        finishQuality(true);failConnection(AppLanguage.t(R.string.ui_extra_073)); return;
+                        finishQuality(true);failConnection(AppLanguage.t(R.string.ui_extra_073),true); return;
                     }
                     if (!result.accepts(requiredFilter)) announce(AppLanguage.t(R.string.ui_extra_074));
                     else announce(AppLanguage.t(R.string.ui_extra_058) + verifiedServices + " • " + current);

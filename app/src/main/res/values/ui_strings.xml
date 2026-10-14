@@ -551,4 +551,5 @@
     <string name="ui_maintenance">تازه‌سازی دوره‌ای روی وای‌فای</string>
     <string name="ui_cronet">دریافت آزمایشی با Cronet</string>
     <string name="ui_maintenance_help">تازه‌سازی کوتاه هر ۶ ساعت، روی اینترنت بدون هزینهٔ حجمی و با باتری مناسب. Cronet فقط دریافت‌های خود برنامه را تغییر می‌دهد.</string>
+    <string name="ui_proxy_unavailable" formatted="false">"در دسترس نیست"</string>
 </resources>

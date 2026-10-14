@@ -30,7 +30,6 @@ public final class ProxyStore {
                 // Old files are retained as recovery evidence. Paused checkpoint and journal are untouched.
             }
             for(int offset=0;;offset+=500){List<ProxyDatabase.ProxyRow> page=dao.proxyPage(500,offset);for(ProxyDatabase.ProxyRow r:page){JSONObject row=new JSONObject().put("key",r.key).put("changed",r.changed);if(r.payload!=null)row.put("proxy",new JSONObject(r.payload));index.restore(row);}if(page.size()<500)break;}
-            persist(dao,index.records());
             Context app=context.getApplicationContext();
             index.listener(record->{pending.add(record);});loaded=true;
             commits.scheduleWithFixedDelay(()->{if(!pending.isEmpty())save(app,index);},5,5,TimeUnit.SECONDS);

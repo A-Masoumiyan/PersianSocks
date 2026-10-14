@@ -63,7 +63,7 @@ public final class MainActivity extends ComponentActivity {
     private ScanFiles scanFiles;
     private ScanCheckpoint checkpoint;
     private int catalogCount;
-    private boolean loading, preparing, stopping;
+    private boolean loading, preparing, stopping, localDataLoaded;
     private volatile boolean collecting;
     private volatile int collectGeneration;
     private final ProxyIndex healthy = ProxyStore.index();
@@ -84,7 +84,7 @@ public final class MainActivity extends ComponentActivity {
     private UiIconButton filterButton;
     private ProxyEndpoint selected;
     private RecyclerView results;
-    private LiveData<PagingData<ProxyDatabase.ResultRow>> pageStream;
+    private LiveData<PagingData<ProxyEndpoint>> pageStream;
     private static final java.util.concurrent.atomic.AtomicLong pageSequence=new java.util.concurrent.atomic.AtomicLong();
     private long pageGeneration;
     private int resultCount;
@@ -167,7 +167,7 @@ public final class MainActivity extends ComponentActivity {
             if(intent.hasExtra("connection-error"))connectionError=intent.getStringExtra("connection-error");
             if(connectionError==null)connectionError="";
             if(state!=null&&auto)status.setText(AppLanguage.display(state));
-            updateActions();updateTraffic();if(siteIcons!=null)siteIcons.sync();
+            updateActions();updateTraffic();if(siteIcons!=null)siteIcons.sync();if(renderedRevision!=healthy.revision())render();
         }
     };
 
@@ -175,9 +175,7 @@ public final class MainActivity extends ComponentActivity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         instance=new java.lang.ref.WeakReference<>(this);
-        loadTestResults();
         ScanInputs.initializePolicy(this);
-        favorites.putAll(FavoriteProxies.load(this));
         scanFiles = new ScanFiles(getFilesDir());
 
         maxTests = Math.max(100, Math.min(ProxyScanner.MAX_TESTS,
@@ -194,7 +192,6 @@ public final class MainActivity extends ComponentActivity {
         siteIcons=new SiteIcons(this,()->{resultAdapter.notifyDataSetChanged();});siteIcons.sync();
         filter = getSharedPreferences("persiansocks", MODE_PRIVATE).getString("filter", "ALL");
         if (filter.startsWith("https://") && customTargets.stream().noneMatch(t -> t.id.equals(filter))) filter = "ALL";
-        try { CountryLookup.initialize(getAssets().open("ip-country.bin")); } catch (Exception ignored) {}
         try { sort = ProxyResults.Sort.valueOf(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("sort", "QUALITY")); }
         catch (IllegalArgumentException ignored) {}
         buildUi();
@@ -866,8 +863,8 @@ public final class MainActivity extends ComponentActivity {
         try {
             if(work.mode.equals("LATENCY"))preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},(p,slow,cancel,sockets)->{
                 ProxyEndpoint current=healthy.find(p.key());
-                if(current==null)return ScanProbePolicy.profile().inspect(p,slow,cancel,sockets,network,network);
-                Socks5Probe.Result measured=Socks5Probe.inspectTarget(current,SingleProxyTest.latencyTarget(current,latencyFilter),slow,cancel,sockets,network,network);
+                if(current==null)return ProbeFailurePolicy.observed(ScanProbePolicy.profile().inspect(p,slow,cancel,sockets,network,network),network.valid());
+                Socks5Probe.Result measured=ProbeFailurePolicy.observed(Socks5Probe.inspectTarget(current,SingleProxyTest.latencyTarget(current,latencyFilter),slow,cancel,sockets,network,network),network.valid());
                 return measured.endpoint==null?measured:new Socks5Probe.Result(current.withLatency(measured.endpoint.latencyMs,SingleProxyTest.latencyTarget(current,latencyFilter).url()),Socks5Probe.Failure.NONE,true,true);
             },listener);
             else preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},network,network,listener);
@@ -875,14 +872,18 @@ public final class MainActivity extends ComponentActivity {
     }
     private void reloadSaved() {
         if(loading||scanning||preparing||stopping)return;loading=true;updateActions();
+        final boolean initial=!localDataLoaded;
         ProxyStore.IO.execute(()->{
+            Map<String,ProxyEndpoint> savedFavorites=initial?FavoriteProxies.load(this):null;
+            Map<String,ProxyTestResult> savedTests=initial?readTestResults():null;
+            if(!CountryLookup.initialized())try{CountryLookup.initialize(getAssets().open("ip-country.bin"));}catch(Exception ignored){}
             ScanCheckpoint saved=null;int count=0;String error="";
-            try{ProxyStore.load(this);count=scanFiles.catalogCount();saved=scanFiles.checkpoint();
+            try{ProxyStore.load(this);if(initial)for(Map.Entry<String,ProxyTestResult> row:savedTests.entrySet()){ProxyEndpoint old=healthy.find(row.getKey());if(old!=null&&row.getValue().failedAfter(old))healthy.reject(old.key(),row.getValue().probeAt);}count=scanFiles.catalogCount();saved=scanFiles.checkpoint();
                 if(saved!=null&&saved.compatible())healthy.apply(saved);
                 if(saved!=null&&saved.complete()){ProxyStore.save(this,healthy);scanFiles.discardComplete();saved=null;}}
             catch(Exception ex){error=String.valueOf(ex.getMessage());}
             final ScanCheckpoint restored=saved;final int storedCount=count;final String failure=error;
-            ui.post(()->{if(isDestroyed())return;loading=false;checkpoint=restored;catalogCount=storedCount;
+            ui.post(()->{if(isDestroyed())return;if(initial){favorites.putAll(savedFavorites);testResults.putAll(savedTests);favoritesRevision++;measurementRevision++;localDataLoaded=true;}loading=false;checkpoint=restored;catalogCount=storedCount;
                 scanReport=getSharedPreferences("persiansocks",MODE_PRIVATE).getString("scan-report",scanReport);
                 if(!failure.isEmpty())status.setText(AppLanguage.t(R.string.ui_130)+failure);
                 else status.setText(AppLanguage.display(restored!=null&&!restored.complete()?AppLanguage.t(R.string.ui_131)+restored.done()+AppLanguage.t(R.string.ui_017)+restored.total():storedCount+AppLanguage.t(R.string.ui_019)));
@@ -934,6 +935,7 @@ public final class MainActivity extends ComponentActivity {
     }
     private void render() {
         if(results==null||isDestroyed()||!foregroundVisible)return;
+        if(renderedRevision!=healthy.revision())resultAdapter.notifyDataSetChanged();
         testResults.keySet().removeIf(key->healthy.rejected(key)&&!favorites.containsKey(key));
         manual.removeIf(p->healthy.rejected(p.key()));
         if(selected!=null&&healthy.rejected(selected.key())&&!favorites.containsKey(selected.key())){selected=null;userSelected=false;}
@@ -977,11 +979,11 @@ public final class MainActivity extends ComponentActivity {
             if(connected==null&&ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&selected!=null&&selected.key().equals(ProxyVpnService.activeEndpoint()))connected=selected;
             List<ProxyEndpoint> pinned=ProxyResults.pinActive(visible,connected,!favoritesMode);
             final long generation=System.currentTimeMillis()*1000+pageSequence.incrementAndGet()%1000;final int count=pinned.size();final ProxyEndpoint best=visible.isEmpty()?null:visible.get(0);
-            ProxyDatabase.get(MainActivity.this).data().publish(generation,pinned);
+            // Ranking is a view of references, not a durable write for each UI refresh.
             ui.post(()->{
                 if(isDestroyed())return;ranking=false;
-                if(!requested.equals(criteria())){render();return;}
-                resultCount=count;publishPages(generation);renderedRevision=revision;renderedCriteria=requested;
+                if(!requested.equals(criteria())||revision!=healthy.revision()){render();return;}
+                resultCount=count;publishPages(generation,pinned);renderedRevision=revision;renderedCriteria=requested;
                 if(!userSelected&&!favoritesMode&&ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED&&!vpnRequestPending)
                     selected=best;
                 counter.setText(AppLanguage.display(resultCount+AppLanguage.t(R.string.ui_152)));
@@ -1001,9 +1003,9 @@ public final class MainActivity extends ComponentActivity {
             }catch(RuntimeException ex){android.util.Log.e("PersianSocks","Result paging failed",ex);ui.post(()->{ranking=false;if(!isDestroyed())status.setText(AppLanguage.t(R.string.ui_128));});}
         });
     }
-    private void publishPages(long generation){
+    private void publishPages(long generation,List<ProxyEndpoint> rows){
         if(pageStream!=null)pageStream.removeObservers(this);pageGeneration=generation;
-        Pager<Integer,ProxyDatabase.ResultRow> pager=new Pager<>(new PagingConfig(80,40,false,160,400),()->ProxyDatabase.get(this).data().pages(generation));
+        Pager<Integer,ProxyEndpoint> pager=new Pager<>(new PagingConfig(80,40,false,160,400),()->new ProxyPages(rows));
         pageStream=PagingLiveData.getLiveData(pager);pageStream.observe(this,data->{if(pageGeneration==generation)resultAdapter.submitData(getLifecycle(),data);});
     }
     private final class HeaderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -1015,13 +1017,15 @@ public final class MainActivity extends ComponentActivity {
     private final class ResultHolder extends RecyclerView.ViewHolder {
         final CardHolder card;ResultHolder(CardHolder c){super(c.wrapper);card=c;c.wrapper.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));}
     }
-    private final class ResultAdapter extends PagingDataAdapter<ProxyDatabase.ResultRow,ResultHolder> {
-        ResultAdapter(){super(new DiffUtil.ItemCallback<ProxyDatabase.ResultRow>(){
-            public boolean areItemsTheSame(ProxyDatabase.ResultRow a,ProxyDatabase.ResultRow b){return a.key.equals(b.key);}
-            public boolean areContentsTheSame(ProxyDatabase.ResultRow a,ProxyDatabase.ResultRow b){return a.payload.equals(b.payload);}
+    private final class ResultAdapter extends PagingDataAdapter<ProxyEndpoint,ResultHolder> {
+        ResultAdapter(){super(new DiffUtil.ItemCallback<ProxyEndpoint>(){
+            public boolean areItemsTheSame(ProxyEndpoint a,ProxyEndpoint b){return a.key().equals(b.key());}
+            // Endpoint records are immutable; a replaced reference conservatively requires rebinding.
+            @android.annotation.SuppressLint("DiffUtilEquals")
+            public boolean areContentsTheSame(ProxyEndpoint a,ProxyEndpoint b){return a==b;}
         });}
         public ResultHolder onCreateViewHolder(ViewGroup parent,int type){return new ResultHolder(new CardHolder());}
-        public void onBindViewHolder(ResultHolder holder,int position){ProxyDatabase.ResultRow r=getItem(position);if(r!=null)holder.card.bind(r.endpoint());}
+        public void onBindViewHolder(ResultHolder holder,int position){ProxyEndpoint p=getItem(position);if(p==null)return;ProxyEndpoint live=healthy.find(p.key());boolean hidden=!showFavorites&&live==null&&healthy.rejected(p.key());holder.card.wrapper.setVisibility(hidden?View.GONE:View.VISIBLE);holder.card.wrapper.getLayoutParams().height=hidden?0:ViewGroup.LayoutParams.WRAP_CONTENT;if(!hidden)holder.card.bind(live==null?p:live);}
     }
     private final class ServiceIcon extends LinearLayout {final ImageView image=new ImageView(MainActivity.this);final TextView mark=text("",11,SECONDARY,true);ServiceIcon(){super(MainActivity.this);setGravity(Gravity.CENTER);setLayoutDirection(View.LAYOUT_DIRECTION_LTR);image.setScaleType(ImageView.ScaleType.FIT_CENTER);addView(image,new LinearLayout.LayoutParams(dp(22),dp(22)));addView(mark,new LinearLayout.LayoutParams(dp(12),-2));}}
     private final class CardHolder {
@@ -1090,7 +1094,7 @@ public final class MainActivity extends ComponentActivity {
         }
         void bind(ProxyEndpoint p){
             if(endpoint==null||!endpoint.key().equals(p.key())||!swiping){row.animate().cancel();row.setTranslationX(0);pingHint.setVisibility(View.GONE);downloadHint.setVisibility(View.GONE);swiping=false;}
-            endpoint=p;boolean active=selected!=null&&selected.key().equals(p.key());
+            endpoint=p;boolean unavailable=healthy.rejected(p.key());boolean active=selected!=null&&selected.key().equals(p.key());
             row.setBackground(background(active?Color.rgb(23,54,57):SURFACE,dp(14),active?PRIMARY:STROKE));
             address.setText(p.address());badge.setVisibility(ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&p.key().equals(ProxyVpnService.activeEndpoint())?View.VISIBLE:View.GONE);
             boolean saved=favorites.containsKey(p.key());
@@ -1098,7 +1102,7 @@ public final class MainActivity extends ComponentActivity {
             row.setContentDescription(p.address()+AppLanguage.t(R.string.ui_168));
             String country=p.countryCode.isEmpty()?CountryLookup.lookup(p.host):p.countryCode;
             QualityStats quality=QualityHistory.stats(p.key());String history=quality==null?"": " • "+AppLanguage.t(R.string.ui_quality_samples)+" "+quality.samples()+" • "+Math.round(quality.score(System.currentTimeMillis()))+"/100";
-            detail.setText(AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())+"  •  "+AppLanguage.isolate(p.type.name()))+history);detail.setTextColor(active?PRIMARY:SECONDARY);
+            detail.setText(AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())+"  •  "+AppLanguage.isolate(p.type.name()))+history+(unavailable?" • "+AppLanguage.t(R.string.ui_proxy_unavailable):""));detail.setTextColor(unavailable?WARNING:active?PRIMARY:SECONDARY);
             String shape=ScanCheckpoint.fingerprint();
             if(!shape.equals(targetSet)){
                 targetSet=shape;services.removeAllViews();serviceViews.clear();LinearLayout line=null;int count=0;
@@ -1108,14 +1112,14 @@ public final class MainActivity extends ComponentActivity {
                 }
             }
             int index=0;for(ServiceTargets.Target target:ServiceTargets.current()){
-                boolean ok=p.passed(target);ServiceIcon chip=serviceViews.get(index++);android.graphics.Bitmap icon=siteIcons==null?null:siteIcons.get(target.host);if(icon==null)chip.image.setImageDrawable(SiteIcons.placeholder());else chip.image.setImageBitmap(icon);
-                chip.mark.setText(ok?"✓":p.checked(target)?"×":"•");chip.mark.setTextColor(ok?PRIMARY:SECONDARY);chip.setTooltipText(target.host);chip.setContentDescription(target.name+" • "+target.host+(ok?AppLanguage.t(R.string.ui_169):p.checked(target)?AppLanguage.t(R.string.ui_170):AppLanguage.t(R.string.ui_171)));
+                boolean ok=!unavailable&&p.passed(target);ServiceIcon chip=serviceViews.get(index++);android.graphics.Bitmap icon=siteIcons==null?null:siteIcons.get(target.host);if(icon==null)chip.image.setImageDrawable(SiteIcons.placeholder());else chip.image.setImageBitmap(icon);
+                chip.mark.setText(unavailable?"•":ok?"✓":p.checked(target)?"×":"•");chip.mark.setTextColor(ok?PRIMARY:SECONDARY);chip.setTooltipText(target.host);chip.setContentDescription(target.name+" • "+target.host+(ok?AppLanguage.t(R.string.ui_169):p.checked(target)?AppLanguage.t(R.string.ui_170):AppLanguage.t(R.string.ui_171)));
             }
             ProxyTestResult measured=testResults.get(p.key());if(measured==null)measured=new ProxyTestResult();
             boolean running=testingProxy!=null&&testingProxy.key().equals(p.key());boolean downloadRunning=running&&speedTest!=null,probeRunning=running&&singleTest!=null;
-            setMetricValue(down,downloadRunning?liveDownloadMBps>=0?ProxyTestResult.speed(liveDownloadMBps):AppLanguage.t(R.string.ui_172):measured.speedError.isEmpty()&&!measured.speedTarget.equals(ScanInputs.speedUrl(MainActivity.this))?AppLanguage.t(R.string.ui_181):measured.speedValue());
-            down.setTextColor(downloadRunning||measured.speedError.isEmpty()&&measured.downloadMBps>=0?PRIMARY:measured.speedError.isEmpty()?SECONDARY:WARNING);
-            setMetricValue(ping,probeRunning?AppLanguage.t(R.string.ui_172):ScanProbePolicy.latency(p)==Long.MAX_VALUE?AppLanguage.t(R.string.ui_181):measured.pingValue(p.latencyMs));divider.setBackgroundColor(active?Color.rgb(44,88,88):STROKE);
+            setMetricValue(down,unavailable?AppLanguage.t(R.string.ui_proxy_unavailable):downloadRunning?liveDownloadMBps>=0?ProxyTestResult.speed(liveDownloadMBps):AppLanguage.t(R.string.ui_172):measured.speedError.isEmpty()&&!measured.speedTarget.equals(ScanInputs.speedUrl(MainActivity.this))?AppLanguage.t(R.string.ui_181):measured.speedValue());
+            down.setTextColor(unavailable?WARNING:downloadRunning||measured.speedError.isEmpty()&&measured.downloadMBps>=0?PRIMARY:measured.speedError.isEmpty()?SECONDARY:WARNING);
+            setMetricValue(ping,unavailable?AppLanguage.t(R.string.ui_proxy_unavailable):probeRunning?AppLanguage.t(R.string.ui_172):ScanProbePolicy.latency(p)==Long.MAX_VALUE?AppLanguage.t(R.string.ui_181):measured.pingValue(p));divider.setBackgroundColor(active?Color.rgb(44,88,88):STROKE);
         }
     }
     private UiIconButton cardIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(34),dp(38));cell.setMarginStart(dp(3));row.addView(icon,cell);return icon;}
@@ -1340,6 +1344,7 @@ public final class MainActivity extends ComponentActivity {
                 PhysicalTestNetwork network = PhysicalTestNetwork.capture(this);
                 result = latencyOnly ? test.latency(proxy, target, slow, network, network) :
                     test.connection(proxy, slow, network, network);
+                result=ProbeFailurePolicy.observed(result,network.valid());
                 if(!test.cancelled())QualityHistory.probe(network,proxy,result);
             } catch (Exception ex) { error = String.valueOf(ex.getMessage()); }
             final Socks5Probe.Result finished = result; final String failure = error;
@@ -1348,7 +1353,7 @@ public final class MainActivity extends ComponentActivity {
                 singleTest = null; testingProxy = null;
                 String note;
                 ProxyTestResult record = resultFor(proxy);record.probeAt=System.currentTimeMillis();
-                if (test.cancelled()) { note = AppLanguage.t(R.string.ui_240); record.probeError = note; record.probeInfo = ""; }
+                if (test.cancelled() || finished!=null&&finished.failure==Socks5Probe.Failure.CANCELLED) { note = AppLanguage.t(R.string.ui_240); record.probeError = note; record.probeInfo = ""; }
                 else if (finished != null && finished.endpoint != null) {
                     ProxyEndpoint fresh = finished.endpoint;
                     if (latencyOnly) {
@@ -1484,31 +1489,37 @@ public final class MainActivity extends ComponentActivity {
         text.setTextSize(number ? 13 : 11); text.setTextDirection(number ? View.TEXT_DIRECTION_LTR : AppLanguage.textDirection());
         text.setText(AppLanguage.display(value));
     }
-    private void loadTestResults() {
+    private Map<String,ProxyTestResult> readTestResults() {
+        Map<String,ProxyTestResult> loaded=new LinkedHashMap<>();
         try {
-            org.json.JSONObject stored = new org.json.JSONObject(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("test-results-v2", "{}"));
+            ProxyDatabase.Data dao=ProxyDatabase.get(this).data();String durable=dao.meta("test-results-v3");
+            org.json.JSONObject stored = new org.json.JSONObject(durable==null?getSharedPreferences("persiansocks", MODE_PRIVATE).getString("test-results-v2", "{}"):durable);
             java.util.Iterator<String> keys = stored.keys();
-            while (keys.hasNext() && testResults.size() < 1000) {
+            while (keys.hasNext() && loaded.size() < 1000) {
                 String endpoint = keys.next(); org.json.JSONObject result = stored.optJSONObject(endpoint);
-                if (endpoint.length() <= 300 && result != null) testResults.put(endpoint, ProxyTestResult.fromJson(result));
+                if (endpoint.length() <= 300 && result != null) loaded.put(endpoint, ProxyTestResult.fromJson(result));
             }
             org.json.JSONObject speeds = new org.json.JSONObject(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("speed-notes", "{}"));
             org.json.JSONObject probes = new org.json.JSONObject(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("probe-notes", "{}"));
             java.util.Set<String> legacy = new java.util.LinkedHashSet<>();
             speeds.keys().forEachRemaining(legacy::add); probes.keys().forEachRemaining(legacy::add);
             boolean changed = false;
-            for (String endpoint : legacy) if (testResults.size() < 1000 && endpoint.length() <= 300 && !testResults.containsKey(endpoint)) {
-                testResults.put(endpoint, ProxyTestResult.legacy(speeds.optString(endpoint), probes.optString(endpoint))); changed = true;
+            for (String endpoint : legacy) if (loaded.size() < 1000 && endpoint.length() <= 300 && !loaded.containsKey(endpoint)) {
+                loaded.put(endpoint, ProxyTestResult.legacy(speeds.optString(endpoint), probes.optString(endpoint))); changed = true;
             }
-            if (changed) saveTestResults();
+            if(durable==null||changed){org.json.JSONObject migrated=new org.json.JSONObject();for(Map.Entry<String,ProxyTestResult> entry:loaded.entrySet())migrated.put(entry.getKey(),entry.getValue().json());dao.meta(new ProxyDatabase.MetaRow("test-results-v3",migrated.toString()));}
+            // Remove bulky legacy preferences only after the durable copy succeeds.
+            getSharedPreferences("persiansocks",MODE_PRIVATE).edit().remove("test-results-v2").remove("speed-notes").remove("probe-notes").apply();
         } catch (Exception ignored) {}
+        return loaded;
     }
     private void saveTestResults() {
         measurementRevision++;
         while (testResults.size() > 1000) testResults.remove(testResults.keySet().iterator().next());
         org.json.JSONObject stored = new org.json.JSONObject();
         for (Map.Entry<String, ProxyTestResult> entry : testResults.entrySet()) try { stored.put(entry.getKey(), entry.getValue().json()); } catch (Exception ignored) {}
-        getSharedPreferences("persiansocks", MODE_PRIVATE).edit().putString("test-results-v2", stored.toString()).apply();
+        final String snapshot=stored.toString();final Context app=getApplicationContext();
+        ProxyStore.IO.execute(()->{try{ProxyDatabase.get(app).data().meta(new ProxyDatabase.MetaRow("test-results-v3",snapshot));}catch(Exception ex){android.util.Log.e("PersianSocks","Test notes save failed",ex);}});
     }
     private int dp(float n) { return (int) (getResources().getDisplayMetrics().density * n + .5f); }
     private LinearLayout.LayoutParams margin(int top, int bottom) {
