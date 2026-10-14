@@ -12,10 +12,16 @@ import java.util.regex.*;
 public final class ProxyScanner {
     public static final int MAX_TESTS = 100000;
     public static final class Source {
+        public enum Format { TEXT, HPROXY_QUALITY }
         public final String name, url, mirror;
         public final ProxyEndpoint.Type type;
+        public final Format format;
         public Source(String name, String url, String mirror) { this(name,url,mirror,ProxyEndpoint.Type.SOCKS5); }
-        public Source(String name,String url,String mirror,ProxyEndpoint.Type type){this.name=name;this.url=url;this.mirror=mirror;this.type=type; }
+        public Source(String name,String url,String mirror,ProxyEndpoint.Type type){this(name,url,mirror,type,Format.TEXT);}
+        public Source(String name,String url,String mirror,ProxyEndpoint.Type type,Format format){
+            if(format==Format.HPROXY_QUALITY&&type!=ProxyEndpoint.Type.SOCKS5)throw new IllegalArgumentException("HProxy quality source requires SOCKS5");
+            this.name=name;this.url=url;this.mirror=mirror;this.type=type;this.format=format;
+        }
     }
     public static final class Options {
         public final int maxTests, types;
@@ -44,7 +50,9 @@ public final class ProxyScanner {
     }
     private static final class DownloadResult {
         final int index; final List<ProxyEndpoint> endpoints; final String report;
-        DownloadResult(int i,List<ProxyEndpoint> e,String r) { index=i; endpoints=e; report=r; }
+        final boolean preferred;
+        DownloadResult(int i,List<ProxyEndpoint> e,String r) { this(i,e,r,false); }
+        DownloadResult(int i,List<ProxyEndpoint> e,String r,boolean preferred) { index=i; endpoints=e; report=r;this.preferred=preferred; }
     }
     private ScanSession current;
     public interface Listener {
@@ -67,17 +75,17 @@ public final class ProxyScanner {
         own.removeIf(p -> !DistributionPolicy.allows(p)); seeds.removeIf(p -> !DistributionPolicy.allows(p));
         session.thread = new Thread(() -> {
             try {
-                List<List<ProxyEndpoint>> lists = new ArrayList<>(); List<String> reports = new ArrayList<>();
-                for (Source source : urls) { lists.add(Collections.emptyList()); reports.add(source.name); }
+                List<List<ProxyEndpoint>> lists = new ArrayList<>(); List<String> reports = new ArrayList<>();List<Boolean> preferred=new ArrayList<>();
+                for (Source source : urls) { lists.add(Collections.emptyList()); reports.add(source.name);preferred.add(false); }
                 session.fetchPool = Executors.newFixedThreadPool(6);
                 CompletionService<DownloadResult> downloads = new ExecutorCompletionService<>(session.fetchPool);
                 for (int i = 0; i < urls.size(); i++) { final int index = i; downloads.submit(() -> fetchSource(urls.get(index), index, session)); }
                 for (int i = 0; i < urls.size() && !session.cancelled.get();) {
                     Future<DownloadResult> future = downloads.poll(250, TimeUnit.MILLISECONDS); if (future == null) continue;
-                    DownloadResult result = future.get(); i++; lists.set(result.index, result.endpoints); reports.set(result.index, result.report);
+                    DownloadResult result = future.get(); i++; lists.set(result.index, result.endpoints); reports.set(result.index, result.report);preferred.set(result.index,result.preferred);
                     listener.onProgress("دریافت منابع: " + i + " از " + urls.size());
                 }
-                if (!session.cancelled.get()) listener.onFinished(mergeCandidates(own, lists, seeds, Integer.MAX_VALUE), String.join("\n", reports));
+                if (!session.cancelled.get()) listener.onFinished(mergePreferredCandidates(own,lists,preferred,seeds,Integer.MAX_VALUE), String.join("\n", reports));
             } catch (InterruptedException ex) { Thread.currentThread().interrupt(); }
             catch (Exception ex) { if (!session.cancelled.get()) listener.onFailed("دریافت لیست ناموفق: " + ex.getMessage()); }
             finally {
@@ -161,11 +169,17 @@ public final class ProxyScanner {
     /** Balanced selection prevents a large provider from consuming the entire budget. */
     public static List<ProxyEndpoint> mergeCandidates(List<ProxyEndpoint> manual,List<List<ProxyEndpoint>> lists,
             List<ProxyEndpoint> fallback,int cap) {
+        return mergePreferredCandidates(manual,lists,Collections.nCopies(lists.size(),false),fallback,cap);
+    }
+    public static List<ProxyEndpoint> mergePreferredCandidates(List<ProxyEndpoint> manual,List<List<ProxyEndpoint>> lists,
+            List<Boolean> preferred,List<ProxyEndpoint> fallback,int cap) {
+        if(lists.size()!=preferred.size())throw new IllegalArgumentException("Source priority mismatch");
         Map<String,ProxyEndpoint> out=new LinkedHashMap<>();
         for(ProxyEndpoint e:manual) { if(out.size()>=cap) break; out.putIfAbsent(e.key(),e); }
-        for(int row=0;out.size()<cap;row++) {
+        for(boolean priority:new boolean[]{true,false})for(int row=0;out.size()<cap;row++) {
             boolean any=false;
-            for(List<ProxyEndpoint> list:lists) {
+            for(int index=0;index<lists.size();index++) {
+                if(preferred.get(index)!=priority)continue;List<ProxyEndpoint> list=lists.get(index);
                 if(row<list.size()) { any=true; ProxyEndpoint e=list.get(row); out.putIfAbsent(e.key(),e); }
                 if(out.size()>=cap) break;
             }
@@ -177,8 +191,9 @@ public final class ProxyScanner {
     private void runScan(List<ProxyEndpoint> manual,List<ProxyEndpoint> fallback,List<Source> sources,
             Options options,Listener listener,ScanSession session) {
         List<List<ProxyEndpoint>> lists=new ArrayList<>();
+        List<Boolean> preferred=new ArrayList<>();
         List<String> rows=new ArrayList<>();
-        for(Source s:sources) { lists.add(Collections.emptyList()); rows.add(s.name+": در انتظار دریافت"); }
+        for(Source s:sources) { lists.add(Collections.emptyList()); rows.add(s.name+": در انتظار دریافت");preferred.add(false); }
         List<ProxyEndpoint> good=new ArrayList<>();
         EnumMap<Socks5Probe.Failure,Integer> failures=new EnumMap<>(Socks5Probe.Failure.class);
         int fetched=0,total=0,done=0,tcp=0,socks=0;
@@ -193,15 +208,15 @@ public final class ProxyScanner {
                 Future<DownloadResult> task=fetch.poll(300,TimeUnit.MILLISECONDS);
                 if(task==null) continue;
                 DownloadResult r=task.get(); n++;
-                lists.set(r.index,r.endpoints); rows.set(r.index,r.report);
+                lists.set(r.index,r.endpoints); rows.set(r.index,r.report);preferred.set(r.index,r.preferred);
                 if(!r.endpoints.isEmpty()) fetched++;
-                int count=mergeCandidates(manual,lists,Collections.emptyList(),options.scanAll?Integer.MAX_VALUE:MAX_TESTS).size();
+                int count=mergePreferredCandidates(manual,lists,preferred,Collections.emptyList(),options.scanAll?Integer.MAX_VALUE:MAX_TESTS).size();
                 listener.onCollectProgress("منابع: "+n+" از "+sources.size()+" • آدرس یکتا: "+count);
                 listener.onDiagnostics(report(rows,0,0,0,0,0,fetched,sources.size(),fallback.size(),options,failures));
             }
             session.fetchPool.shutdownNow();
             if(session.cancelled.get()) return;
-            List<ProxyEndpoint> candidates=mergeCandidates(manual,lists,fallback,options.maxTests);
+            List<ProxyEndpoint> candidates=mergePreferredCandidates(manual,lists,preferred,fallback,options.maxTests);
             total=candidates.size();
             listener.onProgress(0,total,0);
             session.probePool=Executors.newFixedThreadPool(24);
@@ -250,6 +265,10 @@ public final class ProxyScanner {
     private static DownloadResult fetchSource(Source s,int index,ScanSession session) {
         String primary="";
         try {
+            if(s.format==Source.Format.HPROXY_QUALITY){
+                HProxySource.Result result=HProxySource.fetch(s.url,System.currentTimeMillis(),session.cancelled,()->downloadMetadata(s.url,session));
+                return new DownloadResult(index,result.endpoints,s.name+": "+result.endpoints.size()+" نامزد؛ آخرین تست منبع حداکثر "+result.windowMinutes+" دقیقه؛ ردشده: "+result.rejected+(result.cached?" (حافظهٔ موقت، تازگی دوباره بررسی شد)":"")+"؛ تأیید اتصال پس از اسکن",true);
+            }
             List<ProxyEndpoint> list=download(s.url,session,s.type);
             if(!list.isEmpty()) return new DownloadResult(index,list,s.name+": "+list.size()+" آدرس");
             primary="بدون آدرس معتبر";
@@ -262,6 +281,31 @@ public final class ProxyScanner {
             } catch(Exception ex) { primary+="؛ مسیر جایگزین: "+ex.getClass().getSimpleName(); }
         }
         return new DownloadResult(index,Collections.emptyList(),s.name+": "+primary);
+    }
+    private static String downloadMetadata(String url,ScanSession session)throws Exception {
+        if(session.cancelled.get())throw new IOException("Cancelled");
+        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();session.downloads.add(c);
+        ScheduledFuture<?> deadline=session.deadlines.schedule(c::disconnect,14,TimeUnit.SECONDS);
+        c.setConnectTimeout(4000);c.setReadTimeout(5000);c.setInstanceFollowRedirects(true);
+        c.setRequestProperty("User-Agent","PersianSocks/0.28.8");c.setRequestProperty("Accept","application/json");
+        try{
+            int code=c.getResponseCode();
+            if(code==429)throw new HProxySource.RateLimited(HProxySource.retryDelay(c.getHeaderField("Retry-After"),System.currentTimeMillis()));
+            if(code!=200)throw new IOException("HTTP "+code);
+            String content=c.getContentType();
+            if(content==null||!content.toLowerCase(Locale.US).split(";",2)[0].trim().equals("application/json"))throw new IOException("HProxy JSON expected");
+            ByteArrayOutputStream body=new ByteArrayOutputStream();
+            try(InputStream in=c.getInputStream()){
+                byte[] bytes=new byte[4096];int count;
+                while((count=in.read(bytes))!=-1){
+                    if(session.cancelled.get())throw new IOException("Cancelled");
+                    if(body.size()+count>1_500_000)throw new IOException("HProxy response too large");
+                    body.write(bytes,0,count);
+                }
+            }
+            if(session.cancelled.get())throw new IOException("Cancelled");
+            return new String(body.toByteArray(),StandardCharsets.UTF_8);
+        }finally{deadline.cancel(false);c.disconnect();session.downloads.remove(c);}
     }
     private static List<ProxyEndpoint> download(String url,ScanSession session,ProxyEndpoint.Type type) throws Exception {
         if(session.cancelled.get()) return Collections.emptyList();

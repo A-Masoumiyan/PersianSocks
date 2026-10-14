@@ -3,6 +3,7 @@ package ir.persiansocks.app;
 public final class SourceCatalog {
     private SourceCatalog() {}
     public static final ProxyScanner.Source[] DEFAULT = {
+        new ProxyScanner.Source("HProxy filtered SOCKS5", "https://hproxy.com/api/proxy-list?format=json&protocol=socks5&min_uptime_pct=90&max_latency_ms=1500&sort=uptime&recent=false&limit=300", "",ProxyEndpoint.Type.SOCKS5,ProxyScanner.Source.Format.HPROXY_QUALITY),
         new ProxyScanner.Source("r00tee", "https://raw.githubusercontent.com/r00tee/Proxy-List/main/Socks5.txt", "https://cdn.jsdelivr.net/gh/r00tee/Proxy-List@main/Socks5.txt"),
         new ProxyScanner.Source("SevenworksDev", "https://raw.githubusercontent.com/SevenworksDev/proxy-list/main/proxies/socks5.txt", "https://cdn.jsdelivr.net/gh/SevenworksDev/proxy-list@main/proxies/socks5.txt"),
         new ProxyScanner.Source("zloi-user", "https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks5.txt", "https://cdn.jsdelivr.net/gh/zloi-user/hideip.me@main/socks5.txt"),
