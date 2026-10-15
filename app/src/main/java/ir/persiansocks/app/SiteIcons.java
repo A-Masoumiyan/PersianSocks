@@ -27,11 +27,13 @@ public final class SiteIcons {
         worker.execute(()->{try{
             Set<String> current=hosts;Set<String> names=new HashSet<>();for(String h:current){names.add(key(h)+".png");names.add(key(h)+".json");}
             File[] files=directory.listFiles();if(files!=null)for(File f:files)if(!names.contains(f.getName()))f.delete();
-            List<ProxyEndpoint> candidates=ProxyStore.index().snapshot();
+            // A warm icon cache needs no copy of the potentially large proxy index.
+            List<ProxyEndpoint> candidates=null;
             for(String host:current){
                 if(closed||!hosts.contains(host)||memory.get(host)!=null)continue;
                 File target=new File(directory,key(host)+".png");Bitmap bmp=target.isFile()?BitmapFactory.decodeFile(target.getPath()):null;
                 if(bmp!=null){synchronized(this){if(hosts.contains(host)){memory.put(host,bmp);notifyChanged();}else bmp.recycle();}continue;}
+                if(candidates==null)candidates=ProxyStore.index().snapshot();
                 ProxyEndpoint route=iconRoute(host,candidates);
                 Network active=context.getSystemService(ConnectivityManager.class).getActiveNetwork();
                 String fingerprint=String.valueOf(active)+":"+ProxyVpnService.phase()+":"+(route==null?"direct":route.key());
@@ -76,5 +78,5 @@ public final class SiteIcons {
     }
     private static Bitmap decodeRaster(byte[] data){BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(data,0,data.length,bounds);if(bounds.outWidth<1||bounds.outHeight<1||bounds.outWidth>4096||bounds.outHeight>4096)return null;BitmapFactory.Options opts=new BitmapFactory.Options();opts.inSampleSize=1;while(bounds.outWidth/opts.inSampleSize>256||bounds.outHeight/opts.inSampleSize>256)opts.inSampleSize*=2;return BitmapFactory.decodeByteArray(data,0,data.length,opts);}
     public void close(){closed=true;if(connection!=null)connection.disconnect();worker.shutdownNow();memory.evictAll();}
-    public static Drawable placeholder(){return new Drawable(){public void draw(Canvas c){Paint p=new Paint(3);p.setColor(Color.rgb(151,169,189));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1,getBounds().width()/15f));Rect r=getBounds();float x=r.exactCenterX(),y=r.exactCenterY(),s=r.width()*.4f;c.drawCircle(x,y,s,p);c.drawOval(x-s/2,y-s,x+s/2,y+s,p);c.drawLine(x-s,y,x+s,y,p);}public void setAlpha(int a){}public void setColorFilter(ColorFilter f){}public int getOpacity(){return PixelFormat.TRANSLUCENT;}};}
+    public static Drawable placeholder(){return new Drawable(){private final Paint p=new Paint(3);public void draw(Canvas c){p.setColor(Color.rgb(151,169,189));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1,getBounds().width()/15f));Rect r=getBounds();float x=r.exactCenterX(),y=r.exactCenterY(),s=r.width()*.4f;c.drawCircle(x,y,s,p);c.drawOval(x-s/2,y-s,x+s/2,y+s,p);c.drawLine(x-s,y,x+s,y,p);}public void setAlpha(int a){}public void setColorFilter(ColorFilter f){}public int getOpacity(){return PixelFormat.TRANSLUCENT;}};}
 }

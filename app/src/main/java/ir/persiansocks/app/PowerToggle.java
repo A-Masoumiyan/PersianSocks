@@ -8,6 +8,7 @@ import android.view.animation.LinearInterpolator;
 
 /** A drawn power symbol with a rotating waiting ring; no font/emoji dependency. */
 public final class PowerToggle extends View {
+    @Override public CharSequence getAccessibilityClassName(){return android.widget.Button.class.getName();}
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private boolean connected,waiting;
     private float angle;
@@ -15,9 +16,10 @@ public final class PowerToggle extends View {
     public PowerToggle(Context context){super(context);setClickable(true);setFocusable(true);setMinimumWidth((int)dp(48));setMinimumHeight((int)dp(48));}
     private float dp(float value){return value*getResources().getDisplayMetrics().density;}
     public void showState(boolean connected,boolean waiting){
-        boolean changed=this.waiting!=waiting;this.connected=connected;this.waiting=waiting;
-        setContentDescription(waiting?"لغو اتصال VPN":connected?"قطع اتصال VPN":"اتصال VPN");
-        if(changed)animation();invalidate();
+        boolean changed=this.waiting!=waiting;boolean visualChange=this.connected!=connected||changed;this.connected=connected;this.waiting=waiting;
+        setContentDescription(AppLanguage.t(waiting?R.string.ui_design_cancel_accessibility:connected?R.string.ui_design_disconnect_accessibility:R.string.ui_design_connect_accessibility));
+        setSelected(connected);
+        if(changed)animation();if(visualChange)invalidate();
     }
     private void animation(){
         if(spinner!=null){spinner.cancel();spinner=null;}

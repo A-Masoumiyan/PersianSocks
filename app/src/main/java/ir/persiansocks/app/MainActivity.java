@@ -97,7 +97,7 @@ public final class MainActivity extends ComponentActivity {
     private String renderedCriteria="";
     private final java.util.concurrent.atomic.AtomicBoolean redrawQueued=new java.util.concurrent.atomic.AtomicBoolean();
     private TextView status, listStatus, catalogInfo, counter, selection;
-    private TextView vpnStatus, vpnBadge, activeProfile, selectionProtocol, filterSummary, trafficDown, trafficUp, trafficDownTotal, trafficUpTotal;
+    private TextView vpnStatus, vpnBadge, connectionAction, activeProfile, selectionProtocol, filterSummary, trafficDown, trafficUp, trafficDownTotal, trafficUpTotal;
     private Button filteredSpeedButton;
     private FilteredSpeedBatch speedBatch;
     private boolean preparingSpeedBatch;
@@ -257,7 +257,7 @@ public final class MainActivity extends ComponentActivity {
 
         scroller.setBackgroundColor(BG);
         LinearLayout root = new LinearLayout(this);
-        root.setPadding(dp(12), dp(8), dp(12), dp(16));
+        root.setPadding(dp(16), dp(12), dp(16), dp(12));
         root.setOrientation(LinearLayout.VERTICAL);
         root.setLayoutDirection(AppLanguage.direction());
 
@@ -274,20 +274,20 @@ public final class MainActivity extends ComponentActivity {
                 left=insets.getSystemWindowInsetLeft(); top=insets.getSystemWindowInsetTop();
                 right=insets.getSystemWindowInsetRight(); bottom=insets.getSystemWindowInsetBottom();
             }
-            root.setPadding(dp(12), dp(8)+top, dp(12), dp(8));
+            root.setPadding(dp(16), dp(12)+top, dp(16), dp(8));
             results.setPadding(left,0,right,dp(16)+bottom);
             if (sidebar != null) sidebar.setPadding(dp(14), dp(12)+top, dp(14)+right, dp(12)+bottom);
             return insets;
         });
 
         LinearLayout top = horizontal();
-        sidebarToggle = button("☰", false); sidebarToggle.setTextSize(22);
+        sidebarToggle = new UiIconButton(this,UiIconButton.Kind.MENU,AppLanguage.t(R.string.ui_001));
         sidebarToggle.setContentDescription(AppLanguage.t(R.string.ui_001));
         sidebarToggle.setOnClickListener(v -> setSidebarVisible(!sidebarVisible));
         top.addView(sidebarToggle, new LinearLayout.LayoutParams(dp(48), dp(48)));
         LinearLayout title = new LinearLayout(this); title.setOrientation(LinearLayout.VERTICAL);
         title.setLayoutDirection(AppLanguage.direction());title.setGravity(AppLanguage.gravity());
-        TextView brand = text("PersianSocks", 22, Color.WHITE, true);
+        TextView brand = text("PersianSocks", 21, Color.WHITE, true);
         brand.setTextDirection(View.TEXT_DIRECTION_LTR);
         title.addView(brand,new LinearLayout.LayoutParams(-1,-2));
         title.addView(text("v" + AppLanguage.version(this) + (DistributionPolicy.play() ? " • TLS" : ""), 11, SECONDARY, false));
@@ -301,10 +301,10 @@ public final class MainActivity extends ComponentActivity {
         root.addView(top);
 
         LinearLayout hero = panel();
-        hero.setPadding(dp(12), dp(10), dp(12), dp(10));
+        hero.setPadding(dp(16), dp(14), dp(16), dp(14));
         GradientDrawable gradient = new GradientDrawable(GradientDrawable.Orientation.TR_BL,
-            new int[]{Color.rgb(21, 55, 62), Color.rgb(20, 32, 48)});
-        gradient.setCornerRadius(dp(18)); gradient.setStroke(dp(1), Color.rgb(44, 88, 88));
+            new int[]{Color.rgb(20, 48, 62), Color.rgb(17, 33, 49)});
+        gradient.setCornerRadius(dp(22)); gradient.setStroke(dp(1), Color.rgb(39, 77, 88));
         hero.setBackground(gradient);
         LinearLayout connectionHeading = horizontal();
         vpnBadge = text(AppLanguage.t(R.string.ui_003), 12, PRIMARY, true);
@@ -320,7 +320,7 @@ public final class MainActivity extends ComponentActivity {
         selection.setAutoSizeTextTypeUniformWithConfiguration(14, 20, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
         LinearLayout selectedIdentity=horizontal();
         selectedIdentity.addView(selection,new LinearLayout.LayoutParams(0,-2,1));
-        selectionCountry=text("",12,PRIMARY,false);selectionCountry.setMaxWidth(dp(105));
+        selectionCountry=text("",12,PRIMARY,false);selectionCountry.setMaxWidth(dp(92));
         selectionCountry.setMaxLines(2);selectionCountry.setEllipsize(android.text.TextUtils.TruncateAt.END);selectionCountry.setVisibility(View.GONE);
         LinearLayout.LayoutParams countryCell=new LinearLayout.LayoutParams(-2,-2);countryCell.setMarginStart(dp(8));selectedIdentity.addView(selectionCountry,countryCell);
         hero.addView(selectedIdentity, margin(dp(5), 0));
@@ -330,7 +330,7 @@ public final class MainActivity extends ComponentActivity {
             .setMessage(vpnStatus.getText()).setPositiveButton(AppLanguage.t(R.string.ui_007), null).show());
         vpnStatus.setTooltipText(AppLanguage.t(R.string.ui_008));
         hero.addView(vpnStatus, margin(dp(4), 0));
-        activeProfile = text("", 11, SECONDARY, false); activeProfile.setVisibility(View.VISIBLE);activeProfile.setOnClickListener(v->refreshPublicIp(true));
+        activeProfile = text("", 12, SECONDARY, false); activeProfile.setVisibility(View.VISIBLE);activeProfile.setOnClickListener(v->refreshPublicIp(true));
         hero.addView(activeProfile, margin(dp(4), 0));
 
         LinearLayout actions = horizontal();
@@ -339,36 +339,44 @@ public final class MainActivity extends ComponentActivity {
             if (vpnRequestPending || ProxyVpnService.phase() != ProxyVpnService.DISCONNECTED) disconnect();
             else connect();
         });
-        LinearLayout.LayoutParams powerCell=new LinearLayout.LayoutParams(dp(56),dp(56));powerCell.setMarginEnd(dp(8));actions.addView(vpnToggle,powerCell);
-        hero.addView(actions, margin(dp(10), 0));
+        LinearLayout powerColumn=new LinearLayout(this);powerColumn.setOrientation(LinearLayout.VERTICAL);powerColumn.setGravity(Gravity.CENTER);
+        powerColumn.addView(vpnToggle,new LinearLayout.LayoutParams(dp(64),dp(64)));
+        connectionAction=text(AppLanguage.t(R.string.ui_design_connect),11,Color.WHITE,true);connectionAction.setGravity(Gravity.CENTER);connectionAction.setMaxLines(2);
+        powerColumn.addView(connectionAction,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout.LayoutParams powerCell=new LinearLayout.LayoutParams(dp(76),-2);powerCell.setMarginEnd(dp(8));actions.addView(powerColumn,powerCell);
 
         LinearLayout traffic = horizontal();
         LinearLayout down = metricColumn(AppLanguage.t(R.string.ui_011)), up = metricColumn(AppLanguage.t(R.string.ui_012));
         trafficDown = text("0 B/s", 17, PRIMARY, true);
-        trafficUp = text("0 B/s", 17, PRIMARY, true);
+        trafficUp = text("0 B/s", 17, Color.rgb(116,180,255), true);
         trafficDown.setTextDirection(View.TEXT_DIRECTION_LTR); trafficUp.setTextDirection(View.TEXT_DIRECTION_LTR);
         trafficDownTotal = text(AppLanguage.t(R.string.ui_013), 11, SECONDARY, false);
         trafficUpTotal = text(AppLanguage.t(R.string.ui_013), 11, SECONDARY, false);
         down.addView(trafficDown); down.addView(trafficDownTotal);
         up.addView(trafficUp); up.addView(trafficUpTotal);
         traffic.addView(down, new LinearLayout.LayoutParams(0, -2, 1));
-        traffic.addView(up, new LinearLayout.LayoutParams(0, -2, 1));
-        hero.addView(traffic, margin(dp(10), 0));
-        root.addView(hero, margin(dp(8), 0));
+        LinearLayout.LayoutParams upCell=new LinearLayout.LayoutParams(0,-2,1);upCell.setMarginStart(dp(8));traffic.addView(up,upCell);
+        trafficDown.setMaxLines(1);trafficUp.setMaxLines(1);trafficDownTotal.setMaxLines(1);trafficUpTotal.setMaxLines(1);
+        trafficDown.setAutoSizeTextTypeUniformWithConfiguration(12,17,1,android.util.TypedValue.COMPLEX_UNIT_SP);trafficUp.setAutoSizeTextTypeUniformWithConfiguration(12,17,1,android.util.TypedValue.COMPLEX_UNIT_SP);
+        trafficDownTotal.setEllipsize(android.text.TextUtils.TruncateAt.END);trafficUpTotal.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        actions.addView(traffic,new LinearLayout.LayoutParams(0,-2,1));hero.addView(actions,margin(dp(10),0));
+        root.addView(hero, margin(dp(14), 0));
 
         LinearLayout scanPanel = panel();
-        scanPanel.setPadding(dp(12), dp(8), dp(12), dp(8));
+        scanPanel.setPadding(dp(12), dp(12), dp(12), dp(10));
+        TextView scanHeading=text(AppLanguage.t(R.string.ui_home_scan),14,Color.WHITE,true);
+        scanPanel.addView(scanHeading,margin(0,dp(8)));
         LinearLayout scanTitle=horizontal();scanTitle.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         LinearLayout scanCounts=new LinearLayout(this);scanCounts.setOrientation(LinearLayout.VERTICAL);scanCounts.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         scanTotal=scanCountBadge(scanCounts,R.drawable.ic_scan_total,AppLanguage.t(R.string.ui_scan_total));
         scanChecked=scanCountBadge(scanCounts,R.drawable.ic_scan_checked,AppLanguage.t(R.string.ui_scan_checked));
         scanTitle.addView(scanCounts,new LinearLayout.LayoutParams(0,-2,1));
         scanRestart=new UiIconButton(this,UiIconButton.Kind.RESTART,AppLanguage.t(R.string.ui_scan_restart));
-        scanRestart.setOnClickListener(v->chooseScanMode(false));scanTitle.addView(scanRestart,iconCell(6));
+        scanRestart.setOnClickListener(v->chooseScanMode(false));((UiIconButton)scanRestart).caption(AppLanguage.t(R.string.ui_design_restart));scanTitle.addView(scanRestart,scanActionCell(4));
         scanToggle=new UiIconButton(this,UiIconButton.Kind.PLAY,AppLanguage.t(R.string.ui_home_scan));
-        scanToggle.setOnClickListener(v->{if(scanning||ProxyVpnService.autoScanning())stopScan();else continueOrStartScan();});scanTitle.addView(scanToggle,iconCell(6));
+        scanToggle.setOnClickListener(v->{if(scanning||ProxyVpnService.autoScanning())stopScan();else continueOrStartScan();});scanTitle.addView(scanToggle,scanActionCell(4));
         collectButton=new UiIconButton(this,UiIconButton.Kind.COLLECT,AppLanguage.t(R.string.ui_014));
-        collectButton.setOnClickListener(v->{if(collecting)stopCollection();else collectList();});scanTitle.addView(collectButton,iconCell(0));
+        collectButton.setOnClickListener(v->{if(collecting)stopCollection();else collectList();});((UiIconButton)collectButton).caption(AppLanguage.t(R.string.ui_design_sources));scanTitle.addView(collectButton,scanActionCell(0));
         scanPanel.addView(scanTitle);
         listStatus=text("",11,SECONDARY,false);listStatus.setVisibility(View.GONE);listStatus.setMaxLines(1);listStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
         scanPanel.addView(listStatus,margin(dp(4),0));
@@ -385,27 +393,27 @@ public final class MainActivity extends ComponentActivity {
 
         LinearLayout heading = horizontal();
         heading.addView(text(AppLanguage.t(R.string.ui_020), 18, Color.WHITE, true), new LinearLayout.LayoutParams(0, -2, 1));
-        counter = text(AppLanguage.t(R.string.ui_021), 12, PRIMARY, true); heading.addView(counter);
-        root.addView(heading, margin(dp(8), 0));
+        counter = chip(AppLanguage.t(R.string.ui_021), PRIMARY, Color.rgb(22,51,56)); heading.addView(counter);
+        root.addView(heading, margin(dp(16), dp(4)));
         LinearLayout toolbar=horizontal();
         favoritesButton=new UiIconButton(this,UiIconButton.Kind.STAR,AppLanguage.t(R.string.ui_151));
         favoritesButton.setOnClickListener(v->{showFavorites=!showFavorites;renderedRevision=-1;render();});
-        toolbar.addView(favoritesButton,weighted(48,1,6));
+        ((UiIconButton)favoritesButton).caption(AppLanguage.t(R.string.ui_design_saved));toolbar.addView(favoritesButton,weighted(64,1,6));
         filterButton=new UiIconButton(this,UiIconButton.Kind.FILTER,AppLanguage.t(R.string.ui_home_filters));
-        filterButton.setOnClickListener(v->homeFiltersDialog());toolbar.addView(filterButton,weighted(48,1,6));
+        filterButton.setOnClickListener(v->homeFiltersDialog());filterButton.caption(AppLanguage.t(R.string.ui_design_filters));toolbar.addView(filterButton,weighted(64,1,6));
         filteredSpeedButton=new UiIconButton(this,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_032));
         filteredSpeedButton.setOnClickListener(v->{if(speedBatch!=null||preparingSpeedBatch)stopFilteredSpeed();else prepareFilteredSpeed();});
-        toolbar.addView(filteredSpeedButton,weighted(48,1,6));
+        ((UiIconButton)filteredSpeedButton).caption(AppLanguage.t(R.string.ui_design_speed));toolbar.addView(filteredSpeedButton,weighted(64,1,6));
         savedPingButton=new UiIconButton(this,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_v25_008));
         savedPingButton.setOnClickListener(v->{if(savedPingQueue!=null)cancelSingleTests();else startSavedPings();render();});
         savedSpeedButton=new UiIconButton(this,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_v25_009));
         savedSpeedButton.setOnClickListener(v->{if(speedBatch!=null)stopFilteredSpeed();else confirmSpeedBatch(new FilteredSpeedBatch(favoriteSnapshots()));render();});
-        toolbar.addView(savedPingButton,weighted(48,1,6));toolbar.addView(savedSpeedButton,weighted(48,1,6));
-        filteredPingButton=new UiIconButton(this,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_filtered_ping));filteredPingButton.setOnClickListener(v->{if(savedPingQueue!=null&&filteredPingMode)cancelSingleTests();else startFilteredPings();render();});toolbar.addView(filteredPingButton,weighted(48,1,0));
+        ((UiIconButton)savedPingButton).caption(AppLanguage.t(R.string.ui_design_ping));((UiIconButton)savedSpeedButton).caption(AppLanguage.t(R.string.ui_design_speed));toolbar.addView(savedPingButton,weighted(64,1,6));toolbar.addView(savedSpeedButton,weighted(64,1,0));
+        filteredPingButton=new UiIconButton(this,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_filtered_ping));filteredPingButton.setOnClickListener(v->{if(savedPingQueue!=null&&filteredPingMode)cancelSingleTests();else startFilteredPings();render();});((UiIconButton)filteredPingButton).caption(AppLanguage.t(R.string.ui_design_ping));toolbar.addView(filteredPingButton,weighted(64,1,0));
         savedPingButton.setVisibility(View.GONE);savedSpeedButton.setVisibility(View.GONE);root.addView(toolbar,margin(dp(4),0));
         rebuildFilters();
-        filterSummary = text("", 11, SECONDARY, false);
-        filterSummary.setSingleLine(true); filterSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        filterSummary = text("", 12, SECONDARY, false);
+        filterSummary.setMaxLines(2); filterSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
         filterSummary.setOnClickListener(v -> homeFiltersDialog());
         root.addView(filterSummary, margin(dp(3), 0));
         emptyState=panel();root.addView(emptyState,margin(dp(8),0));
@@ -425,6 +433,7 @@ public final class MainActivity extends ComponentActivity {
     private LinearLayout metricColumn(String label) {
         LinearLayout column = new LinearLayout(this); column.setOrientation(LinearLayout.VERTICAL);
         column.setLayoutDirection(AppLanguage.direction());column.setGravity(AppLanguage.gravity());
+        column.setPadding(dp(10),dp(8),dp(10),dp(8));column.setBackground(background(Color.rgb(15,30,44),dp(12),Color.rgb(33,54,69)));
         column.addView(text(label, 11, SECONDARY, false)); return column;
     }
     private LinearLayout filterColumn(String label, Button choice) {
@@ -474,25 +483,33 @@ public final class MainActivity extends ComponentActivity {
         });
         LinearLayout heading = horizontal();
         heading.addView(text(AppLanguage.t(R.string.ui_034), 17, Color.WHITE, true), new LinearLayout.LayoutParams(0,-2,1));
-        Button language=button("en".equals(AppLanguage.code(this))?"🇬🇧":"🇮🇷",false);language.setTextSize(23);language.setContentDescription(AppLanguage.t(R.string.ui_297));
+        Button language=button("en".equals(AppLanguage.code(this))?"FA":"EN",false);language.setTextSize(13);language.setContentDescription(AppLanguage.t(R.string.ui_297));
         language.setOnClickListener(v->{pendingLanguage="en".equals(AppLanguage.code(this))?"fa":"en";applyPendingLanguage();});
         LinearLayout.LayoutParams languageCell=new LinearLayout.LayoutParams(dp(48),dp(48));languageCell.setMarginEnd(dp(12));heading.addView(language,languageCell);
-        sidebarClose=button("×",false);sidebarClose.setTextSize(25);sidebarClose.setContentDescription(AppLanguage.t(R.string.ui_036));sidebarClose.setOnClickListener(v->setSidebarVisible(false));heading.addView(sidebarClose,new LinearLayout.LayoutParams(dp(48),dp(48)));sidebar.addView(heading);
+        sidebarClose=new UiIconButton(this,UiIconButton.Kind.CLOSE,AppLanguage.t(R.string.ui_036));sidebarClose.setContentDescription(AppLanguage.t(R.string.ui_036));sidebarClose.setOnClickListener(v->setSidebarVisible(false));heading.addView(sidebarClose,new LinearLayout.LayoutParams(dp(48),dp(48)));sidebar.addView(heading);
         ScrollView scroll=new ScrollView(this);LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(0,dp(12),0,dp(8));scroll.addView(content);sidebar.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        content.addView(text(AppLanguage.t(R.string.ui_design_network),12,PRIMARY,true),margin(0,dp(8)));
         sidebarTls=sidebarCheck(AppLanguage.t(R.string.ui_038),DistributionPolicy.encryptedOnly());sidebarTls.setEnabled(!DistributionPolicy.play());sidebarTls.setOnCheckedChangeListener((b,on)->{if(on!=DistributionPolicy.encryptedOnly())changeTlsMode(on);});content.addView(sidebarTls,sized(dp(48),0));
         sidebarAuto=sidebarCheck(AppLanguage.t(R.string.ui_039),getSharedPreferences("persiansocks",MODE_PRIVATE).getBoolean("auto-switch",true));sidebarAuto.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("auto-switch",on).apply());content.addView(sidebarAuto,sized(dp(48),0));
         CheckBox upkeep=sidebarCheck(AppLanguage.t(R.string.ui_maintenance),getSharedPreferences("persiansocks",0).getBoolean("background-maintenance",true));
         upkeep.setOnCheckedChangeListener((b,on)->{getSharedPreferences("persiansocks",0).edit().putBoolean("background-maintenance",on).apply();ProxyMaintenance.schedule(this);});content.addView(upkeep,sized(dp(48),0));
         content.addView(text(AppLanguage.t(R.string.ui_maintenance_help),11,SECONDARY,false),margin(dp(4),0));
-        LinearLayout tools=horizontal();sidebarIcon(tools,UiIconButton.Kind.SPLIT,AppLanguage.t(R.string.ui_254),()->startActivity(new Intent(this,SplitTunnelActivity.class)));sidebarIcon(tools,UiIconButton.Kind.SOURCE,AppLanguage.t(R.string.ui_227),this::sourceDialog);sidebarIcon(tools,UiIconButton.Kind.TARGET,AppLanguage.t(R.string.ui_047),this::targetsDialog);sidebarIcon(tools,UiIconButton.Kind.PRIVACY,AppLanguage.t(R.string.ui_276),()->VpnDisclosure.showPrivacy(this));content.addView(tools,margin(dp(12),0));
+        content.addView(text(AppLanguage.t(R.string.ui_design_tools),12,PRIMARY,true),margin(dp(18),dp(4)));
+        sidebarTool(content,UiIconButton.Kind.SPLIT,AppLanguage.t(R.string.ui_254),()->startActivity(new Intent(this,SplitTunnelActivity.class)));
+        sidebarTool(content,UiIconButton.Kind.SOURCE,AppLanguage.t(R.string.ui_227),this::sourceDialog);
+        sidebarTool(content,UiIconButton.Kind.TARGET,AppLanguage.t(R.string.ui_047),this::targetsDialog);
+        sidebarTool(content,UiIconButton.Kind.PRIVACY,AppLanguage.t(R.string.ui_276),()->VpnDisclosure.showPrivacy(this));
         content.addView(text(AppLanguage.t(R.string.ui_041),14,PRIMARY,true),margin(dp(18),0));
         final int[] values={5000,10000,20000,ProxyScanner.MAX_TESTS};
         if(!scanAll&&maxTests!=5000&&maxTests!=10000&&maxTests!=20000){maxTests=5000;saveScanLimit();}
         ScanLimitView limits=new ScanLimitView(this,scanAll?3:maxTests==5000?0:maxTests==10000?1:2,index->{scanAll=index==3;maxTests=values[index];saveScanLimit();});content.addView(limits,sized(dp(64),0));
-        LinearLayout testOptions=horizontal();sidebarIcon(testOptions,UiIconButton.Kind.PING,AppLanguage.t(R.string.ui_target_ping),this::pingTargetDialog);sidebarIcon(testOptions,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_target_speed),this::speedTargetDialog);sidebarIcon(testOptions,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_scan_healthy),()->chooseScanMode(true));content.addView(testOptions,margin(dp(8),0));
+        content.addView(text(AppLanguage.t(R.string.ui_design_tests),12,PRIMARY,true),margin(dp(12),dp(4)));
+        sidebarTool(content,UiIconButton.Kind.PING,AppLanguage.t(R.string.ui_target_ping),this::pingTargetDialog);
+        sidebarTool(content,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_target_speed),this::speedTargetDialog);
+        sidebarTool(content,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_scan_healthy),()->chooseScanMode(true));
         LinearLayout footer=horizontal();sidebarIcon(footer,UiIconButton.Kind.INFO,AppLanguage.t(R.string.ui_054),this::aboutDialog);sidebarIcon(footer,UiIconButton.Kind.TELEGRAM,"Telegram @HTpink",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse("https://t.me/HTpink")));}catch(Exception ignored){}});
         TextView version=text("v"+AppLanguage.version(this),10,SECONDARY,false);version.setTextDirection(View.TEXT_DIRECTION_LTR);footer.addView(version,new LinearLayout.LayoutParams(0,-2,1));
-        LinearLayout updateBox=new LinearLayout(this);updateBox.setOrientation(LinearLayout.VERTICAL);updateBox.setGravity(Gravity.CENTER);UiIconButton update=new UiIconButton(this,UiIconButton.Kind.UPDATE,AppLanguage.t(R.string.ui_update_000));updateBox.addView(update,new LinearLayout.LayoutParams(dp(46),dp(46)));TextView available=text("",9,SECONDARY,false);available.setGravity(Gravity.CENTER);available.setTextDirection(AppLanguage.textDirection());available.setSingleLine(true);updateBox.addView(available);footer.addView(updateBox,new LinearLayout.LayoutParams(dp(104),-2));appUpdater=new AppUpdater(this,update,available);sidebar.addView(footer,margin(dp(12),0));
+        LinearLayout updateBox=new LinearLayout(this);updateBox.setOrientation(LinearLayout.VERTICAL);updateBox.setGravity(Gravity.CENTER);UiIconButton update=new UiIconButton(this,UiIconButton.Kind.UPDATE,AppLanguage.t(R.string.ui_update_000));updateBox.addView(update,new LinearLayout.LayoutParams(dp(48),dp(48)));TextView available=text("",9,SECONDARY,false);available.setGravity(Gravity.CENTER);available.setTextDirection(AppLanguage.textDirection());available.setSingleLine(true);updateBox.addView(available);footer.addView(updateBox,new LinearLayout.LayoutParams(dp(96),-2));appUpdater=new AppUpdater(this,update,available);sidebar.addView(footer,margin(dp(12),0));
         page.addView(sidebarOverlay,new FrameLayout.LayoutParams(-1,-1));
     }
     private boolean testSettingsBusy(){
@@ -522,7 +539,18 @@ public final class MainActivity extends ComponentActivity {
         save.setOnClickListener(v->{String url="";if(custom.isChecked())try{url=TestDownloadPolicy.validate(link.getText().toString().trim());}catch(Exception ex){link.setError(AppLanguage.t(R.string.ui_target_invalid));return;}getSharedPreferences("persiansocks",0).edit().putString("speed-target-url",url).apply();dialog.dismiss();renderedRevision=-1;render();});dialog.show();
     }
     private void saveScanLimit(){getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putInt("max-tests",maxTests).putBoolean("scan-all",scanAll).apply();}
-    private void sidebarIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(60),dp(60));cell.setMarginEnd(dp(8));row.addView(icon,cell);}
+    private void sidebarIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(48),dp(48));cell.setMarginEnd(dp(6));row.addView(icon,cell);}
+    private void sidebarTool(LinearLayout parent,UiIconButton.Kind kind,String label,Runnable action){
+        LinearLayout item=horizontal();item.setPadding(dp(8),dp(4),dp(10),dp(4));item.setMinimumHeight(dp(56));
+        item.setBackground(background(Color.rgb(18,28,43),dp(12),STROKE));
+        item.setForeground(new android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(Color.argb(30,70,226,184)),null,background(Color.WHITE,dp(12),Color.WHITE)));
+        UiIconButton icon=new UiIconButton(this,kind,label);icon.setBackground(null);icon.setClickable(false);icon.setFocusable(false);icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        item.addView(icon,new LinearLayout.LayoutParams(dp(32),dp(40)));
+        TextView name=text(label,13,Color.WHITE,false);name.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(0,-2,1);cell.setMarginStart(dp(10));item.addView(name,cell);
+        item.setFocusable(true);item.setContentDescription(label);item.setOnClickListener(v->{setSidebarVisible(false);action.run();});
+        parent.addView(item,margin(dp(6),0));
+    }
     private Button sidebarAction(LinearLayout parent,String label,Runnable action) {
         Button choice = button(label,false); choice.setTextSize(13);
         choice.setGravity(AppLanguage.gravity()|Gravity.CENTER_VERTICAL); choice.setPadding(dp(12),0,dp(12),0);
@@ -545,9 +573,13 @@ public final class MainActivity extends ComponentActivity {
     private void setSidebarVisible(boolean visible) {
         if (sidebarOverlay == null || sidebarVisible == visible) return;
         sidebarVisible = visible;
+        if(visible&&page.getWidth()>0){
+            FrameLayout.LayoutParams cell=(FrameLayout.LayoutParams)sidebar.getLayoutParams();
+            cell.width=Math.min(dp(320),Math.max(1,(int)(page.getWidth()*.86f)));sidebar.setLayoutParams(cell);
+        }
         sidebarOverlay.setVisibility(visible ? View.VISIBLE : View.GONE);
         mainScroller.setImportantForAccessibility(visible ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
-        sidebarToggle.setText(AppLanguage.display(visible ? "×" : "☰"));
+        ((UiIconButton)sidebarToggle).kind(visible?UiIconButton.Kind.CLOSE:UiIconButton.Kind.MENU);
         sidebarToggle.setContentDescription(visible ? AppLanguage.t(R.string.ui_036) : AppLanguage.t(R.string.ui_001));
         if (visible) sidebarClose.requestFocus(); else sidebarToggle.requestFocus();
         if (Build.VERSION.SDK_INT >= 33) {
@@ -559,6 +591,7 @@ public final class MainActivity extends ComponentActivity {
             }
         }
     }
+    private LinearLayout.LayoutParams scanActionCell(int gap){LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(52),dp(60));cell.setMarginEnd(dp(gap));return cell;}
     private LinearLayout.LayoutParams iconCell(int gap){LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(48),dp(48));cell.setMarginEnd(dp(gap));return cell;}
     private void iconState(Button button,UiIconButton.Kind kind,String description,boolean active){
         UiIconButton icon=(UiIconButton)button;icon.kind(kind);icon.active(active);icon.setContentDescription(AppLanguage.display(description));icon.setTooltipText(icon.getContentDescription());
@@ -723,6 +756,7 @@ public final class MainActivity extends ComponentActivity {
         boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto;
         boolean resumable=resumableScan();
         iconState(scanToggle,anyScan?UiIconButton.Kind.PAUSE:UiIconButton.Kind.PLAY,AppLanguage.t(anyScan?R.string.ui_scan_pause:resumable?R.string.ui_scan_resume:R.string.ui_home_scan),anyScan||resumable);
+        ((UiIconButton)scanToggle).caption(AppLanguage.t(anyScan?R.string.ui_design_pause:resumable?R.string.ui_design_resume:R.string.ui_design_scan));
         boolean dataBusy=!localDataLoaded||loading||preparing||stopping;
         scanToggle.setEnabled(!collecting && !dataBusy);
         collectButton.setEnabled(!anyScan && !dataBusy);
@@ -748,7 +782,8 @@ public final class MainActivity extends ComponentActivity {
         if(observedVpnPhase!=phase){observedVpnPhase=phase;renderedRevision=-1;scheduleRender();}
         boolean active = phase != ProxyVpnService.DISCONNECTED;
         vpnToggle.showState(phase==ProxyVpnService.CONNECTED,phase==ProxyVpnService.CONNECTING);
-        vpnBadge.setText(AppLanguage.display(phase==ProxyVpnService.CONNECTED?AppLanguage.t(R.string.ui_091):"●  VPN"));
+        vpnBadge.setText(AppLanguage.t(phase==ProxyVpnService.CONNECTED?R.string.ui_091:phase==ProxyVpnService.CONNECTING?R.string.ui_design_connecting:R.string.ui_design_disconnected));
+        connectionAction.setText(AppLanguage.t(phase==ProxyVpnService.CONNECTED?R.string.ui_design_disconnect:phase==ProxyVpnService.CONNECTING?R.string.ui_design_cancel:R.string.ui_design_connect));
         vpnBadge.setTextColor(phase==ProxyVpnService.CONNECTED?PRIMARY:phase==ProxyVpnService.CONNECTING?WARNING:SECONDARY);
         vpnStatus.setText(AppLanguage.display(connectionError));vpnStatus.setTextColor(DANGER);vpnStatus.setVisibility(connectionError.isEmpty()?View.GONE:View.VISIBLE);
         String current = active ? ProxyVpnService.activeEndpoint() : "";
@@ -960,6 +995,7 @@ public final class MainActivity extends ComponentActivity {
         filterSummary.setText(summary);filterSummary.setVisibility(showFavorites?View.GONE:View.VISIBLE);
         filterButton.active(filtered||smoothResults||sort!=ProxyResults.Sort.FASTEST);
         filterButton.setContentDescription(AppLanguage.t(R.string.ui_home_filters)+": "+summary);filterButton.setTooltipText(filterButton.getContentDescription());
+        ((UiIconButton)favoritesButton).caption(AppLanguage.t(showFavorites?R.string.ui_design_all:R.string.ui_design_saved));
         iconState(favoritesButton,showFavorites?UiIconButton.Kind.BACK:UiIconButton.Kind.STAR,
             showFavorites?AppLanguage.t(R.string.ui_150):AppLanguage.t(R.string.ui_151)+" ("+favorites.size()+")",showFavorites);
         savedPingButton.setVisibility(showFavorites?View.VISIBLE:View.GONE);savedSpeedButton.setVisibility(showFavorites?View.VISIBLE:View.GONE);
@@ -1044,7 +1080,8 @@ public final class MainActivity extends ComponentActivity {
     }
     private final class ServiceIcon extends LinearLayout {final ImageView image=new ImageView(MainActivity.this);final TextView mark=text("",11,SECONDARY,true);ServiceIcon(){super(MainActivity.this);setGravity(Gravity.CENTER);setLayoutDirection(View.LAYOUT_DIRECTION_LTR);image.setScaleType(ImageView.ScaleType.FIT_CENTER);addView(image,new LinearLayout.LayoutParams(dp(22),dp(22)));addView(mark,new LinearLayout.LayoutParams(dp(12),-2));}}
     private final class CardHolder {
-        final LinearLayout wrapper=new LinearLayout(MainActivity.this),row=new LinearLayout(MainActivity.this),services=new LinearLayout(MainActivity.this);
+        final LinearLayout wrapper=new LinearLayout(MainActivity.this),row=new LinearLayout(MainActivity.this);
+        final ServiceFlowLayout services=new ServiceFlowLayout(MainActivity.this);
         final TextView address=text("",15,Color.WHITE,true),badge=chip(AppLanguage.t(R.string.ui_162),PRIMARY,Color.rgb(22,75,68)),detail=text("",12,SECONDARY,false);
         final TextView down=metricValue("",SECONDARY),ping=metricValue("",Color.WHITE);
         final List<ServiceIcon> serviceViews=new ArrayList<>();
@@ -1055,8 +1092,8 @@ public final class MainActivity extends ComponentActivity {
         UiIconButton favoriteButton;
         CardHolder(){
             wrapper.setOrientation(LinearLayout.VERTICAL);wrapper.setLayoutDirection(AppLanguage.direction());
-            wrapper.setPadding(dp(12),dp(4),dp(12),dp(4));
-            row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(9),dp(6),dp(9),dp(6));
+            wrapper.setPadding(dp(16),dp(5),dp(16),dp(5));
+            row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(12),dp(12),dp(12),dp(10));
             swipeFrame.setClipChildren(true);wrapper.addView(swipeFrame,new LinearLayout.LayoutParams(-1,-2));
             pingHint.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);pingHint.setPadding(dp(18),0,dp(18),0);pingHint.setBackground(background(Color.rgb(16,56,45),dp(14),PRIMARY));
             downloadHint.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);downloadHint.setPadding(dp(18),0,dp(18),0);downloadHint.setBackground(background(Color.rgb(20,41,70),dp(14),Color.rgb(99,172,255)));
@@ -1073,11 +1110,12 @@ public final class MainActivity extends ComponentActivity {
             cardIcon(actions,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_175),()->{if(endpoint!=null)startProxyProbe(endpoint,true);});
             cardIcon(actions,UiIconButton.Kind.INFO,AppLanguage.t(R.string.ui_177),()->{if(endpoint!=null)proxyDetails(endpoint);});
             favoriteButton=cardIcon(actions,UiIconButton.Kind.STAR,AppLanguage.t(R.string.ui_167),()->{if(endpoint!=null)toggleFavorite(endpoint);});
-            LinearLayout meta=horizontal();detail.setMaxLines(1);detail.setEllipsize(android.text.TextUtils.TruncateAt.END);meta.addView(detail,new LinearLayout.LayoutParams(0,-2,1));meta.addView(actions);row.addView(meta,margin(dp(3),0));
-            services.setOrientation(LinearLayout.VERTICAL);row.addView(services,margin(dp(5),0));
+            detail.setMaxLines(2);detail.setEllipsize(android.text.TextUtils.TruncateAt.END);row.addView(detail,margin(dp(4),0));
+            row.addView(services,margin(dp(10),0));
             row.addView(divider,sized(dp(1),dp(6)));
             LinearLayout metrics=horizontal();metrics.addView(resultColumn(AppLanguage.t(R.string.ui_164),down),new LinearLayout.LayoutParams(0,-2,1.5f));
-            LinearLayout.LayoutParams pingCell=new LinearLayout.LayoutParams(0,-2,1);pingCell.setMarginStart(dp(8));metrics.addView(resultColumn(AppLanguage.t(R.string.ui_165),ping),pingCell);row.addView(metrics,margin(dp(5),0));
+            LinearLayout.LayoutParams pingCell=new LinearLayout.LayoutParams(0,-2,1);pingCell.setMarginStart(dp(8));metrics.addView(resultColumn(AppLanguage.t(R.string.ui_165),ping),pingCell);row.addView(metrics,margin(dp(8),0));
+            row.addView(actions,margin(dp(10),0));
             row.setOnClickListener(v->{if(endpoint!=null){chooseProxy(endpoint);}});
             row.setLongClickable(false);
             // Horizontal gestures only; vertical movement stays with the scrolling ListView.
@@ -1110,7 +1148,8 @@ public final class MainActivity extends ComponentActivity {
         void bind(ProxyEndpoint p){
             if(endpoint==null||!endpoint.key().equals(p.key())||!swiping){row.animate().cancel();row.setTranslationX(0);pingHint.setVisibility(View.GONE);downloadHint.setVisibility(View.GONE);swiping=false;}
             endpoint=p;boolean unavailable=healthy.rejected(p.key());boolean active=selected!=null&&selected.key().equals(p.key());
-            row.setBackground(background(active?Color.rgb(23,54,57):SURFACE,dp(14),active?PRIMARY:STROKE));
+            row.setBackground(background(active?Color.rgb(20,43,53):SURFACE,dp(18),active?Color.rgb(57,145,134):STROKE));
+            row.setSelected(active);
             address.setText(p.address());badge.setVisibility(ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&p.key().equals(ProxyVpnService.activeEndpoint())?View.VISIBLE:View.GONE);
             boolean saved=favorites.containsKey(p.key());
             favoriteButton.active(saved);favoriteButton.setContentDescription(saved?AppLanguage.t(R.string.ui_135):AppLanguage.t(R.string.ui_167));favoriteButton.setTooltipText(saved?AppLanguage.t(R.string.ui_135):AppLanguage.t(R.string.ui_167));
@@ -1120,14 +1159,14 @@ public final class MainActivity extends ComponentActivity {
             detail.setText(AppLanguage.display(CountryLookup.display(country,AppLanguage.locale())+"  •  "+AppLanguage.isolate(p.type.name()))+history+(unavailable?" • "+AppLanguage.t(R.string.ui_proxy_unavailable):""));detail.setTextColor(unavailable?WARNING:active?PRIMARY:SECONDARY);
             String shape=ScanCheckpoint.fingerprint();
             if(!shape.equals(targetSet)){
-                targetSet=shape;services.removeAllViews();serviceViews.clear();LinearLayout line=null;int count=0;
+                targetSet=shape;services.removeAllViews();serviceViews.clear();
                 for(ServiceTargets.Target target:ServiceTargets.current()){
-                    if(count++%7==0){line=horizontal();services.addView(line,margin(serviceViews.isEmpty()?0:dp(5),0));}
-                    ServiceIcon chip=new ServiceIcon();LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(42),dp(32));cell.setMarginEnd(dp(3));line.addView(chip,cell);serviceViews.add(chip);
+                    ServiceIcon chip=new ServiceIcon();services.addView(chip,new ViewGroup.LayoutParams(dp(44),dp(36)));serviceViews.add(chip);
                 }
             }
             int index=0;for(ServiceTargets.Target target:ServiceTargets.current()){
                 boolean ok=!unavailable&&p.passed(target);ServiceIcon chip=serviceViews.get(index++);android.graphics.Bitmap icon=siteIcons==null?null:siteIcons.get(target.host);if(icon==null)chip.image.setImageDrawable(SiteIcons.placeholder());else chip.image.setImageBitmap(icon);
+                chip.setBackground(background(ok?Color.rgb(19,58,54):Color.rgb(18,28,42),dp(8),ok?Color.rgb(30,83,73):Color.rgb(34,47,63)));
                 chip.mark.setText(unavailable?"•":ok?"✓":p.checked(target)?"×":"•");chip.mark.setTextColor(ok?PRIMARY:SECONDARY);chip.setTooltipText(target.host);chip.setContentDescription(target.name+" • "+target.host+(ok?AppLanguage.t(R.string.ui_169):p.checked(target)?AppLanguage.t(R.string.ui_170):AppLanguage.t(R.string.ui_171)));
             }
             ProxyTestResult measured=testResults.get(p.key());if(measured==null)measured=new ProxyTestResult();
@@ -1137,7 +1176,7 @@ public final class MainActivity extends ComponentActivity {
             setMetricValue(ping,unavailable?AppLanguage.t(R.string.ui_proxy_unavailable):probeRunning?AppLanguage.t(R.string.ui_172):ScanProbePolicy.latency(p)==Long.MAX_VALUE?AppLanguage.t(R.string.ui_181):measured.pingValue(p));divider.setBackgroundColor(active?Color.rgb(44,88,88):STROKE);
         }
     }
-    private UiIconButton cardIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(dp(34),dp(38));cell.setMarginStart(dp(3));row.addView(icon,cell);return icon;}
+    private UiIconButton cardIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(0,dp(48),1);cell.setMarginStart(dp(2));cell.setMarginEnd(dp(2));row.addView(icon,cell);return icon;}
     private void proxyDetails(ProxyEndpoint p) {
         String country = p.countryCode.isEmpty() ? CountryLookup.lookup(p.host) : p.countryCode;
         StringBuilder details = new StringBuilder(p.key()).append(AppLanguage.t(R.string.ui_179)).append(CountryLookup.display(country,AppLanguage.locale()))
@@ -1491,17 +1530,18 @@ public final class MainActivity extends ComponentActivity {
     }
     private static String isolated(String value) { return "\u2066" + value + "\u2069"; }
     private LinearLayout resultColumn(String label,TextView value){
-        LinearLayout pair=horizontal();pair.setGravity(AppLanguage.gravity()|Gravity.CENTER_VERTICAL);
-        pair.addView(text(label,10,SECONDARY,false));LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(-2,-2);cell.setMarginStart(dp(4));pair.addView(value,cell);return pair;
+        LinearLayout pair=new LinearLayout(this);pair.setOrientation(LinearLayout.VERTICAL);pair.setLayoutDirection(AppLanguage.direction());
+        pair.setPadding(dp(10),dp(8),dp(10),dp(8));pair.setBackground(background(Color.rgb(16,26,40),dp(10),Color.rgb(31,45,62)));
+        pair.addView(text(label,11,SECONDARY,false));pair.addView(value,new LinearLayout.LayoutParams(-1,-2));return pair;
     }
 
     private TextView metricValue(String value, int color) {
-        TextView text = text("", 16, color, true); text.setSingleLine(true);
+        TextView text = text("", 16, color, true); text.setMaxLines(1);
         text.setEllipsize(android.text.TextUtils.TruncateAt.END); setMetricValue(text, value); return text;
     }
     private void setMetricValue(TextView text, String value) {
         boolean number = value.contains("MB/s") || value.endsWith(" ms");
-        text.setTextSize(number ? 13 : 11); text.setTextDirection(number ? View.TEXT_DIRECTION_LTR : AppLanguage.textDirection());
+        text.setTextSize(number ? 16 : 12); text.setTextDirection(number ? View.TEXT_DIRECTION_LTR : AppLanguage.textDirection());
         text.setText(AppLanguage.display(value));
     }
     private Map<String,ProxyTestResult> readTestResults() {
