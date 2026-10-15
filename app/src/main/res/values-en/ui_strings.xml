@@ -126,8 +126,8 @@
     <string name="ui_123" formatted="false">"No compatible proxy to scan"</string>
     <string name="ui_124" formatted="false">"Test settings changed; start a new scan"</string>
     <string name="ui_125" formatted="false">"Testing "</string>
-    <string name="ui_126" formatted="false">" • Newly healthy: "</string>
-    <string name="ui_127" formatted="false">"\nNewly healthy: "</string>
+    <string name="ui_126" formatted="false">" • Fresh HTTPS results: "</string>
+    <string name="ui_127" formatted="false">"\nFresh HTTPS results: "</string>
     <string name="ui_128" formatted="false">"Final save failed; scan progress was preserved"</string>
     <string name="ui_129" formatted="false">"Could not start scan: "</string>
     <string name="ui_130" formatted="false">"Could not restore data: "</string>
@@ -169,8 +169,8 @@
     <string name="ui_166" formatted="false">"Already saved"</string>
     <string name="ui_167" formatted="false">"Add to Saved"</string>
     <string name="ui_168" formatted="false">"; swipe left: ping; swipe right: speed test"</string>
-    <string name="ui_169" formatted="false">" verified"</string>
-    <string name="ui_170" formatted="false">" not verified"</string>
+    <string name="ui_169" formatted="false">" HTTPS response verified"</string>
+    <string name="ui_170" formatted="false">" HTTPS response not verified"</string>
     <string name="ui_171" formatted="false">" not tested"</string>
     <string name="ui_172" formatted="false">"Testing…"</string>
     <string name="ui_173" formatted="false">"Select proxy"</string>
@@ -185,8 +185,8 @@
     <string name="ui_182" formatted="false">"\nPing is the HTTPS response time through this proxy."</string>
     <string name="ui_183" formatted="false">"A real UDP response through the relay was verified"</string>
     <string name="ui_184" formatted="false">"Only TCP verified"</string>
-    <string name="ui_185" formatted="false">"Verified"</string>
-    <string name="ui_186" formatted="false">"Not verified"</string>
+    <string name="ui_185" formatted="false">"HTTPS response verified"</string>
+    <string name="ui_186" formatted="false">"HTTPS response not verified"</string>
     <string name="ui_187" formatted="false">"Not tested"</string>
     <string name="ui_188" formatted="false">"\nRecorded download speed: "</string>
     <string name="ui_189" formatted="false">"\nRecorded speed-test data: "</string>
@@ -581,4 +581,19 @@
     <string name="ui_design_connect_accessibility">Connect VPN</string>
     <string name="ui_design_disconnect_accessibility">Disconnect VPN</string>
     <string name="ui_design_cancel_accessibility">Cancel VPN connection</string>
+    <string name="ui_health_card_scope" formatted="false">"HTTPS test; playback and login untested"</string>
+    <string name="ui_health_scope" formatted="false">"A checkmark means the test endpoint returned an HTTPS response with a valid certificate. Video playback, account login and full app functionality are not tested. Even Full means all three test endpoints responded."</string>
+    <string name="ui_source_metrics" formatted="false">"Source quality report"</string>
+    <string name="ui_source_metrics_scope" formatted="false">"Local measurements start with this version. Success uses the latest test per candidate since the last fetch, on this network category and test profile. Untested candidates are not failures. Overlap covers feeds fetched within 7 days. Content-change time is when a change was observed, not the source publication date. These measurements do not guarantee future quality."</string>
+    <string name="ui_source_fetch_age" formatted="false">"Last valid fetch"</string>
+    <string name="ui_source_changed_age" formatted="false">"Last observed content change"</string>
+    <string name="ui_source_candidates" formatted="false">"Unique candidates"</string>
+    <string name="ui_source_duplicates" formatted="false">"Shared with other sources"</string>
+    <string name="ui_source_yield" formatted="false">"HTTPS passed / tested"</string>
+    <string name="ui_source_fetches" formatted="false">"Valid fetches / attempts"</string>
+    <string name="ui_source_empty" formatted="false">"Latest fetch empty or failed"</string>
+    <string name="ui_minutes_ago" formatted="false">"minutes ago"</string>
+    <string name="ui_scan_capacity" formatted="false">"Concurrency"</string>
+    <string name="ui_scan_rate" formatted="false">"tests/sec"</string>
+    <string name="ui_source_internal_duplicates" formatted="false">"Duplicates within parsed source data"</string>
 </resources>

@@ -26,7 +26,7 @@ public final class ReconnectPriorityHarness {
             check(ProxyEndpoint.fromJson(result.endpoint.json()).instagramLatency()==result.endpoint.instagramLatency(),"per-service timing survives cache reload");
             int before=proxy.accepted.get();ServiceTargets.Target selected=ConnectionPreflight.target("FULL",result.endpoint);
             Socks5Probe.Result preliminary=ConnectionPreflight.inspect(proxy.endpoint(),selected,new AtomicBoolean(),null,Socket::new,InetAddress::getByName);
-            check(preliminary.endpoint!=null&&preliminary.endpoint.serviceMask==ProxyEndpoint.TELEGRAM&&!preliminary.endpoint.full()&&proxy.accepted.get()==before+1,"one preliminary request cannot claim full VPN verification: "+type);
+            check(preliminary.endpoint!=null&&preliminary.endpoint.serviceMask==selected.bit&&!preliminary.endpoint.full()&&proxy.accepted.get()==before+1,"one preliminary request cannot claim full VPN verification: "+type);
             for(int repeat=0;repeat<5;repeat++){
                 result=ConnectionPreflight.run(()->Socks5Probe.inspect(proxy.endpoint(),false,new AtomicBoolean(),null,Socket::new,InetAddress::getByName),delays::add,new AtomicBoolean(),n->{});
                 check(result.endpoint!=null&&result.endpoint.full(),"repeated fresh connect/disconnect sockets stay usable: "+type);

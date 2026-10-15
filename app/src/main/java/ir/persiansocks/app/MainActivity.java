@@ -93,6 +93,8 @@ public final class MainActivity extends ComponentActivity {
 
     private final java.util.concurrent.ExecutorService rankWorker=java.util.concurrent.Executors.newSingleThreadExecutor();
     private boolean ranking;
+    private long iconRevision;
+    private String scanPerformance="";
     private long renderedRevision=-1;
     private String renderedCriteria="";
     private final java.util.concurrent.atomic.AtomicBoolean redrawQueued=new java.util.concurrent.atomic.AtomicBoolean();
@@ -191,7 +193,7 @@ public final class MainActivity extends ComponentActivity {
         scanReport = getSharedPreferences("persiansocks", MODE_PRIVATE).getString("scan-report", scanReport);
         customTargets.addAll(ServiceTargets.decode(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("test-domains", "[]")));
         ServiceTargets.configure(customTargets);
-        siteIcons=new SiteIcons(this,()->{resultAdapter.notifyDataSetChanged();});siteIcons.sync();
+        siteIcons=new SiteIcons(this,()->{iconRevision++;refreshVisibleCards();});siteIcons.sync();
         filter = getSharedPreferences("persiansocks", MODE_PRIVATE).getString("filter", "ALL");
         if (filter.startsWith("https://") && customTargets.stream().noneMatch(t -> t.id.equals(filter))) filter = "ALL";
         try { sort = ProxyResults.Sort.valueOf(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("sort", "FASTEST")); }
@@ -886,19 +888,21 @@ public final class MainActivity extends ComponentActivity {
         checkpoint=work;scanFiles.activate(work);scanning=true;final int token=++scanGeneration;scanProgress.setIndeterminate(false);
         status.setText(AppLanguage.t(work.slow?R.string.ui_scan_deep:R.string.ui_scan_fast)+" • "+AppLanguage.t(R.string.ui_092)+work.done()+AppLanguage.t(R.string.ui_017)+work.total());render();
         final String latencyFilter=filter;
+        scanPerformance="";
         PreparedScanner.Listener listener=new PreparedScanner.Listener(){
+            public void onPerformance(int capacity,double rate){ui.post(()->{if(token==scanGeneration)scanPerformance=AppLanguage.t(R.string.ui_scan_capacity)+": "+capacity+" • "+String.format(java.util.Locale.US,"%.1f",rate)+" "+AppLanguage.t(R.string.ui_scan_rate);});}
             public void onResult(int index,Socks5Probe.Result result){
                 if(!scanning||token!=scanGeneration)return;
-                QualityHistory.probe(network,work.candidate(index),result);
+                QualityHistory.probe(network,work.candidate(index),result);SourceQuality.probe(network,work,work.candidate(index),result);
                 if(result.endpoint!=null)healthy.accept(result.endpoint);
                 else if(ProbeFailurePolicy.invalidates(result.failure) && healthy.find(work.candidate(index).key())!=null)
                     healthy.reject(work.candidate(index).key(),work.finishedAt(index));
             }
             public void onProgress(int done,int total,int good){ui.post(()->{
                 if(!scanning||token!=scanGeneration||isDestroyed()||!foregroundVisible)return;
-                status.setText(AppLanguage.t(work.slow?R.string.ui_scan_deep:R.string.ui_scan_fast)+" • "+AppLanguage.t(R.string.ui_125)+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_126)+good);
+                status.setText(AppLanguage.t(work.slow?R.string.ui_scan_deep:R.string.ui_scan_fast)+" • "+AppLanguage.t(R.string.ui_125)+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_126)+good+"\n"+scanPerformance);
                 scanProgress.setProgress(total==0?0:(int)(100L*done/total));
-                scanReport=work.mode+"\n"+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_127)+good;scheduleRender();});}
+                scanReport=work.mode+"\n"+done+AppLanguage.t(R.string.ui_017)+total+AppLanguage.t(R.string.ui_127)+good+"\n"+scanPerformance;scheduleRender();});}
             public void onFinished(ScanCheckpoint state,String message){
                 if(token!=scanGeneration)return;healthy.apply(state);ProxyStore.save(MainActivity.this,healthy);
                 ProxyStore.IO.execute(()->{boolean committed=false;try{ProxyStore.flush(MainActivity.this);if(state.complete())scanFiles.discardComplete();committed=true;}catch(Exception ex){android.util.Log.e("PersianSocks","Final cache commit failed",ex);}
@@ -983,7 +987,7 @@ public final class MainActivity extends ComponentActivity {
     }
     private void render() {
         if(results==null||isDestroyed()||!foregroundVisible)return;
-        if(renderedRevision!=healthy.revision())resultAdapter.notifyDataSetChanged();
+        refreshVisibleCards();
         testResults.keySet().removeIf(key->healthy.rejected(key)&&!favorites.containsKey(key));
         manual.removeIf(p->healthy.rejected(p.key()));
         if(selected!=null&&healthy.rejected(selected.key())&&!favorites.containsKey(selected.key())){selected=null;userSelected=false;}
@@ -1015,7 +1019,7 @@ public final class MainActivity extends ComponentActivity {
         updateActions();
         // Startup data must finish before an old in-memory snapshot can be published.
         if(!localDataLoaded){emptyState.setVisibility(View.GONE);return;}
-        if(renderedRevision==healthy.revision()&&renderedCriteria.equals(criteria())){resultAdapter.notifyDataSetChanged();return;}
+        if(renderedRevision==healthy.revision()&&renderedCriteria.equals(criteria())){refreshVisibleCards();return;}
         if(ranking)return;
         ranking=true;final String requested=criteria();final String service=filter;
         final ProxyResults.Sort order=sort;final ProxyResults.Protocol kind=protocol;final ProxyResults.PingLimit limit=pingLimit;
@@ -1048,7 +1052,7 @@ public final class MainActivity extends ComponentActivity {
                         emptyState.addView(text(!healthy.isEmpty()?smoothResults?AppLanguage.t(R.string.ui_159):AppLanguage.t(R.string.ui_160):AppLanguage.t(R.string.ui_161),12,SECONDARY,false),margin(dp(8),0));
                     }
                 }
-                resultAdapter.notifyDataSetChanged();updateActions();
+                refreshVisibleCards();updateActions();
                 if(revision!=healthy.revision())scheduleRender();
             });
             }catch(RuntimeException ex){android.util.Log.e("PersianSocks","Result paging failed",ex);ui.post(()->{ranking=false;if(!isDestroyed())status.setText(AppLanguage.t(R.string.ui_128));});}
@@ -1065,6 +1069,21 @@ public final class MainActivity extends ComponentActivity {
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup p,int type){if(header.getParent()!=null)((ViewGroup)header.getParent()).removeView(header);header.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));return new RecyclerView.ViewHolder(header){};}
         public void onBindViewHolder(RecyclerView.ViewHolder h,int p){}
     }
+    private void refreshVisibleCards(){
+        if(isDestroyed())return;
+        if(results==null||results.isComputingLayout()){if(results!=null)results.post(this::refreshVisibleCards);return;}
+        for(int i=0;i<results.getChildCount();i++){
+            RecyclerView.ViewHolder holder=results.getChildViewHolder(results.getChildAt(i));
+            if(holder instanceof ResultHolder){ResultHolder result=(ResultHolder)holder;if(result.card.endpoint!=null)bindCard(result,result.card.endpoint);}
+        }
+    }
+    private void bindCard(ResultHolder holder,ProxyEndpoint p){
+        ProxyEndpoint live=healthy.find(p.key());boolean hidden=!localDataLoaded||!showFavorites&&live==null&&healthy.rejected(p.key());
+        int visibility=hidden?View.GONE:View.VISIBLE,height=hidden?0:ViewGroup.LayoutParams.WRAP_CONTENT;
+        if(holder.card.wrapper.getVisibility()!=visibility)holder.card.wrapper.setVisibility(visibility);
+        if(holder.card.wrapper.getLayoutParams().height!=height){holder.card.wrapper.getLayoutParams().height=height;holder.card.wrapper.requestLayout();}
+        if(hidden)holder.card.endpoint=live==null?p:live;else holder.card.bind(live==null?p:live);
+    }
     private final class ResultHolder extends RecyclerView.ViewHolder {
         final CardHolder card;ResultHolder(CardHolder c){super(c.wrapper);card=c;c.wrapper.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));}
     }
@@ -1076,7 +1095,8 @@ public final class MainActivity extends ComponentActivity {
             public boolean areContentsTheSame(ProxyEndpoint a,ProxyEndpoint b){return a==b;}
         });}
         public ResultHolder onCreateViewHolder(ViewGroup parent,int type){return new ResultHolder(new CardHolder());}
-        public void onBindViewHolder(ResultHolder holder,int position){ProxyEndpoint p=getItem(position);if(p==null)return;ProxyEndpoint live=healthy.find(p.key());boolean hidden=!localDataLoaded||!showFavorites&&live==null&&healthy.rejected(p.key());holder.card.wrapper.setVisibility(hidden?View.GONE:View.VISIBLE);holder.card.wrapper.getLayoutParams().height=hidden?0:ViewGroup.LayoutParams.WRAP_CONTENT;if(!hidden)holder.card.bind(live==null?p:live);}
+        public void onBindViewHolder(ResultHolder holder,int position){ProxyEndpoint p=getItem(position);if(p!=null)bindCard(holder,p);}
+        @Override public void onViewAttachedToWindow(ResultHolder holder){super.onViewAttachedToWindow(holder);if(holder.card.endpoint!=null)bindCard(holder,holder.card.endpoint);}
     }
     private final class ServiceIcon extends LinearLayout {final ImageView image=new ImageView(MainActivity.this);final TextView mark=text("",11,SECONDARY,true);ServiceIcon(){super(MainActivity.this);setGravity(Gravity.CENTER);setLayoutDirection(View.LAYOUT_DIRECTION_LTR);image.setScaleType(ImageView.ScaleType.FIT_CENTER);addView(image,new LinearLayout.LayoutParams(dp(22),dp(22)));addView(mark,new LinearLayout.LayoutParams(dp(12),-2));}}
     private final class CardHolder {
@@ -1089,6 +1109,7 @@ public final class MainActivity extends ComponentActivity {
         final FrameLayout swipeFrame=new FrameLayout(MainActivity.this);
         final TextView pingHint=text(AppLanguage.t(R.string.ui_v25_013),15,PRIMARY,true),downloadHint=text(AppLanguage.t(R.string.ui_v25_014),15,Color.rgb(99,172,255),true);
         ProxyEndpoint endpoint;String targetSet="";boolean swiping;
+        private java.util.List<Object> boundState;
         UiIconButton favoriteButton;
         CardHolder(){
             wrapper.setOrientation(LinearLayout.VERTICAL);wrapper.setLayoutDirection(AppLanguage.direction());
@@ -1112,6 +1133,7 @@ public final class MainActivity extends ComponentActivity {
             favoriteButton=cardIcon(actions,UiIconButton.Kind.STAR,AppLanguage.t(R.string.ui_167),()->{if(endpoint!=null)toggleFavorite(endpoint);});
             detail.setMaxLines(2);detail.setEllipsize(android.text.TextUtils.TruncateAt.END);row.addView(detail,margin(dp(4),0));
             row.addView(services,margin(dp(10),0));
+            TextView scope=text(AppLanguage.t(R.string.ui_health_card_scope),10,SECONDARY,false);row.addView(scope,margin(dp(4),0));
             row.addView(divider,sized(dp(1),dp(6)));
             LinearLayout metrics=horizontal();metrics.addView(resultColumn(AppLanguage.t(R.string.ui_164),down),new LinearLayout.LayoutParams(0,-2,1.5f));
             LinearLayout.LayoutParams pingCell=new LinearLayout.LayoutParams(0,-2,1);pingCell.setMarginStart(dp(8));metrics.addView(resultColumn(AppLanguage.t(R.string.ui_165),ping),pingCell);row.addView(metrics,margin(dp(8),0));
@@ -1146,6 +1168,18 @@ public final class MainActivity extends ComponentActivity {
             });
         }
         void bind(ProxyEndpoint p){
+            ProxyTestResult measuredState=testResults.get(p.key());
+            QualityStats qualityState=QualityHistory.stats(p.key());
+            boolean testing=testingProxy!=null&&testingProxy.key().equals(p.key());
+            java.util.List<Object> state=java.util.Arrays.asList(p.key(),p.latencyMs,p.latencyTarget,p.serviceMask,p.checkedMask,p.extraPassed,p.extraChecked,selected!=null&&selected.key().equals(p.key()),
+                ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&p.key().equals(ProxyVpnService.activeEndpoint()),
+                favorites.containsKey(p.key()),healthy.rejected(p.key()),ScanCheckpoint.fingerprint(),AppLanguage.code(MainActivity.this),
+                p.countryCode.isEmpty()?CountryLookup.lookup(p.host):p.countryCode,QualityHistory.scope(),
+                qualityState==null?0:qualityState.samples(),qualityState==null?0L:Math.round(qualityState.score(System.currentTimeMillis())),
+                iconRevision,testing&&speedTest!=null,testing&&singleTest!=null,testing?liveDownloadMBps:-1.0,ScanInputs.speedUrl(MainActivity.this),
+                measuredState==null?null:measuredState.speedValue(),measuredState==null?null:measuredState.pingValue(p),measuredState==null?null:measuredState.speedTarget);
+            if(state.equals(boundState)){endpoint=p;return;}
+            boundState=state;
             if(endpoint==null||!endpoint.key().equals(p.key())||!swiping){row.animate().cancel();row.setTranslationX(0);pingHint.setVisibility(View.GONE);downloadHint.setVisibility(View.GONE);swiping=false;}
             endpoint=p;boolean unavailable=healthy.rejected(p.key());boolean active=selected!=null&&selected.key().equals(p.key());
             row.setBackground(background(active?Color.rgb(20,43,53):SURFACE,dp(18),active?Color.rgb(57,145,134):STROKE));
@@ -1167,7 +1201,7 @@ public final class MainActivity extends ComponentActivity {
             int index=0;for(ServiceTargets.Target target:ServiceTargets.current()){
                 boolean ok=!unavailable&&p.passed(target);ServiceIcon chip=serviceViews.get(index++);android.graphics.Bitmap icon=siteIcons==null?null:siteIcons.get(target.host);if(icon==null)chip.image.setImageDrawable(SiteIcons.placeholder());else chip.image.setImageBitmap(icon);
                 chip.setBackground(background(ok?Color.rgb(19,58,54):Color.rgb(18,28,42),dp(8),ok?Color.rgb(30,83,73):Color.rgb(34,47,63)));
-                chip.mark.setText(unavailable?"•":ok?"✓":p.checked(target)?"×":"•");chip.mark.setTextColor(ok?PRIMARY:SECONDARY);chip.setTooltipText(target.host);chip.setContentDescription(target.name+" • "+target.host+(ok?AppLanguage.t(R.string.ui_169):p.checked(target)?AppLanguage.t(R.string.ui_170):AppLanguage.t(R.string.ui_171)));
+                chip.mark.setText(unavailable?"•":ok?"✓":p.checked(target)?"×":"•");chip.mark.setTextColor(ok?PRIMARY:SECONDARY);chip.setTooltipText(target.host+" • "+AppLanguage.t(R.string.ui_health_card_scope));chip.setContentDescription(target.name+" • "+target.host+(ok?AppLanguage.t(R.string.ui_169):p.checked(target)?AppLanguage.t(R.string.ui_170):AppLanguage.t(R.string.ui_171)));
             }
             ProxyTestResult measured=testResults.get(p.key());if(measured==null)measured=new ProxyTestResult();
             boolean running=testingProxy!=null&&testingProxy.key().equals(p.key());boolean downloadRunning=running&&speedTest!=null,probeRunning=running&&singleTest!=null;
@@ -1181,7 +1215,7 @@ public final class MainActivity extends ComponentActivity {
         String country = p.countryCode.isEmpty() ? CountryLookup.lookup(p.host) : p.countryCode;
         StringBuilder details = new StringBuilder(p.key()).append(AppLanguage.t(R.string.ui_179)).append(CountryLookup.display(country,AppLanguage.locale()))
             .append(AppLanguage.t(R.string.ui_180)).append(p.latencyMs < 0 ? AppLanguage.t(R.string.ui_181) : isolated(p.latencyMs + " ms"))
-            .append(AppLanguage.t(R.string.ui_182))
+            .append(AppLanguage.t(R.string.ui_182)).append("\n").append(AppLanguage.t(R.string.ui_health_scope))
             .append("\n").append(p.udpAdvertised ? AppLanguage.t(R.string.ui_183) : AppLanguage.t(R.string.ui_184))
             .append("\n\n");
         for (ServiceTargets.Target target : ServiceTargets.current())
@@ -1305,8 +1339,14 @@ public final class MainActivity extends ComponentActivity {
                 Toast.makeText(this, AppLanguage.t(R.string.ui_210), Toast.LENGTH_SHORT).show();
             }).show();
     }
+    private void showSourceMetrics(){
+        List<ProxyScanner.Source> sources=configuredSources();
+        ProxyStore.IO.execute(()->{String report;try{report=SourceQuality.report(this,sources);}catch(Exception e){report=AppLanguage.t(R.string.ui_128);}final String content=report;
+            ui.post(()->{if(isDestroyed())return;TextView body=text(content,13,SECONDARY,false);body.setTextIsSelectable(true);body.setPadding(dp(16),dp(12),dp(16),dp(12));ScrollView scroll=new ScrollView(this);scroll.addView(body);new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_source_metrics)).setView(scroll).setPositiveButton(AppLanguage.t(R.string.ui_007),null).show();});});
+    }
     private void sourceDialog() {
-        LinearLayout panel=dialogContent();panel.addView(text(AppLanguage.t(R.string.ui_v28_sources),13,SECONDARY,false));LinearLayout types=horizontal();CheckBox[] choices=new CheckBox[3];ProxyEndpoint.Type[] protocols={ProxyEndpoint.Type.SOCKS5,ProxyEndpoint.Type.HTTP,ProxyEndpoint.Type.HTTPS};int stored=getSharedPreferences("persiansocks",0).getInt("source-types",0);if(stored==0){for(String oldRow:getSharedPreferences("persiansocks",0).getString("extra-sources","").split("\n")){try{ProxyScanner.Source oldSource=SourceCatalog.custom(oldRow,1);if(oldSource!=null)stored|=oldSource.type.bit;}catch(Exception ignored){}}if(stored==0)stored=1;}
+        LinearLayout panel=dialogContent();panel.addView(text(AppLanguage.t(R.string.ui_v28_sources),13,SECONDARY,false));
+        TextView metrics=text(AppLanguage.t(R.string.ui_source_metrics),14,PRIMARY,true);metrics.setPadding(0,dp(14),0,dp(14));metrics.setOnClickListener(v->showSourceMetrics());panel.addView(metrics);LinearLayout types=horizontal();CheckBox[] choices=new CheckBox[3];ProxyEndpoint.Type[] protocols={ProxyEndpoint.Type.SOCKS5,ProxyEndpoint.Type.HTTP,ProxyEndpoint.Type.HTTPS};int stored=getSharedPreferences("persiansocks",0).getInt("source-types",0);if(stored==0){for(String oldRow:getSharedPreferences("persiansocks",0).getString("extra-sources","").split("\n")){try{ProxyScanner.Source oldSource=SourceCatalog.custom(oldRow,1);if(oldSource!=null)stored|=oldSource.type.bit;}catch(Exception ignored){}}if(stored==0)stored=1;}
         for(int i=0;i<3;i++){choices[i]=new ProtocolChoice(this,protocols[i].name(),(stored&protocols[i].bit)!=0);if(DistributionPolicy.encryptedOnly()){choices[i].setChecked(i==2);choices[i].setEnabled(i==2);}LinearLayout.LayoutParams choiceSize=new LinearLayout.LayoutParams(0,dp(48),1);if(i>0)choiceSize.setMarginStart(dp(6));types.addView(choices[i],choiceSize);}panel.addView(types,margin(dp(12),0));
         EditText urls=new EditText(this);urls.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);urls.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);urls.setGravity(Gravity.LEFT|Gravity.TOP);urls.setTextSize(14);urls.setTextColor(Color.WHITE);urls.setHintTextColor(SECONDARY);urls.setMinLines(3);urls.setMaxLines(8);urls.setTextDirection(View.TEXT_DIRECTION_LTR);urls.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);urls.setHint("https://example.com/proxies.txt");StringBuilder old=new StringBuilder();java.util.Set<String> unique=new java.util.LinkedHashSet<>();for(String row:getSharedPreferences("persiansocks",0).getString("extra-sources","").split("\n")){try{ProxyScanner.Source source=SourceCatalog.custom(row,1);if(source!=null)unique.add(source.url);}catch(Exception ignored){}}for(String u:unique)old.append(u).append('\n');urls.setText(old.toString());panel.addView(urls);ScrollView scroll=new ScrollView(this);scroll.addView(panel);
         LinearLayout actions=horizontal();Button save=button(AppLanguage.t(R.string.ui_065),true),cancel=button(AppLanguage.t(R.string.ui_067),false);actions.addView(save,weighted(48,1,6));actions.addView(cancel,weighted(48,1,0));panel.addView(actions,margin(dp(12),0));
@@ -1466,7 +1506,7 @@ public final class MainActivity extends ComponentActivity {
                 public void progress(long bytes, double mbps) { ui.post(() -> {
                     if (!isDestroyed() && speedTest == test) {
                         liveDownloadMBps = ProxyTestResult.fromMbps(mbps);
-                        resultAdapter.notifyDataSetChanged();
+                        refreshVisibleCards();
                     }
                 }); }
                 public void finished(long bytes, double mbps, String error) {

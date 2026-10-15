@@ -7,9 +7,19 @@ public final class ConnectionPreflight {
     public interface Pause {void waitMillis(long ms)throws InterruptedException;}
     private ConnectionPreflight(){}
     public static ServiceTargets.Target target(String filter,ProxyEndpoint known){
-        for(ServiceTargets.Target t:ServiceTargets.current())if(filter.equals(t.id)||filter.equals(t.bit==1?"TELEGRAM":t.bit==2?"YOUTUBE":t.bit==4?"INSTAGRAM":""))return t;
-        if(known!=null)for(ServiceTargets.Target t:ServiceTargets.current())if(known.passed(t))return t;
-        return ServiceTargets.ALL[0];
+        return verificationTargets(filter,known)[0];
+    }
+    /** Test only the requested scope; ALL can stop at the first fresh success, retaining fallbacks. */
+    public static ServiceTargets.Target[] verificationTargets(String filter,ProxyEndpoint known){
+        java.util.List<ServiceTargets.Target> selected=new java.util.ArrayList<>();
+        for(ServiceTargets.Target t:ServiceTargets.current()){
+            if(filter.equals(t.id)||filter.equals(t.bit==1?"TELEGRAM":t.bit==2?"YOUTUBE":t.bit==4?"INSTAGRAM":""))return new ServiceTargets.Target[]{t};
+            if(!filter.equals("FULL")||t.bit!=0)selected.add(t);
+        }
+        // No service has a hard-coded priority: fresh evidence is checked in measured latency order.
+        if(known!=null)selected.sort(java.util.Comparator.<ServiceTargets.Target>comparingInt(t->known.passed(t)?0:1)
+            .thenComparingLong(t->{long ms=known.serviceLatencies.getOrDefault(t.url(),Long.MAX_VALUE);return ms>0?ms:Long.MAX_VALUE;}));
+        return selected.toArray(new ServiceTargets.Target[0]);
     }
     public static Socks5Probe.Result inspect(ProxyEndpoint p,ServiceTargets.Target target,AtomicBoolean stop,java.util.Set<java.net.Socket> sockets,Socks5Probe.SocketMaker maker,Socks5Probe.Resolver resolver){
         Socks5Probe.Result result=Socks5Probe.inspectTarget(p,target,true,stop,sockets,maker,resolver);if(result.endpoint==null)return result;

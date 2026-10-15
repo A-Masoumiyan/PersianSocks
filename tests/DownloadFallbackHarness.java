@@ -14,11 +14,16 @@ public final class DownloadFallbackHarness {
  }
  static String run(int first,boolean tls,boolean valid,DownloadSpeedTest test,List<URL> destinations,AtomicInteger callbacks,AtomicLong bytes){
   AtomicReference<String> error=new AtomicReference<>();
-  test.run(new DownloadSpeedTest.Transport(){public boolean valid(){return valid;}public HttpURLConnection open(URL url){destinations.add(url);return new Connection(url,destinations.size()==1?first:200,tls);}},
+  test.run(new DownloadSpeedTest.Transport(){public boolean valid(){return valid;}public HttpURLConnection open(URL url){check(PreparedScanner.trafficCap(false)<=4,"Scan yields capacity throughout speed measurement");destinations.add(url);return new Connection(url,destinations.size()==1?first:200,tls);}},
    new DownloadSpeedTest.Listener(){public void progress(long b,double rate){}public void finished(long b,double rate,String e){callbacks.incrementAndGet();bytes.set(b);error.set(e);}});
-  return error.get();
+  check(PreparedScanner.trafficCap(false)==216,"Measurement releases scan capacity on success, failure and cancellation");return error.get();
  }
  public static void main(String[]args){
+  PreparedScanner.foreground(true);
+  PreparedScanner.TrafficReservation first=PreparedScanner.downloadMeasurement(),second=PreparedScanner.downloadMeasurement();
+  first.close();first.close();check(PreparedScanner.trafficCap(false)==4,"Closing one reservation twice preserves another active measurement");second.close();
+  try{new DownloadSpeedTest().run(new DownloadSpeedTest.Transport(){public boolean valid(){return false;}public HttpURLConnection open(URL u){throw new AssertionError();}},new DownloadSpeedTest.Listener(){public void progress(long b,double r){}public void finished(long b,double r,String e){throw new IllegalStateException("callback");}});}catch(IllegalStateException expected){}
+  check(PreparedScanner.trafficCap(false)==216,"Throwing completion callback also releases measurement capacity");
   for(int status:new int[]{403,429,503}){
    List<URL> urls=new ArrayList<>();AtomicInteger callbacks=new AtomicInteger();AtomicLong bytes=new AtomicLong();
    String error=run(status,false,true,new DownloadSpeedTest(),urls,callbacks,bytes);

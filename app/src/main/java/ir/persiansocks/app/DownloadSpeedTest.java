@@ -17,6 +17,11 @@ public final class DownloadSpeedTest {
     public void cancel(){cancelled.set(true);HttpURLConnection c=connection;if(c!=null)c.disconnect();deadline.shutdownNow();}
     public void run(Transport transport,Listener listener){run(transport,listener,"");}
     public void run(Transport transport,Listener listener,String configuredUrl){
+        try(PreparedScanner.TrafficReservation reservation=PreparedScanner.downloadMeasurement()){
+            runMeasured(transport,listener,configuredUrl);
+        }
+    }
+    private void runMeasured(Transport transport,Listener listener,String configuredUrl){
         String selected=configuredUrl==null?"":configuredUrl;
         if(!selected.isEmpty())try{selected=TestDownloadPolicy.validate(selected);}catch(Exception ex){deadline.shutdownNow();listener.finished(0,0,String.valueOf(ex.getMessage()));return;}
         long bytes=0,start=0,last=0;double speed=0;String error="";
