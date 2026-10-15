@@ -17,7 +17,9 @@ public final class ScanInputs {
         // Mask 4 was persisted by the old fixed-TLS build; ordinary UI choices are 1, 6 or 7.
         if(!DistributionPolicy.play()&&p.getInt("scan-types",7)==4)p.edit().putInt("scan-types",7).apply();
         DistributionPolicy.setUserTlsOnly(p.getBoolean("tls-only",false));
-        configureTests(context);ProxyResults.instagramFirst(true);
+        // Restore the v18 all-service scan once; subsequent explicit target choices remain user-owned.
+        if(!p.getBoolean("scan-v18-restored",false))p.edit().putBoolean("scan-ping-only",false).putString("ping-target-url","").putString("sort","FASTEST").putBoolean("scan-v18-restored",true).apply();
+        configureTests(context);
     }
     public static void configureTests(Context context){SharedPreferences p=prefs(context);ScanProbePolicy.configure(p.getBoolean("scan-ping-only",false),p.getString("ping-target-url",""));}
     public static String speedUrl(Context context){return prefs(context).getString("speed-target-url","");}
@@ -31,8 +33,8 @@ public final class ScanInputs {
         catch(Exception ignored){return "ALL";}
     }
     public static ProxyResults.Sort sort(Context context) {
-        try{return ProxyResults.Sort.valueOf(prefs(context).getString("sort","QUALITY"));}
-        catch(Exception ignored){return ProxyResults.Sort.QUALITY;}
+        try{return ProxyResults.Sort.valueOf(prefs(context).getString("sort","FASTEST"));}
+        catch(Exception ignored){return ProxyResults.Sort.FASTEST;}
     }
     public static ProxyResults.Protocol protocol(Context context){
         if(DistributionPolicy.encryptedOnly())return ProxyResults.Protocol.HTTP;

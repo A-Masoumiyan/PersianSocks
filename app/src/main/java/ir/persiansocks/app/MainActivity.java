@@ -87,9 +87,8 @@ public final class MainActivity extends ComponentActivity {
     private static final java.util.concurrent.atomic.AtomicLong pageSequence=new java.util.concurrent.atomic.AtomicLong();
     private long pageGeneration;
     private int resultCount;
-    private LinearLayout emptyState, loadingState;
-    private ProgressBar listLoadingSpinner;
-    private TextView loadingLabel, selectionCountry;
+    private LinearLayout emptyState;
+    private TextView selectionCountry;
     private final ResultAdapter resultAdapter=new ResultAdapter();
 
     private final java.util.concurrent.ExecutorService rankWorker=java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -134,7 +133,7 @@ public final class MainActivity extends ComponentActivity {
     private final List<ServiceTargets.Target> customTargets = new ArrayList<>();
     private ProgressBar scanProgress;
     private String filter = "ALL";
-    private ProxyResults.Sort sort = ProxyResults.Sort.QUALITY;
+    private ProxyResults.Sort sort = ProxyResults.Sort.FASTEST;
     private boolean vpnRequestPending;
     private int observedVpnPhase=-1;
     private volatile boolean scanning;
@@ -195,7 +194,7 @@ public final class MainActivity extends ComponentActivity {
         siteIcons=new SiteIcons(this,()->{resultAdapter.notifyDataSetChanged();});siteIcons.sync();
         filter = getSharedPreferences("persiansocks", MODE_PRIVATE).getString("filter", "ALL");
         if (filter.startsWith("https://") && customTargets.stream().noneMatch(t -> t.id.equals(filter))) filter = "ALL";
-        try { sort = ProxyResults.Sort.valueOf(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("sort", "QUALITY")); }
+        try { sort = ProxyResults.Sort.valueOf(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("sort", "FASTEST")); }
         catch (IllegalArgumentException ignored) {}
         buildUi();
         render();
@@ -409,13 +408,6 @@ public final class MainActivity extends ComponentActivity {
         filterSummary.setSingleLine(true); filterSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
         filterSummary.setOnClickListener(v -> homeFiltersDialog());
         root.addView(filterSummary, margin(dp(3), 0));
-        loadingState=horizontal();loadingState.setGravity(Gravity.CENTER);loadingState.setPadding(0,dp(18),0,dp(18));
-        listLoadingSpinner=new ProgressBar(this,null,android.R.attr.progressBarStyleSmall);listLoadingSpinner.setIndeterminate(true);
-        listLoadingSpinner.setIndeterminateTintList(ColorStateList.valueOf(PRIMARY));listLoadingSpinner.setContentDescription(AppLanguage.t(R.string.ui_loading_proxies));
-        loadingState.addView(listLoadingSpinner,new LinearLayout.LayoutParams(dp(28),dp(28)));
-        loadingLabel=text(AppLanguage.t(R.string.ui_loading_proxies),13,SECONDARY,false);loadingLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        LinearLayout.LayoutParams loadingCell=new LinearLayout.LayoutParams(-2,-2);loadingCell.setMarginStart(dp(10));loadingState.addView(loadingLabel,loadingCell);
-        root.addView(loadingState,margin(dp(8),0));
         emptyState=panel();root.addView(emptyState,margin(dp(8),0));
         results.setAdapter(new ConcatAdapter(new HeaderAdapter(root),resultAdapter));
         buildSidebar();
@@ -491,15 +483,12 @@ public final class MainActivity extends ComponentActivity {
         sidebarAuto=sidebarCheck(AppLanguage.t(R.string.ui_039),getSharedPreferences("persiansocks",MODE_PRIVATE).getBoolean("auto-switch",true));sidebarAuto.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("auto-switch",on).apply());content.addView(sidebarAuto,sized(dp(48),0));
         CheckBox upkeep=sidebarCheck(AppLanguage.t(R.string.ui_maintenance),getSharedPreferences("persiansocks",0).getBoolean("background-maintenance",true));
         upkeep.setOnCheckedChangeListener((b,on)->{getSharedPreferences("persiansocks",0).edit().putBoolean("background-maintenance",on).apply();ProxyMaintenance.schedule(this);});content.addView(upkeep,sized(dp(48),0));
-        CheckBox cronet=sidebarCheck(AppLanguage.t(R.string.ui_cronet),getSharedPreferences("persiansocks",0).getBoolean("cronet-experimental",false));
-        cronet.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",0).edit().putBoolean("cronet-experimental",on).apply());content.addView(cronet,sized(dp(48),0));
         content.addView(text(AppLanguage.t(R.string.ui_maintenance_help),11,SECONDARY,false),margin(dp(4),0));
         LinearLayout tools=horizontal();sidebarIcon(tools,UiIconButton.Kind.SPLIT,AppLanguage.t(R.string.ui_254),()->startActivity(new Intent(this,SplitTunnelActivity.class)));sidebarIcon(tools,UiIconButton.Kind.SOURCE,AppLanguage.t(R.string.ui_227),this::sourceDialog);sidebarIcon(tools,UiIconButton.Kind.TARGET,AppLanguage.t(R.string.ui_047),this::targetsDialog);sidebarIcon(tools,UiIconButton.Kind.PRIVACY,AppLanguage.t(R.string.ui_276),()->VpnDisclosure.showPrivacy(this));content.addView(tools,margin(dp(12),0));
         content.addView(text(AppLanguage.t(R.string.ui_041),14,PRIMARY,true),margin(dp(18),0));
-        EditText scanCount=new EditText(this);scanCount.setText(scanAll?"":Integer.toString(maxTests));scanCount.setHint("Max");scanCount.setTextColor(Color.WHITE);scanCount.setTextSize(16);scanCount.setSingleLine(true);scanCount.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);scanCount.setTextDirection(View.TEXT_DIRECTION_LTR);content.addView(scanCount,sized(dp(48),0));
-        final int[] values={5000,10000,20000,ProxyScanner.MAX_TESTS};final boolean[] choosing={false};
-        ScanLimitView limits=new ScanLimitView(this,scanAll?3:maxTests==5000?0:maxTests==10000?1:maxTests==20000?2:-1,index->{choosing[0]=true;scanAll=index==3;maxTests=values[index];scanCount.setText(scanAll?"":Integer.toString(maxTests));scanCount.setHint("Max");saveScanLimit();choosing[0]=false;});content.addView(limits,sized(dp(64),0));
-        scanCount.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence x,int a,int c,int f){}public void onTextChanged(CharSequence x,int a,int before,int count){if(choosing[0])return;try{int n=Integer.parseInt(x.toString());if(n<100||n>ProxyScanner.MAX_TESTS){scanCount.setError(AppLanguage.t(R.string.ui_v28_limit));return;}scanCount.setError(null);scanAll=false;maxTests=n;limits.selected(n==5000?0:n==10000?1:n==20000?2:-1);saveScanLimit();}catch(NumberFormatException ignored){}}public void afterTextChanged(android.text.Editable e){}});
+        final int[] values={5000,10000,20000,ProxyScanner.MAX_TESTS};
+        if(!scanAll&&maxTests!=5000&&maxTests!=10000&&maxTests!=20000){maxTests=5000;saveScanLimit();}
+        ScanLimitView limits=new ScanLimitView(this,scanAll?3:maxTests==5000?0:maxTests==10000?1:2,index->{scanAll=index==3;maxTests=values[index];saveScanLimit();});content.addView(limits,sized(dp(64),0));
         LinearLayout testOptions=horizontal();sidebarIcon(testOptions,UiIconButton.Kind.PING,AppLanguage.t(R.string.ui_target_ping),this::pingTargetDialog);sidebarIcon(testOptions,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_target_speed),this::speedTargetDialog);sidebarIcon(testOptions,UiIconButton.Kind.SYNC,AppLanguage.t(R.string.ui_scan_healthy),()->chooseScanMode(true));content.addView(testOptions,margin(dp(8),0));
         LinearLayout footer=horizontal();sidebarIcon(footer,UiIconButton.Kind.INFO,AppLanguage.t(R.string.ui_054),this::aboutDialog);sidebarIcon(footer,UiIconButton.Kind.TELEGRAM,"Telegram @HTpink",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse("https://t.me/HTpink")));}catch(Exception ignored){}});
         TextView version=text("v"+AppLanguage.version(this),10,SECONDARY,false);version.setTextDirection(View.TEXT_DIRECTION_LTR);footer.addView(version,new LinearLayout.LayoutParams(0,-2,1));
@@ -595,7 +584,7 @@ public final class MainActivity extends ComponentActivity {
             options.setOnCheckedChangeListener((group,id)->{if(id>0&&id<=values.size())draft[section]=values.get(id-1);});
         };
         for(int i=0;i<4;i++){final int index=i;buttons[i]=new UiIconButton(this,kinds[i],AppLanguage.t(titles[i]));buttons[i].setOnClickListener(v->{category[0]=index;showOptions.run();});tabs.addView(buttons[i],weighted(48,1,i==3?0:6));}
-        panel.addView(tabs);panel.addView(text(AppLanguage.t(R.string.ui_instagram_help),11,SECONDARY,false),margin(dp(8),0));panel.addView(heading,margin(dp(12),0));panel.addView(options);
+        panel.addView(tabs);panel.addView(heading,margin(dp(12),0));panel.addView(options);
         LinearLayout actions=horizontal();Button save=button(AppLanguage.t(R.string.ui_065),true),reset=button(AppLanguage.t(R.string.ui_home_reset),false),cancel=button(AppLanguage.t(R.string.ui_067),false);
         actions.addView(save,weighted(48,1,6));actions.addView(reset,weighted(48,1,6));actions.addView(cancel,weighted(48,1,0));panel.addView(actions,margin(dp(12),0));
         ScrollView scroll=new ScrollView(this);scroll.addView(panel);AlertDialog dialog=new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_home_filters)).setView(scroll).create();
@@ -743,8 +732,6 @@ public final class MainActivity extends ComponentActivity {
         scanTotal.setText(AppLanguage.t(R.string.ui_scan_total)+" "+AppLanguage.isolate(localDataLoaded?Integer.toString(total):"—"));
         scanChecked.setText(AppLanguage.t(R.string.ui_scan_checked)+" "+AppLanguage.isolate(localDataLoaded?Integer.toString(done):"—"));
         scanTotal.setContentDescription(AppLanguage.t(R.string.ui_scan_total)+": "+total);scanChecked.setContentDescription(AppLanguage.t(R.string.ui_scan_checked)+": "+done);
-        loadingState.setVisibility(!localDataLoaded||loading||preparing?View.VISIBLE:View.GONE);
-        loadingLabel.setText(AppLanguage.t(preparing?R.string.ui_117:R.string.ui_loading_proxies));
         iconState(collectButton,collecting?UiIconButton.Kind.STOP:UiIconButton.Kind.COLLECT,collecting?AppLanguage.t(R.string.ui_088):AppLanguage.t(R.string.ui_014),collecting);
         if (!collecting) listStatus.setText(AppLanguage.t(R.string.ui_089) + catalogCount + AppLanguage.t(R.string.ui_090));
         listStatus.setVisibility(collecting ? View.VISIBLE : View.GONE);
@@ -902,7 +889,6 @@ public final class MainActivity extends ComponentActivity {
         ProxyStore.IO.execute(()->{
             Map<String,ProxyEndpoint> savedFavorites=initial?FavoriteProxies.load(this):null;
             Map<String,ProxyTestResult> savedTests=initial?readTestResults():null;
-            if(!CountryLookup.initialized())try{CountryLookup.initialize(getAssets().open("ip-country.bin"));}catch(Exception ignored){}
             ScanCheckpoint saved=null;int count=0;String error="";
             try{ProxyStore.load(this);if(initial)for(Map.Entry<String,ProxyTestResult> row:savedTests.entrySet()){ProxyEndpoint old=healthy.find(row.getKey());if(old!=null&&row.getValue().failedAfter(old))healthy.reject(old.key(),row.getValue().probeAt);}count=scanFiles.catalogCount();saved=scanFiles.checkpoint();
                 if(saved!=null&&saved.compatible())healthy.apply(saved);
@@ -914,6 +900,7 @@ public final class MainActivity extends ComponentActivity {
                 if(!failure.isEmpty())status.setText(AppLanguage.t(R.string.ui_130)+failure);
                 else status.setText(AppLanguage.display(restored!=null&&!restored.complete()?AppLanguage.t(R.string.ui_131)+restored.done()+AppLanguage.t(R.string.ui_017)+restored.total():storedCount+AppLanguage.t(R.string.ui_019)));
                 ProxyEndpoint active=healthy.find(ProxyVpnService.activeEndpoint());if(active!=null){selected=active;userSelected=true;}render();});
+            if(!CountryLookup.initialized())try{CountryLookup.initialize(getAssets().open("ip-country.bin"));}catch(Exception ignored){}
         });
     }
     private boolean hasSelected(){return selected!=null&&(healthy.find(selected.key())!=null||favorites.containsKey(selected.key()));}
@@ -968,7 +955,7 @@ public final class MainActivity extends ComponentActivity {
         if(selected!=null){ProxyEndpoint latest=healthy.find(selected.key());if(latest!=null)selected=latest;}
         String kindLabel = protocol == ProxyResults.Protocol.HTTP && DistributionPolicy.encryptedOnly() ? "HTTPS / TLS" : AppLanguage.display(protocol.label);
         boolean filtered = !filter.equals("ALL") || protocol != ProxyResults.Protocol.ALL || pingLimit != ProxyResults.PingLimit.NONE;
-        String summary=AppLanguage.t(R.string.ui_instagram_priority)+" • "+AppLanguage.display(ProxyResults.label(filter)+" • "+kindLabel+
+        String summary=AppLanguage.display(ProxyResults.label(filter)+" • "+kindLabel+
             (pingLimit==ProxyResults.PingLimit.NONE?"":" • "+AppLanguage.display(pingLimit.label))+" • "+sortLabel());
         filterSummary.setText(summary);filterSummary.setVisibility(showFavorites?View.GONE:View.VISIBLE);
         filterButton.active(filtered||smoothResults||sort!=ProxyResults.Sort.FASTEST);
@@ -1021,7 +1008,7 @@ public final class MainActivity extends ComponentActivity {
                         emptyState.addView(text(AppLanguage.t(R.string.ui_153),16,Color.WHITE,true));
                         emptyState.addView(text(AppLanguage.t(R.string.ui_154),12,SECONDARY,false),margin(dp(8),0));
                     }else{
-                        emptyState.addView(text(!healthy.isEmpty()?AppLanguage.t(R.string.ui_155):loading?AppLanguage.t(R.string.ui_156):scanning?AppLanguage.t(R.string.ui_157):AppLanguage.t(R.string.ui_158),16,Color.WHITE,true));
+                        emptyState.addView(text(!healthy.isEmpty()?AppLanguage.t(R.string.ui_155):scanning?AppLanguage.t(R.string.ui_157):AppLanguage.t(R.string.ui_158),16,Color.WHITE,true));
                         emptyState.addView(text(!healthy.isEmpty()?smoothResults?AppLanguage.t(R.string.ui_159):AppLanguage.t(R.string.ui_160):AppLanguage.t(R.string.ui_161),12,SECONDARY,false),margin(dp(8),0));
                     }
                 }
@@ -1170,7 +1157,7 @@ public final class MainActivity extends ComponentActivity {
                 .append("\n").append(measured.probeError);
             if (!measured.probeInfo.isEmpty()) details.append("\n").append(measured.probeInfo);
         }
-        if(p.instagramLatency()!=Long.MAX_VALUE)details.append("\n").append(AppLanguage.t(R.string.ui_instagram_priority)).append(": ").append(p.instagramLatency()).append(" ms");
+        if(p.instagramLatency()!=Long.MAX_VALUE)details.append("\n").append(AppLanguage.t(R.string.ui_287)).append(": ").append(p.instagramLatency()).append(" ms");
         if(!p.latencyTarget.isEmpty())details.append("\n").append(AppLanguage.t(R.string.ui_target_ping)).append(": ").append(p.latencyTarget);
         if(measured!=null){details.append("\n").append(AppLanguage.t(R.string.ui_target_speed)).append(": ").append(measured.speedTarget.isEmpty()?AppLanguage.t(R.string.ui_target_default):measured.speedTarget);if(!measured.speedError.isEmpty())details.append("\n").append(AppLanguage.t(R.string.ui_target_last)).append(measured.speedRequestTarget.isEmpty()?AppLanguage.t(R.string.ui_target_default):measured.speedRequestTarget);}
         if(measured!=null&&measured.speedAt>0)details.append("\n").append(AppLanguage.t(R.string.ui_v28_speed_time)).append(android.text.format.DateFormat.getDateFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt))).append(" ").append(android.text.format.DateFormat.getTimeFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt)));

@@ -26,7 +26,7 @@ public final class ReconnectPriorityHarness {
             check(ProxyEndpoint.fromJson(result.endpoint.json()).instagramLatency()==result.endpoint.instagramLatency(),"per-service timing survives cache reload");
             int before=proxy.accepted.get();ServiceTargets.Target selected=ConnectionPreflight.target("FULL",result.endpoint);
             Socks5Probe.Result preliminary=ConnectionPreflight.inspect(proxy.endpoint(),selected,new AtomicBoolean(),null,Socket::new,InetAddress::getByName);
-            check(preliminary.endpoint!=null&&preliminary.endpoint.serviceMask==ProxyEndpoint.INSTAGRAM&&!preliminary.endpoint.full()&&proxy.accepted.get()==before+1,"one preliminary request cannot claim full VPN verification: "+type);
+            check(preliminary.endpoint!=null&&preliminary.endpoint.serviceMask==ProxyEndpoint.TELEGRAM&&!preliminary.endpoint.full()&&proxy.accepted.get()==before+1,"one preliminary request cannot claim full VPN verification: "+type);
             for(int repeat=0;repeat<5;repeat++){
                 result=ConnectionPreflight.run(()->Socks5Probe.inspect(proxy.endpoint(),false,new AtomicBoolean(),null,Socket::new,InetAddress::getByName),delays::add,new AtomicBoolean(),n->{});
                 check(result.endpoint!=null&&result.endpoint.full(),"repeated fresh connect/disconnect sockets stay usable: "+type);
@@ -43,13 +43,11 @@ public final class ReconnectPriorityHarness {
         attempts.set(0);Socks5Probe.Result failed=ConnectionPreflight.run(()->{attempts.incrementAndGet();return new Socks5Probe.Result(null,Socks5Probe.Failure.TCP_REFUSED,false,false);},ms->{},new AtomicBoolean(),n->{});
         check(failed.endpoint==null&&failed.failure==Socks5Probe.Failure.TCP_REFUSED&&attempts.get()==3,"permanent refusal remains a real error after bounded attempts");
         ProxyEndpoint quick=endpoint("8.8.8.8",10,900),best=endpoint("1.1.1.1",900,100);
-        ProxyResults.instagramFirst(true);
-        for(ProxyResults.Sort sort:ProxyResults.Sort.values())check(ProxyResults.visible(Arrays.asList(quick,best),"ALL",sort).get(0).key().equals(best.key()),"Instagram response is first before secondary order: "+sort);
+        check(ProxyResults.visible(Arrays.asList(quick,best),"ALL",ProxyResults.Sort.FASTEST).get(0).key().equals(quick.key()),"Ordinary ping controls ranking without Instagram priority");
         List<ProxyEndpoint> original=Collections.singletonList(quick);List<ProxyEndpoint> pinned=ProxyResults.pinActive(original,best,true);
         check(pinned.get(0).key().equals(best.key())&&pinned.size()==2&&original.size()==1,"active proxy stays visible even outside home filter without changing input");
         check(ProxyResults.pinActive(original,best,false).size()==1,"unsaved active proxy is not silently added to saved list");
         check(ProxyResults.pinActive(Arrays.asList(quick,best),best,true).size()==2,"pinning active proxy does not duplicate it");
-        ProxyResults.instagramFirst(false);
-        System.out.println("PASS: "+checks+" reconnect lifecycle, real TCP/TLS and Instagram priority checks");
+        System.out.println("PASS: "+checks+" reconnect lifecycle, real TCP/TLS and service-neutral ranking checks");
     }
 }

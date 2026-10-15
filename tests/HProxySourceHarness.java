@@ -29,9 +29,7 @@ public final class HProxySourceHarness {
         void await()throws Exception{check(done.await(8,TimeUnit.SECONDS)&&candidates!=null,"Collection completes without a proxy probe");}
     }
     public static void main(String[] args)throws Exception {
-        ProxyScanner.Source defaults=SourceCatalog.DEFAULT[0];
-        check(defaults.format==ProxyScanner.Source.Format.HPROXY_QUALITY&&defaults.type==ProxyEndpoint.Type.SOCKS5&&
-            defaults.url.contains("min_uptime_pct=90")&&defaults.url.contains("max_latency_ms=1500")&&defaults.url.contains("recent=false"),"Filtered SOCKS5 API is present in defaults");
+        check(SourceCatalog.DEFAULT.length==17&&SourceCatalog.DEFAULT[0].name.equals("Roosterkid")&&Arrays.stream(SourceCatalog.DEFAULT).allMatch(s->s.format==ProxyScanner.Source.Format.TEXT),"Version 18 raw source catalog restored without quality API preference");
         ProxyEndpoint p=parse(new JSONArray().put(row(1,10))).endpoints.get(0);
         check(p.type==ProxyEndpoint.Type.SOCKS5&&p.latencyMs==-1&&p.latencyAt==0&&p.testedAt==0&&p.serviceMask==0&&p.checkedMask==0&&!p.udpAdvertised,
             "Provider ping and alive status never become local connection evidence");
@@ -93,7 +91,7 @@ public final class HProxySourceHarness {
         Socks5Probe.setSocketMaker(()->{throw new AssertionError("Collection opened a proxy-test socket");});
         try{
             ProxyScanner scanner=new ProxyScanner();Collected got=new Collected();scanner.collect(Collections.emptyList(),Collections.emptyList(),Arrays.asList(new ProxyScanner.Source("raw",base+"/raw",""),source(base+"/quality")),got);got.await();
-            check(got.candidates.size()==2&&got.candidates.get(0).host.equals("8.8.8.3")&&got.report.contains("تأیید اتصال پس از اسکن"),"Real source download retains quality-first order and identifies candidates as unverified");
+            check(got.candidates.size()==2&&got.candidates.get(0).host.equals("9.9.9.9")&&got.report.contains("تأیید اتصال پس از اسکن"),"Real source download uses v18 source order and identifies candidates as unverified");
             Collected repeat=new Collected();scanner.collect(Collections.emptyList(),Collections.emptyList(),Arrays.asList(source(base+"/quality")),repeat);repeat.await();
             check(networkCalls.get()==1&&repeat.report.contains("حافظهٔ موقت"),"Collection uses the shared metadata cache on a repeated fetch");
             Collected invalid=new Collected();scanner.collect(Collections.emptyList(),Collections.emptyList(),Arrays.asList(source(base+"/html"),new ProxyScanner.Source("raw",base+"/raw","")),invalid);invalid.await();

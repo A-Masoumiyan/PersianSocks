@@ -8,8 +8,8 @@ public final class ConnectionPreflight {
     private ConnectionPreflight(){}
     public static ServiceTargets.Target target(String filter,ProxyEndpoint known){
         for(ServiceTargets.Target t:ServiceTargets.current())if(filter.equals(t.id)||filter.equals(t.bit==1?"TELEGRAM":t.bit==2?"YOUTUBE":t.bit==4?"INSTAGRAM":""))return t;
-        if("ALL".equals(filter)&&known!=null&&!known.passed(ProxyEndpoint.INSTAGRAM))for(ServiceTargets.Target t:ServiceTargets.current())if(known.passed(t))return t;
-        return ServiceTargets.ALL[2];
+        if(known!=null)for(ServiceTargets.Target t:ServiceTargets.current())if(known.passed(t))return t;
+        return ServiceTargets.ALL[0];
     }
     public static Socks5Probe.Result inspect(ProxyEndpoint p,ServiceTargets.Target target,AtomicBoolean stop,java.util.Set<java.net.Socket> sockets,Socks5Probe.SocketMaker maker,Socks5Probe.Resolver resolver){
         Socks5Probe.Result result=Socks5Probe.inspectTarget(p,target,true,stop,sockets,maker,resolver);if(result.endpoint==null)return result;

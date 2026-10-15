@@ -71,7 +71,7 @@ public final class PreparedScanner {
             while (received < pending.length && !run.cancelled.get()) {
                 // Dispatch in catalog order; waiting workers must not overtake higher-priority candidates.
                 int capacity=run.adaptive.limit(AdaptiveScanPolicy.hardCap(state.slow,foreground,connecting));
-                while(submitted<batchEnd&&submitted-received<capacity&&!run.cancelled.get())submit(tasks,run,probe,pending[submitted++]);
+                while(submitted<pending.length&&submitted-received<capacity&&!run.cancelled.get())submit(tasks,run,probe,pending[submitted++]);
                 Future<Completed> task = tasks.poll(250, TimeUnit.MILLISECONDS); if (task == null) continue;
                 Completed completed = task.get(); received++;
                 synchronized (this) {
@@ -84,7 +84,7 @@ public final class PreparedScanner {
                 }
                 long now=System.nanoTime();
                 if(now-savedAt>15_000_000_000L){run.persistence.save(state);savedAt=System.nanoTime();}
-                if(received==batchEnd){run.persistence.save(state);savedAt=System.nanoTime();batchEnd=Math.min(pending.length,batchEnd+ScanCheckpoint.BATCH_SIZE);}
+                if(received>=batchEnd){run.persistence.save(state);savedAt=System.nanoTime();batchEnd=Math.min(pending.length,batchEnd+ScanCheckpoint.BATCH_SIZE);}
             }
             run.persistence.save(state);
             synchronized (this) {
