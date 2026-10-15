@@ -543,14 +543,11 @@
     <string name="ui_target_domain_error" formatted="false">"The URL host must be a configured test domain"</string>
     <string name="ui_target_url_error" formatted="false">"Invalid file URL"</string>
     <string name="ui_connect_retry" formatted="false">"Retrying with a fresh network path: "</string>
-    <string name="ui_instagram_priority" formatted="false">"Instagram priority"</string>
-    <string name="ui_instagram_help" formatted="false">"Successful, faster Instagram responses take priority; your selected sorting is applied afterwards."</string>
     <string name="ui_filtered_ping">Retest ping for all filtered results</string>
     <string name="ui_quality_sort">Quality on this network</string>
     <string name="ui_quality_samples">tests</string>
     <string name="ui_maintenance">Periodic refresh on Wi-Fi</string>
-    <string name="ui_cronet">Experimental downloads with Cronet</string>
-    <string name="ui_maintenance_help">Short refresh every 6 hours, on an unmetered connection with enough battery. Cronet affects only the app’s own downloads.</string>
+    <string name="ui_maintenance_help">Short refresh every 6 hours, on an unmetered connection with enough battery.</string>
     <string name="ui_proxy_unavailable" formatted="false">"Unavailable"</string>
     <string name="ui_loading_proxies">Loading proxies…</string>
     <string name="ui_scan_fast">Fast scan</string>

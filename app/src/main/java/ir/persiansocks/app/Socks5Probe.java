@@ -67,11 +67,11 @@ public final class Socks5Probe {
         }
         if ((passed == 0 && extraPassed.isEmpty()) || cancelled.get())
             return new Result(null, cancelled.get() ? Failure.CANCELLED : last.failure, tcp, socks);
-        if(measurementTarget!=null){if(measured==null||measured.endpoint==null)return new Result(null,measured==null?last.failure:measured.failure,tcp,socks);latency=measured.endpoint.latencyMs;}
+        if(measured!=null&&measured.endpoint!=null)latency=measured.endpoint.latencyMs;
         boolean udp = e.type==ProxyEndpoint.Type.SOCKS5 && checkUdp(e, cancelled, active, maker, dns);
         if (cancelled.get()) return new Result(null, Failure.CANCELLED, tcp, socks);
         return new Result(new ProxyEndpoint(e.host, e.port, latency, udp, passed, checked, System.currentTimeMillis(),
-            extraPassed, extraChecked, CountryLookup.lookup(e.host),e.type).withLatency(latency,measurementTarget==null?"":measurementTarget.url()).withServiceLatencies(timings),
+            extraPassed, extraChecked, CountryLookup.lookup(e.host),e.type).withLatency(latency,measured==null||measured.endpoint==null?"":measurementTarget.url()).withServiceLatencies(timings),
             Failure.NONE, tcp, socks);
     }
     public static Result inspectTarget(ProxyEndpoint e, ServiceTargets.Target target, boolean slow,

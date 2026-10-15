@@ -79,7 +79,7 @@ public class StartupRegressionTest {
             assertEquals(1234,reloaded.get(key).probeAt);assertEquals("Connection refused",reloaded.get(key).probeError);
         }finally{owner.destroy();}
     }
-    @Test public void initialLoadingFinishesBeforeCachedResultsArePublished()throws Exception{
+    @Test public void contentAppearsWithoutLoadingOverlayBeforeCachedResultsArePublished()throws Exception{
         ProxyEndpoint p=good("18.157.123.132",19394,System.currentTimeMillis());
         ProxyDatabase.ProxyRow row=new ProxyDatabase.ProxyRow();row.key=p.key();row.changed=p.testedAt;row.payload=p.json().toString();
         db.data().putAll(Collections.singletonList(row));db.data().meta(new ProxyDatabase.MetaRow("legacy-v1","1"));db.data().catalog(Collections.singletonList(new ProxyDatabase.CatalogRow(p.key(),0)));
@@ -90,16 +90,13 @@ public class StartupRegressionTest {
         ReflectionHelpers.setStaticField(ProxyStore.class,"loaded",false);
         org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
         try{
-            MainActivity activity=owner.get();android.view.View spinner=ReflectionHelpers.getField(activity,"loadingState");android.widget.ProgressBar progress=ReflectionHelpers.getField(activity,"listLoadingSpinner");
-            assertEquals(android.view.View.VISIBLE,spinner.getVisibility());assertTrue(progress.isIndeterminate());assertNull(ReflectionHelpers.getField(activity,"pageStream"));
-            assertFalse(((android.widget.Button)ReflectionHelpers.getField(activity,"scanToggle")).isEnabled());
+            MainActivity activity=owner.get();assertNotNull(activity.findViewById(android.R.id.content));
+            assertEquals(1,descendants(((android.view.View)ReflectionHelpers.getField(activity,"scanProgress")).getRootView(),android.widget.ProgressBar.class));
+            assertNull(ReflectionHelpers.getField(activity,"pageStream"));
             ReflectionHelpers.callInstanceMethod(activity,"reloadSaved");ProxyStore.IO.submit(()->{}).get(15,TimeUnit.SECONDS);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
             ((ExecutorService)ReflectionHelpers.getField(activity,"rankWorker")).submit(()->{}).get(10,TimeUnit.SECONDS);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
-            assertTrue((Boolean)ReflectionHelpers.getField(activity,"localDataLoaded"));assertEquals(android.view.View.GONE,spinner.getVisibility());assertNotNull(ReflectionHelpers.getField(activity,"pageStream"));
+            assertTrue((Boolean)ReflectionHelpers.getField(activity,"localDataLoaded"));assertNotNull(ReflectionHelpers.getField(activity,"pageStream"));
             assertEquals("loaded catalog",1,(int)ReflectionHelpers.getField(activity,"catalogCount"));assertNotNull(ProxyStore.index().find(p.key()));assertTrue((int)ReflectionHelpers.getField(activity,"resultCount")>=1);
-            ReflectionHelpers.setField(activity,"preparing",true);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(android.view.View.VISIBLE,spinner.getVisibility());
-            assertEquals(AppLanguage.t(R.string.ui_117),((TextView)ReflectionHelpers.getField(activity,"loadingLabel")).getText().toString());
-            ReflectionHelpers.setField(activity,"preparing",false);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(android.view.View.GONE,spinner.getVisibility());
         }finally{
             owner.destroy();ProxyStore.IO.submit(()->{}).get(10,TimeUnit.SECONDS);
             ProxyIndex index=ProxyStore.index();index.listener(null);((Map<?,?>)ReflectionHelpers.getField(index,"good")).clear();((Map<?,?>)ReflectionHelpers.getField(index,"changed")).clear();
@@ -124,6 +121,18 @@ public class StartupRegressionTest {
                 ReflectionHelpers.setField(activity,"selected",null);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(android.view.View.GONE,country.getVisibility());
             }finally{owner.destroy();}
         }
+    }
+    @Test public void upgradeRestoresAllServiceScanningAndSidebarOnlyKeepsLimitSlider(){
+        Context c=RuntimeEnvironment.getApplication();android.content.SharedPreferences prefs=c.getSharedPreferences("persiansocks",0);
+        prefs.edit().remove("scan-v18-restored").putBoolean("scan-ping-only",true).putString("ping-target-url",ServiceTargets.ALL[2].url()).putInt("max-tests",1234).commit();
+        org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            MainActivity activity=owner.get();assertFalse(ScanProbePolicy.profile().only);assertNull(ScanProbePolicy.profile().target());
+            android.view.View sidebar=ReflectionHelpers.getField(activity,"sidebar");assertEquals(0,descendants(sidebar,android.widget.EditText.class));assertEquals(1,descendants(sidebar,ScanLimitView.class));
+            assertEquals(5000,prefs.getInt("max-tests",0));
+            // Later target choices remain explicit and are not reset at each Activity start.
+            prefs.edit().putBoolean("scan-ping-only",true).putString("ping-target-url",ServiceTargets.ALL[1].url()).commit();ScanInputs.initializePolicy(c);assertTrue(ScanProbePolicy.profile().only);
+        }finally{owner.destroy();prefs.edit().putBoolean("scan-ping-only",false).putString("ping-target-url","").commit();ScanInputs.configureTests(c);}
     }
     @Test public void newAndRestartScansShowOnlyTwoModesWhileResumeSkipsTheDialog()throws Exception{
         Context c=RuntimeEnvironment.getApplication();Shadows.shadowOf(c.getSystemService(android.net.ConnectivityManager.class)).clearAllNetworks();

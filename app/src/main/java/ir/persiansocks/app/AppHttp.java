@@ -15,9 +15,6 @@ public final class AppHttp {
     static void initialize(Context context){app=context.getApplicationContext();ProxyScanner.httpFactory(url->{Network network=app.getSystemService(android.net.ConnectivityManager.class).getActiveNetwork();if(network==null)throw new IOException("Offline");return open(url,network);});}
     public static HttpURLConnection open(URL url,Network network)throws IOException {
         if(network==null)throw new IOException("No captured network");
-        if(app!=null&&app.getSharedPreferences("persiansocks",0).getBoolean("cronet-experimental",false)&&url.getProtocol().equals("https")){
-            try{return new CronetConnection(url,network,app);}catch(Exception|LinkageError e){android.util.Log.i("PersianSocks","Cronet unavailable; using OkHttp");}
-        }
         return okhttp(url,network);
     }
     static HttpURLConnection okhttp(URL url,Network network){return new Connection(url,network);}

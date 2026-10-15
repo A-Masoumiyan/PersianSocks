@@ -33,7 +33,7 @@ public final class AvailabilityHarness {
         check(!last.failedAfter(good(201))&&last.pingValue(good(201)).equals("613 ms"),"A newer successful scan supersedes an older failed ping label");
         for(String error:new String[]{"تست متوقف شد","Cancelled","شبکهٔ تست قطع شد","Offline","Network changed","DNS resolve failed"}){last.probeError=error;check(!last.failedAfter(old),"Old cancellation/network notes do not erase availability: "+error);}
         List<ProxyEndpoint> rows=new ArrayList<>();for(int i=1;i<=100;i++)rows.add(new ProxyEndpoint("11.1.1."+i,1080,i,false,7,7,1));
-        AtomicInteger scores=new AtomicInteger();ProxyResults.quality(p->{scores.incrementAndGet();return p.latencyMs;});ProxyResults.instagramFirst(false);
+        AtomicInteger scores=new AtomicInteger();ProxyResults.quality(p->{scores.incrementAndGet();return p.latencyMs;});
         List<ProxyEndpoint> ranked=ProxyResults.visible(rows,"ALL",ProxyResults.Sort.QUALITY);
         check(scores.get()==rows.size(),"Quality score is computed once per row instead of once per sort comparison");
         check(ranked.get(0).latencyMs==100&&ranked.get(99).latencyMs==1,"Memoized quality scores keep descending ranking");

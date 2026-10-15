@@ -16,20 +16,19 @@ public final class ScanModesHarness {
         check(finished.await(5,TimeUnit.SECONDS),"Paused mode resumed to completion");check(!wrong.get()&&tested.get()==3&&paused.done()==5,"Resume uses the frozen type and never repeats completed rows");
     }
     static long benchmark(boolean deep)throws Exception{
-        ScanCheckpoint state=new ScanCheckpoint(rows(144),new ProxyScanner.Options(100,deep,true),"CATALOG");PreparedScanner scanner=new PreparedScanner();CountDownLatch finished=new CountDownLatch(1);long start=System.nanoTime();
-        scanner.start(state,s->{},(p,slow,stop,sockets)->{try{Thread.sleep(150);}catch(InterruptedException e){return new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false);}return new Socks5Probe.Result(null,Socks5Probe.Failure.TCP_REFUSED,false,false);},listener(finished));
-        check(finished.await(15,TimeUnit.SECONDS)&&state.complete(),"Controlled-delay scan completes");return (System.nanoTime()-start)/1000000;
+        ScanCheckpoint state=new ScanCheckpoint(rows(1728),new ProxyScanner.Options(100,deep,true),"CATALOG");PreparedScanner scanner=new PreparedScanner();CountDownLatch finished=new CountDownLatch(1);long start=System.nanoTime();
+        scanner.start(state,s->{},(p,slow,stop,sockets)->{try{Thread.sleep(250);}catch(InterruptedException e){return new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false);}return new Socks5Probe.Result(null,Socks5Probe.Failure.TCP_REFUSED,false,false);},listener(finished));
+        check(finished.await(30,TimeUnit.SECONDS)&&state.complete(),"Controlled-delay scan completes");return (System.nanoTime()-start)/1000000;
     }
     public static void main(String[] args)throws Exception{
         PreparedScanner.foreground(true);PreparedScanner.connectionPending(false);
-        AdaptiveScanPolicy fast=new AdaptiveScanPolicy(false),deep=new AdaptiveScanPolicy(true);check(fast.limit(100)==6*deep.limit(100),"Sixfold starting concurrency");
-        for(int cohort=0;cohort<20;cohort++){for(int i=0;i<12;i++){fast.observe(good(rows(1).get(0)));deep.observe(good(rows(1).get(0)));}check(fast.limit(100)==6*deep.limit(100),"Sixfold healthy ramp remains bounded");}
-        check(fast.limit(100)==36&&deep.limit(100)==6,"Fast/deep maxima are bounded");
-        for(int cohort=0;cohort<8;cohort++){for(int i=0;i<12;i++){Socks5Probe.Result failure=new Socks5Probe.Result(null,Socks5Probe.Failure.HTTPS_TIMEOUT,true,true);fast.observe(failure);deep.observe(failure);}check(fast.limit(100)==6*deep.limit(100),"Sixfold capacity during backoff");}
-        check(fast.limit(100)==6&&deep.limit(100)==1,"Congestion floors remain bounded");
-        for(boolean foreground:new boolean[]{true,false})for(boolean connecting:new boolean[]{true,false})check(AdaptiveScanPolicy.hardCap(false,foreground,connecting)==6*AdaptiveScanPolicy.hardCap(true,foreground,connecting),"Capacity ratio preserves background and VPN setup limits");
-        check(deep.budget(true).totalMs==20000&&deep.budget(true).readMs==9000&&fast.budget(false).totalMs<=20000,"Deep retains its longer probe budget");checkpoint(false);checkpoint(true);
-        long fastMs=benchmark(false),deepMs=benchmark(true);System.out.println("BENCHMARK: 144 identical 150 ms fixtures; fast="+fastMs+" ms; deep="+deepMs+" ms; ratio="+String.format(java.util.Locale.US,"%.2f",(double)deepMs/fastMs)+"x; controlled host scheduling, not phone/network throughput");
+        AdaptiveScanPolicy fast=new AdaptiveScanPolicy(false),deep=new AdaptiveScanPolicy(true);
+        check(fast.limit(1000)==216&&deep.limit(1000)==24,"Ninefold v18 foreground capacity");
+        for(int i=0;i<120;i++)fast.observe(new Socks5Probe.Result(null,Socks5Probe.Failure.HTTPS_TIMEOUT,true,true));
+        check(fast.limit(1000)==216,"Individual dead proxies cannot collapse list throughput");
+        check(AdaptiveScanPolicy.hardCap(false,false,false)==54&&AdaptiveScanPolicy.hardCap(false,true,true)==8,"Background and VPN setup limits stay bounded");
+        check(deep.budget(true).totalMs==20000&&fast.budget(false).connectMs==2500&&fast.budget(false).readMs==4500&&fast.budget(false).totalMs==11000,"Original v18 deadlines are preserved");checkpoint(false);checkpoint(true);
+        long fastMs=benchmark(false),deepMs=benchmark(true);System.out.println("BENCHMARK: 1728 identical 250 ms fixtures (24-worker v18 baseline vs 216-worker fast); fast="+fastMs+" ms; deep="+deepMs+" ms; ratio="+String.format(java.util.Locale.US,"%.2f",(double)deepMs/fastMs)+"x; controlled host scheduling, not phone/network throughput");
         System.out.println("PASS: "+checks+" scan mode/capacity/pause/resume/deadline checks");
     }
 }

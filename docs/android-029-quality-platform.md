@@ -1,4 +1,6 @@
-# Android 0.29.0 — local connection quality and the Android data platform
+> Historical 0.29.0 design. Version 0.29.6 removes Cronet and Instagram priority, restores the v18 source catalog and scan deadlines, and uses fixed bounded scan profiles. See [current changes](android-0296-v18-scanning.md).
+
+# Historical Android 0.29.0 — local connection quality and the Android data platform
 
 The SOCKS5, HTTP CONNECT and HTTPS CONNECT tunnel transports are unchanged. This release adds all seven proposed improvements around those transports.
 

@@ -88,7 +88,7 @@ public final class ProxyScanner {
                     DownloadResult result = future.get(); i++; lists.set(result.index, result.endpoints); reports.set(result.index, result.report);preferred.set(result.index,result.preferred);
                     listener.onProgress("دریافت منابع: " + i + " از " + urls.size());
                 }
-                if (!session.cancelled.get()) listener.onFinished(mergePreferredCandidates(own,lists,preferred,seeds,Integer.MAX_VALUE), String.join("\n", reports));
+                if (!session.cancelled.get()) listener.onFinished(mergeCandidates(own,lists,seeds,Integer.MAX_VALUE), String.join("\n", reports));
             } catch (InterruptedException ex) { Thread.currentThread().interrupt(); }
             catch (Exception ex) { if (!session.cancelled.get()) listener.onFailed("دریافت لیست ناموفق: " + ex.getMessage()); }
             finally {
@@ -213,13 +213,13 @@ public final class ProxyScanner {
                 DownloadResult r=task.get(); n++;
                 lists.set(r.index,r.endpoints); rows.set(r.index,r.report);preferred.set(r.index,r.preferred);
                 if(!r.endpoints.isEmpty()) fetched++;
-                int count=mergePreferredCandidates(manual,lists,preferred,Collections.emptyList(),options.scanAll?Integer.MAX_VALUE:MAX_TESTS).size();
+                int count=mergeCandidates(manual,lists,Collections.emptyList(),options.scanAll?Integer.MAX_VALUE:MAX_TESTS).size();
                 listener.onCollectProgress("منابع: "+n+" از "+sources.size()+" • آدرس یکتا: "+count);
                 listener.onDiagnostics(report(rows,0,0,0,0,0,fetched,sources.size(),fallback.size(),options,failures));
             }
             session.fetchPool.shutdownNow();
             if(session.cancelled.get()) return;
-            List<ProxyEndpoint> candidates=mergePreferredCandidates(manual,lists,preferred,fallback,options.maxTests);
+            List<ProxyEndpoint> candidates=mergeCandidates(manual,lists,fallback,options.maxTests);
             total=candidates.size();
             listener.onProgress(0,total,0);
             session.probePool=Executors.newFixedThreadPool(24);
