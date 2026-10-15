@@ -1,6 +1,6 @@
 package ir.persiansocks.app;
 
-/** Scan profiles use v18 timeouts and fixed bounded capacity: dead proxies cannot throttle the entire list. */
+/** Scan profiles retain v18 deadlines and absolute ceilings; ScanCapacityGovernor handles device pressure and measured throughput. */
 public final class AdaptiveScanPolicy {
     public static final class Budget {
         public final int connectMs,readMs,totalMs;

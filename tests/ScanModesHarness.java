@@ -18,7 +18,7 @@ public final class ScanModesHarness {
     static long benchmark(boolean deep)throws Exception{
         ScanCheckpoint state=new ScanCheckpoint(rows(1728),new ProxyScanner.Options(100,deep,true),"CATALOG");PreparedScanner scanner=new PreparedScanner();CountDownLatch finished=new CountDownLatch(1);long start=System.nanoTime();
         scanner.start(state,s->{},(p,slow,stop,sockets)->{try{Thread.sleep(250);}catch(InterruptedException e){return new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false);}return new Socks5Probe.Result(null,Socks5Probe.Failure.TCP_REFUSED,false,false);},listener(finished));
-        check(finished.await(30,TimeUnit.SECONDS)&&state.complete(),"Controlled-delay scan completes");return (System.nanoTime()-start)/1000000;
+        check(finished.await(50,TimeUnit.SECONDS)&&state.complete(),"Controlled-delay scan completes");return (System.nanoTime()-start)/1000000;
     }
     public static void main(String[] args)throws Exception{
         PreparedScanner.foreground(true);PreparedScanner.connectionPending(false);
@@ -28,7 +28,7 @@ public final class ScanModesHarness {
         check(fast.limit(1000)==216,"Individual dead proxies cannot collapse list throughput");
         check(AdaptiveScanPolicy.hardCap(false,false,false)==54&&AdaptiveScanPolicy.hardCap(false,true,true)==8,"Background and VPN setup limits stay bounded");
         check(deep.budget(true).totalMs==20000&&fast.budget(false).connectMs==2500&&fast.budget(false).readMs==4500&&fast.budget(false).totalMs==11000,"Original v18 deadlines are preserved");checkpoint(false);checkpoint(true);
-        long fastMs=benchmark(false),deepMs=benchmark(true);System.out.println("BENCHMARK: 1728 identical 250 ms fixtures (24-worker v18 baseline vs 216-worker fast); fast="+fastMs+" ms; deep="+deepMs+" ms; ratio="+String.format(java.util.Locale.US,"%.2f",(double)deepMs/fastMs)+"x; controlled host scheduling, not phone/network throughput");
+        long fastMs=benchmark(false),deepMs=benchmark(true);System.out.println("BENCHMARK: 1728 identical 250 ms fixtures (adaptive deep vs adaptive fast); fast="+fastMs+" ms; deep="+deepMs+" ms; ratio="+String.format(java.util.Locale.US,"%.2f",(double)deepMs/fastMs)+"x; controlled host scheduling, not phone/network throughput");
         System.out.println("PASS: "+checks+" scan mode/capacity/pause/resume/deadline checks");
     }
 }

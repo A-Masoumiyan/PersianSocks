@@ -233,7 +233,7 @@ public final class ProxyVpnService extends VpnService {
                 }); }
                 public void onResult(int index,Socks5Probe.Result result) {
                     if(!autoScanning||token!=generation)return;
-                    QualityHistory.probe(network,scan.candidate(index),result);
+                    QualityHistory.probe(network,scan.candidate(index),result);SourceQuality.probe(network,scan,scan.candidate(index),result);
                     if(result.endpoint!=null){ProxyStore.index().accept(result.endpoint);autoSelection.add(result.endpoint);}
                     else if(ProbeFailurePolicy.invalidates(result.failure)&&ProxyStore.index().find(scan.candidate(index).key())!=null)
                         ProxyStore.index().reject(scan.candidate(index).key(),scan.finishedAt(index));
@@ -316,7 +316,7 @@ public final class ProxyVpnService extends VpnService {
                 if(networkMonitor!=null)networkMonitor.activate(chosenPhysical.network());
                 if(!chosenPhysical.valid()||(networkMonitor!=null&&networkMonitor.activeBroken())){waitForNetwork();return;}
                 announce(AppLanguage.t(R.string.ui_extra_042) + verified.endpoint.passedServices());
-                handler.postDelayed(()->{if(token==generation&&!stop.get())openTunnel(verified.endpoint,token);},300);
+                openTunnel(verified.endpoint,token);
             });
         }, "vpn-service-preflight").start();
     }
@@ -418,11 +418,13 @@ public final class ProxyVpnService extends VpnService {
             return;
         }
         AtomicBoolean stop = cancelled;
+        final String verificationFilter=requiredFilter;
+        final ServiceTargets.Target[] verificationTargets=ConnectionPreflight.verificationTargets(verificationFilter,lastProfile);
         new Thread(() -> {
             TunnelVerifier.Result result = TunnelVerifier.check(new TunnelVerifier.Transport() {
                 public Socket create() throws Exception { return network.getSocketFactory().createSocket(); }
                 public InetAddress[] resolve(String host) throws Exception { return VpnMappedDns.resolve(network,host); }
-            }, stop, probeSockets);
+            }, stop, probeSockets,verificationTargets,false,"ALL".equals(verificationFilter));
             handler.post(() -> {
                 if (token != generation || stop.get()) return;
                 String stats = "";
@@ -640,7 +642,7 @@ public final class ProxyVpnService extends VpnService {
     }
     private void updatePhase(int next) {
         if(next==CONNECTED)clearConnectionError();
-        phase = next;PreparedScanner.connectionPending(next==CONNECTING);
+        phase = next;PreparedScanner.connectionActive(next==CONNECTED);PreparedScanner.connectionPending(next==CONNECTING);
         activeEndpoint = next == DISCONNECTED ? "" : current;
         Intent i = new Intent(STATE).setPackage(getPackageName()).putExtra(EXTRA_PHASE, phase).putExtra("connection-error",getSharedPreferences("persiansocks",MODE_PRIVATE).getString("connection-error",""));
         sendBroadcast(i,INTERNAL_PERMISSION);

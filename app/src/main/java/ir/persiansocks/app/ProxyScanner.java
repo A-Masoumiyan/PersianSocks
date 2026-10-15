@@ -57,6 +57,9 @@ public final class ProxyScanner {
         DownloadResult(int i,List<ProxyEndpoint> e,String r) { this(i,e,r,false); }
         DownloadResult(int i,List<ProxyEndpoint> e,String r,boolean preferred) { index=i; endpoints=e; report=r;this.preferred=preferred; }
     }
+    public interface SourceObserver {void fetched(Source source,List<ProxyEndpoint> endpoints,int duplicates);}
+    private static volatile SourceObserver sourceObserver=(s,e,d)->{};
+    public static void sourceObserver(SourceObserver observer){sourceObserver=observer;}
     private ScanSession current;
     public interface Listener {
         void onProgress(int done,int total,int healthy);
@@ -85,7 +88,7 @@ public final class ProxyScanner {
                 for (int i = 0; i < urls.size(); i++) { final int index = i; downloads.submit(() -> fetchSource(urls.get(index), index, session)); }
                 for (int i = 0; i < urls.size() && !session.cancelled.get();) {
                     Future<DownloadResult> future = downloads.poll(250, TimeUnit.MILLISECONDS); if (future == null) continue;
-                    DownloadResult result = future.get(); i++; lists.set(result.index, result.endpoints); reports.set(result.index, result.report);preferred.set(result.index,result.preferred);
+                    DownloadResult result = future.get(); if(!session.cancelled.get())sourceObserver.fetched(urls.get(result.index),result.endpoints,duplicateCount(result.endpoints)); i++; lists.set(result.index, result.endpoints); reports.set(result.index, result.report);preferred.set(result.index,result.preferred);
                     listener.onProgress("دریافت منابع: " + i + " از " + urls.size());
                 }
                 if (!session.cancelled.get()) listener.onFinished(mergeCandidates(own,lists,seeds,Integer.MAX_VALUE), String.join("\n", reports));
@@ -122,6 +125,10 @@ public final class ProxyScanner {
         for(HttpURLConnection c:session.downloads) c.disconnect();
         if(session.thread!=null) session.thread.interrupt();
     }
+    private static final class ParsedList extends ArrayList<ProxyEndpoint> {
+        final int duplicates;ParsedList(Collection<ProxyEndpoint> rows,int duplicates){super(rows);this.duplicates=duplicates;}
+    }
+    public static int duplicateCount(List<ProxyEndpoint> rows){return rows instanceof ParsedList?((ParsedList)rows).duplicates:-1;}
     public static List<ProxyEndpoint> parseList(String text, boolean publicOnly) {
         return parseList(text,publicOnly,MAX_TESTS);
     }
@@ -129,14 +136,14 @@ public final class ProxyScanner {
         return parseList(text,publicOnly,cap,ProxyEndpoint.Type.SOCKS5);
     }
     public static List<ProxyEndpoint> parseList(String text,boolean publicOnly,int cap,ProxyEndpoint.Type type){
-        Map<String,ProxyEndpoint> unique=new LinkedHashMap<>();
+        Map<String,ProxyEndpoint> unique=new LinkedHashMap<>();int duplicates=0;
         Matcher matcher=ENDPOINT.matcher(text);
         while(unique.size()<cap && matcher.find()) {
             ProxyEndpoint e=ProxyEndpoint.parse(matcher.group(1)+":"+matcher.group(2));
             if(e!=null)e=e.withType(type);
-            if(e!=null && (!publicOnly || e.isPublicIpv4())) unique.putIfAbsent(e.key(),e);
+            if(e!=null && (!publicOnly || e.isPublicIpv4())&&unique.putIfAbsent(e.key(),e)!=null)duplicates++;
         }
-        return new ArrayList<>(unique.values());
+        return new ParsedList(unique.values(),duplicates);
     }
     /** Keeps a small overlap so tokens and lookarounds remain valid across reader chunks. */
     public static List<ProxyEndpoint> parseStream(Reader reader,boolean publicOnly,int cap,
@@ -146,28 +153,30 @@ public final class ProxyScanner {
     public static List<ProxyEndpoint> parseStream(Reader reader,boolean publicOnly,int cap,
             AtomicBoolean cancelled,ProxyEndpoint.Type type)throws IOException {
         Map<String,ProxyEndpoint> unique=new LinkedHashMap<>();
-        char[] chunk=new char[8192];String carry="";boolean trimmed=false;int n;
+        char[] chunk=new char[8192];String carry="";boolean trimmed=false;int n;long offset=0,lastEnd=-1;int[] duplicates={0};
         while(unique.size()<cap&&!cancelled.get()&&(n=reader.read(chunk))!=-1){
             String text=carry+new String(chunk,0,n);
             int safeEnd=Math.max(0,text.length()-32);
-            collectMatches(text,safeEnd,trimmed,publicOnly,cap,unique,cancelled,type);
+            lastEnd=collectMatches(text,safeEnd,trimmed,publicOnly,cap,unique,cancelled,type,offset,lastEnd,duplicates);
             int discard=Math.max(0,safeEnd-32);
-            carry=text.substring(discard);if(discard>0)trimmed=true;
+            carry=text.substring(discard);offset+=discard;if(discard>0)trimmed=true;
         }
         if(!cancelled.get()&&unique.size()<cap)
-            collectMatches(carry,carry.length(),trimmed,publicOnly,cap,unique,cancelled,type);
-        return new ArrayList<>(unique.values());
+            collectMatches(carry,carry.length(),trimmed,publicOnly,cap,unique,cancelled,type,offset,lastEnd,duplicates);
+        return new ParsedList(unique.values(),duplicates[0]);
     }
-    private static void collectMatches(String text,int safeEnd,boolean trimmed,boolean publicOnly,int cap,
-            Map<String,ProxyEndpoint> unique,AtomicBoolean cancelled,ProxyEndpoint.Type type){
+    private static long collectMatches(String text,int safeEnd,boolean trimmed,boolean publicOnly,int cap,
+            Map<String,ProxyEndpoint> unique,AtomicBoolean cancelled,ProxyEndpoint.Type type,long offset,long lastEnd,int[] duplicates){
         Matcher matcher=ENDPOINT.matcher(text);
         while(unique.size()<cap&&!cancelled.get()&&matcher.find()){
             if(matcher.end()>safeEnd)break;
-            if(trimmed&&matcher.start()==0)continue;
+            if(trimmed&&matcher.start()==0||offset+matcher.end()<=lastEnd)continue;
+            lastEnd=offset+matcher.end();
             ProxyEndpoint endpoint=ProxyEndpoint.parse(matcher.group(1)+":"+matcher.group(2));
             if(endpoint!=null)endpoint=endpoint.withType(type);
-            if(endpoint!=null&&(!publicOnly||endpoint.isPublicIpv4()))unique.putIfAbsent(endpoint.key(),endpoint);
+            if(endpoint!=null&&(!publicOnly||endpoint.isPublicIpv4())&&unique.putIfAbsent(endpoint.key(),endpoint)!=null)duplicates[0]++;
         }
+        return lastEnd;
     }
     /** Balanced selection prevents a large provider from consuming the entire budget. */
     public static List<ProxyEndpoint> mergeCandidates(List<ProxyEndpoint> manual,List<List<ProxyEndpoint>> lists,
@@ -210,7 +219,7 @@ public final class ProxyScanner {
             for(int n=0;n<sources.size() && !session.cancelled.get();) {
                 Future<DownloadResult> task=fetch.poll(300,TimeUnit.MILLISECONDS);
                 if(task==null) continue;
-                DownloadResult r=task.get(); n++;
+                DownloadResult r=task.get(); if(!session.cancelled.get())sourceObserver.fetched(sources.get(r.index),r.endpoints,duplicateCount(r.endpoints)); n++;
                 lists.set(r.index,r.endpoints); rows.set(r.index,r.report);preferred.set(r.index,r.preferred);
                 if(!r.endpoints.isEmpty()) fetched++;
                 int count=mergeCandidates(manual,lists,Collections.emptyList(),options.scanAll?Integer.MAX_VALUE:MAX_TESTS).size();

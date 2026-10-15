@@ -12,17 +12,23 @@ public final class PreparedScanner {
         void onResult(int index, Socks5Probe.Result result);
         void onProgress(int done, int total, int good);
         void onFinished(ScanCheckpoint state, String message);
+        default void onPerformance(int capacity,double testsPerSecond) {}
     }
     public interface Probe { Socks5Probe.Result inspect(ProxyEndpoint p, boolean slow, AtomicBoolean cancelled, Set<Socket> sockets); }
     private static final class Run {
         final ScanCheckpoint state; final Persistence persistence;
         final AtomicBoolean cancelled = new AtomicBoolean(); final Set<Socket> sockets = ConcurrentHashMap.newKeySet();
-        final ExecutorService workers;
+        final ThreadPoolExecutor workers;
+        final ScanCapacityGovernor governor;
+        volatile int capacity;
         final AdaptiveScanPolicy adaptive;
         Thread coordinator;
         Run(ScanCheckpoint state, Persistence persistence) {
             this.state=state;this.persistence=persistence;adaptive=new AdaptiveScanPolicy(state.slow);
-            workers=Executors.newFixedThreadPool(AdaptiveScanPolicy.hardCap(state.slow,true,false),r->{Thread t=new Thread(r,"proxy-scan-worker");t.setPriority(Thread.MIN_PRIORITY);return t;});
+            governor=new ScanCapacityGovernor(state.slow,System.nanoTime()/1000000);
+            capacity=state.slow?12:72;
+            workers=new ThreadPoolExecutor(capacity,AdaptiveScanPolicy.hardCap(state.slow,true,false),5,TimeUnit.SECONDS,new LinkedBlockingQueue<>(),r->{Thread t=new Thread(r,"proxy-scan-worker");t.setPriority(Thread.MIN_PRIORITY);return t;});
+            workers.allowCoreThreadTimeOut(true);
         }
         void close() {
             cancelled.set(true); workers.shutdownNow();
@@ -34,7 +40,24 @@ public final class PreparedScanner {
         final int index; final Socks5Probe.Result result;
         Completed(int index, Socks5Probe.Result result) { this.index = index; this.result = result; }
     }
-    private static volatile boolean connecting,foreground;
+    private static volatile boolean connecting,connected,foreground;
+    private static final java.util.concurrent.atomic.AtomicInteger downloads=new java.util.concurrent.atomic.AtomicInteger();
+    /** Reservations nest, and closing one twice cannot release another active measurement. */
+    public static final class TrafficReservation implements AutoCloseable {
+        private final AtomicBoolean closed=new AtomicBoolean();
+        private TrafficReservation(){downloads.incrementAndGet();}
+        @Override public void close(){if(closed.compareAndSet(false,true))downloads.decrementAndGet();}
+    }
+    public static TrafficReservation downloadMeasurement(){return new TrafficReservation();}
+    public static void connectionActive(boolean value){connected=value;}
+    public static int trafficCap(boolean deep){
+        int cap=AdaptiveScanPolicy.hardCap(deep,foreground,connecting);
+        if(connected)cap=Math.min(cap,deep?6:24);
+        if(downloads.get()>0)cap=Math.min(cap,deep?2:4);
+        return cap;
+    }
+    private static volatile ScanCapacityGovernor.Resources resources=deep->deep?24:216;
+    public static void resources(ScanCapacityGovernor.Resources provider){resources=provider;}
     private static final java.util.concurrent.atomic.AtomicInteger running=new java.util.concurrent.atomic.AtomicInteger();
     public static boolean running(){return running.get()>0;}
     public static void foreground(boolean value){foreground=value;}
@@ -70,15 +93,17 @@ public final class PreparedScanner {
             int submitted = 0, received = 0; int batchEnd=Math.min(ScanCheckpoint.BATCH_SIZE,pending.length); long progressAt = 0, savedAt = System.nanoTime();
             while (received < pending.length && !run.cancelled.get()) {
                 // Dispatch in catalog order; waiting workers must not overtake higher-priority candidates.
-                int capacity=run.adaptive.limit(AdaptiveScanPolicy.hardCap(state.slow,foreground,connecting));
+                int capacity=run.governor.capacity(System.nanoTime()/1000000,Math.min(resources.cap(state.slow),trafficCap(state.slow)),submitted-received,submitted<pending.length);
+                run.capacity=capacity;if(run.workers.getCorePoolSize()!=capacity)run.workers.setCorePoolSize(capacity);
                 while(submitted<pending.length&&submitted-received<capacity&&!run.cancelled.get())submit(tasks,run,probe,pending[submitted++]);
                 Future<Completed> task = tasks.poll(250, TimeUnit.MILLISECONDS); if (task == null) continue;
                 Completed completed = task.get(); received++;
                 synchronized (this) {
                     if (current != run || run.cancelled.get()) return;
-                    if (state.record(completed.index, completed.result)) {run.adaptive.observe(completed.result);listener.onResult(completed.index, completed.result);}
+                    if (state.record(completed.index, completed.result)) {run.adaptive.observe(completed.result);run.governor.completed(false);listener.onResult(completed.index, completed.result);}
                     long now = System.nanoTime();
                     if (now - progressAt > 400_000_000L || received == pending.length) {
+                        listener.onPerformance(run.capacity,run.governor.rate(now/1000000));
                         listener.onProgress(state.done(), state.total(), state.goodCount()); progressAt = now;
                     }
                 }
@@ -102,7 +127,7 @@ public final class PreparedScanner {
     private static void submit(CompletionService<Completed> tasks, Run run, Probe probe, int index) {
         tasks.submit(() -> {
             boolean entered=false;
-            try{while(!run.cancelled.get()) {int n=active.get();if(n<run.adaptive.limit(AdaptiveScanPolicy.hardCap(run.state.slow,foreground,connecting))&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
+            try{while(!run.cancelled.get()) {int n=active.get();if(n<Math.min(run.capacity,trafficCap(run.state.slow))&&active.compareAndSet(n,n+1)){entered=true;break;}Thread.sleep(50);}
                 AdaptiveScanPolicy.enter(run.adaptive.budget(run.state.slow));
                 return new Completed(index,entered?probe.inspect(run.state.candidate(index),run.state.slow,run.cancelled,run.sockets):new Socks5Probe.Result(null,Socks5Probe.Failure.CANCELLED,false,false));
             }finally{AdaptiveScanPolicy.leave();if(entered)active.decrementAndGet();}

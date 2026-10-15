@@ -77,6 +77,28 @@ public class InterfaceLayoutTest {
             }finally{owner.destroy();}
         }
     }
+    @Test public void unchangedCardsKeepTheirViewsWhenAnotherResultOrSelectionChanges()throws Exception{
+        Context c=context();var owner=Robolectric.buildActivity(MainActivity.class).create();
+        try{
+            MainActivity activity=owner.get();Object first=card(activity,0),second=card(activity,1);
+            ProxyEndpoint a=ReflectionHelpers.getField(first,"endpoint"),b=ReflectionHelpers.getField(second,"endpoint");
+            View rowA=ReflectionHelpers.getField(first,"row"),rowB=ReflectionHelpers.getField(second,"row");
+            Object originalA=rowA.getBackground(),originalB=rowB.getBackground();
+            ReflectionHelpers.callInstanceMethod(first,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,ProxyEndpoint.fromJson(a.json())));
+            assertSame("Equivalent endpoint instances do not redraw",originalA,rowA.getBackground());
+            ReflectionHelpers.setField(activity,"selected",b);
+            ReflectionHelpers.callInstanceMethod(first,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,a));
+            ReflectionHelpers.callInstanceMethod(second,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,b));
+            assertSame("Unselected row remains untouched",originalA,rowA.getBackground());assertNotSame(originalB,rowB.getBackground());
+            Object selectedBackground=rowB.getBackground();
+            java.util.Map<String,ProxyTestResult> measurements=ReflectionHelpers.getField(activity,"testResults");ProxyTestResult measurement=new ProxyTestResult();measurement.downloadMBps=2;measurements.put(a.key(),measurement);
+            ReflectionHelpers.callInstanceMethod(first,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,a));
+            ReflectionHelpers.callInstanceMethod(second,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,b));
+            assertNotSame(originalA,rowA.getBackground());assertSame("Unchanged card survives another result",selectedBackground,rowB.getBackground());
+            Object updatedA=rowA.getBackground();measurement.downloadMBps=3;
+            ReflectionHelpers.callInstanceMethod(first,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,a));assertNotSame("Mutable measurement changes are detected",updatedA,rowA.getBackground());
+        }finally{owner.destroy();}
+    }
     @Test public void renderActualViewsForReview()throws Exception{
         String destination=System.getProperty("persiansocks.previewDir","");if(destination.isEmpty())return;
         Context c=context();

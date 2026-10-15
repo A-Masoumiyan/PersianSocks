@@ -7,11 +7,32 @@ import androidx.paging.PagingSource;
 import java.util.*;
 
 /** Durable, versioned data. A rejected key remains a timestamped tombstone. */
-@Database(entities={ProxyDatabase.ProxyRow.class,ProxyDatabase.FavoriteRow.class,ProxyDatabase.QualityRow.class,ProxyDatabase.CatalogRow.class,ProxyDatabase.ResultRow.class,ProxyDatabase.MetaRow.class},version=1,exportSchema=true)
+@Database(entities={ProxyDatabase.ProxyRow.class,ProxyDatabase.FavoriteRow.class,ProxyDatabase.QualityRow.class,ProxyDatabase.CatalogRow.class,ProxyDatabase.ResultRow.class,ProxyDatabase.MetaRow.class,ProxyDatabase.SourceRow.class,ProxyDatabase.OriginRow.class,ProxyDatabase.SourceProbeRow.class},version=2,exportSchema=true)
 public abstract class ProxyDatabase extends RoomDatabase {
     private static volatile ProxyDatabase instance;
-    public static ProxyDatabase get(Context context){ProxyDatabase d=instance;if(d==null)synchronized(ProxyDatabase.class){if(instance==null)instance=Room.databaseBuilder(context.getApplicationContext(),ProxyDatabase.class,"proxy-data.db").setQueryExecutor(ProxyStore.IO).build();d=instance;}return d;}
+    public static ProxyDatabase get(Context context){ProxyDatabase d=instance;if(d==null)synchronized(ProxyDatabase.class){if(instance==null)instance=Room.databaseBuilder(context.getApplicationContext(),ProxyDatabase.class,"proxy-data.db").setQueryExecutor(ProxyStore.IO).addMigrations(SOURCE_MIGRATION).build();d=instance;}return d;}
     public abstract Data data();
+    public static final androidx.room.migration.Migration SOURCE_MIGRATION=new androidx.room.migration.Migration(1,2){
+        public void migrate(@NonNull androidx.sqlite.db.SupportSQLiteDatabase db){
+            db.execSQL("CREATE TABLE IF NOT EXISTS source_quality (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, fingerprint TEXT NOT NULL, attemptAt INTEGER NOT NULL, fetchedAt INTEGER NOT NULL, changedAt INTEGER NOT NULL, attempts INTEGER NOT NULL, fetches INTEGER NOT NULL, candidates INTEGER NOT NULL, duplicates INTEGER NOT NULL, failed INTEGER NOT NULL)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS source_origins (source TEXT NOT NULL, `key` TEXT NOT NULL, fetchedAt INTEGER NOT NULL, PRIMARY KEY(source,`key`))");
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_source_origins_key ON source_origins (`key`)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS source_probes (`key` TEXT NOT NULL, scope TEXT NOT NULL, profile TEXT NOT NULL, checkedAt INTEGER NOT NULL, success INTEGER NOT NULL, PRIMARY KEY(`key`,scope,profile))");
+        }
+    };
+    @Entity(tableName="source_quality") public static class SourceRow {
+        @PrimaryKey @NonNull public String id="";
+        @NonNull public String name="",fingerprint="";
+        public long attemptAt,fetchedAt,changedAt,attempts,fetches;
+        public int candidates,duplicates;public boolean failed;
+    }
+    @Entity(tableName="source_origins",primaryKeys={"source","key"},indices={@Index("key")}) public static class OriginRow {
+        @NonNull public String source="",key="";public long fetchedAt;
+    }
+    @Entity(tableName="source_probes",primaryKeys={"key","scope","profile"}) public static class SourceProbeRow {
+        @NonNull public String key="",scope="",profile="";public long checkedAt;public boolean success;
+    }
+
     @Entity(tableName="proxies") public static class ProxyRow {
         @PrimaryKey @NonNull public String key="";public long changed;public String payload;
         public ProxyRow(){} public ProxyRow(ProxyIndex.Record r){key=r.key;changed=r.time;payload=r.proxy==null?null:r.proxy.json().toString();}
@@ -38,6 +59,19 @@ public abstract class ProxyDatabase extends RoomDatabase {
         public MetaRow(){}public MetaRow(String k,String v){key=k;value=v;}
     }
     @Dao public abstract static class Data {
+        @Query("SELECT * FROM source_quality WHERE id=:id") public abstract SourceRow source(String id);
+        @Insert(onConflict=OnConflictStrategy.REPLACE) public abstract void source(SourceRow row);
+        @Query("DELETE FROM source_origins WHERE source=:id") public abstract void clearOrigins(String id);
+        @Insert(onConflict=OnConflictStrategy.REPLACE) public abstract void origins(List<OriginRow> rows);
+        @Insert(onConflict=OnConflictStrategy.REPLACE) public abstract void sourceProbe(SourceProbeRow row);
+        @Query("SELECT COUNT(*) FROM source_origins o WHERE o.source=:source AND EXISTS (SELECT 1 FROM source_origins other WHERE other.`key`=o.`key` AND other.source<>o.source AND other.fetchedAt>=:cutoff)") public abstract int sourceOverlap(String source,long cutoff);
+        @Query("SELECT COUNT(*) FROM source_origins o JOIN source_probes p ON o.`key`=p.`key` WHERE o.source=:source AND p.scope=:scope AND p.profile=:profile AND p.checkedAt>=o.fetchedAt AND p.checkedAt>=:cutoff") public abstract int sourceTested(String source,String scope,String profile,long cutoff);
+        @Query("SELECT COUNT(*) FROM source_origins o JOIN source_probes p ON o.`key`=p.`key` WHERE o.source=:source AND p.scope=:scope AND p.profile=:profile AND p.checkedAt>=o.fetchedAt AND p.checkedAt>=:cutoff AND p.success=1") public abstract int sourcePassed(String source,String scope,String profile,long cutoff);
+        @Query("SELECT COUNT(*) FROM source_origins WHERE `key`=:key AND fetchedAt>=:cutoff") public abstract int sourceOwners(String key,long cutoff);
+        @Query("DELETE FROM source_origins WHERE fetchedAt<:cutoff") public abstract void trimOrigins(long cutoff);
+        @Query("DELETE FROM source_probes WHERE checkedAt<:cutoff") public abstract void trimSourceProbes(long cutoff);
+        @Query("DELETE FROM source_quality WHERE attemptAt<:cutoff") public abstract void trimSources(long cutoff);
+
         @Query("SELECT * FROM proxies") public abstract List<ProxyRow> proxies();
         @Query("SELECT * FROM proxies ORDER BY `key` LIMIT :limit OFFSET :offset") public abstract List<ProxyRow> proxyPage(int limit,int offset);
         @Query("DELETE FROM proxies WHERE `key`=:key AND (changed<:time OR (changed=:time AND (:failed OR payload IS NOT NULL)))") abstract void removeOlder(String key,long time,boolean failed);

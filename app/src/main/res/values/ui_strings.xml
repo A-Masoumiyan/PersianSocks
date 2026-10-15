@@ -126,8 +126,8 @@
     <string name="ui_123" formatted="false">"پروکسی سازگاری برای اسکن نیست"</string>
     <string name="ui_124" formatted="false">"تنظیمات تست تغییر کرده؛ اسکن را از ابتدا شروع کن"</string>
     <string name="ui_125" formatted="false">"بررسی "</string>
-    <string name="ui_126" formatted="false">" • سالم تازه: "</string>
-    <string name="ui_127" formatted="false">"\nسالم تازه: "</string>
+    <string name="ui_126" formatted="false">" • پاسخ HTTPS تازه: "</string>
+    <string name="ui_127" formatted="false">"\nپاسخ HTTPS تازه: "</string>
     <string name="ui_128" formatted="false">"ذخیرهٔ نهایی ناموفق؛ پیشرفت اسکن حفظ شد"</string>
     <string name="ui_129" formatted="false">"شروع اسکن ناموفق: "</string>
     <string name="ui_130" formatted="false">"بازیابی ناموفق: "</string>
@@ -169,8 +169,8 @@
     <string name="ui_166" formatted="false">"قبلاً به ذخیره‌شده‌ها اضافه شده"</string>
     <string name="ui_167" formatted="false">"افزودن به ذخیره‌شده‌ها"</string>
     <string name="ui_168" formatted="false">"؛ کشیدن به چپ: پینگ؛ کشیدن به راست: تست سرعت"</string>
-    <string name="ui_169" formatted="false">" تأیید شد"</string>
-    <string name="ui_170" formatted="false">" تأیید نشد"</string>
+    <string name="ui_169" formatted="false">" پاسخ HTTPS تأیید شد"</string>
+    <string name="ui_170" formatted="false">" پاسخ HTTPS تأیید نشد"</string>
     <string name="ui_171" formatted="false">" تست نشده"</string>
     <string name="ui_172" formatted="false">"در حال تست…"</string>
     <string name="ui_173" formatted="false">"انتخاب پروکسی"</string>
@@ -185,8 +185,8 @@
     <string name="ui_182" formatted="false">"\nپینگ، زمان پاسخ HTTPS از مسیر این پروکسی است."</string>
     <string name="ui_183" formatted="false">"پاسخ واقعی UDP از رله تأیید شد"</string>
     <string name="ui_184" formatted="false">"فقط TCP تأییدشده"</string>
-    <string name="ui_185" formatted="false">"تأیید شد"</string>
-    <string name="ui_186" formatted="false">"تأیید نشد"</string>
+    <string name="ui_185" formatted="false">"پاسخ HTTPS تأیید شد"</string>
+    <string name="ui_186" formatted="false">"پاسخ HTTPS تأیید نشد"</string>
     <string name="ui_187" formatted="false">"تست نشده"</string>
     <string name="ui_188" formatted="false">"\nسرعت دانلود ثبت‌شده: "</string>
     <string name="ui_189" formatted="false">"\nحجم ثبت‌شدهٔ تست سرعت: "</string>
@@ -581,4 +581,19 @@
     <string name="ui_design_connect_accessibility">اتصال VPN</string>
     <string name="ui_design_disconnect_accessibility">قطع اتصال VPN</string>
     <string name="ui_design_cancel_accessibility">لغو اتصال VPN</string>
+    <string name="ui_health_card_scope" formatted="false">"آزمون HTTPS؛ پخش و ورود تست نشده"</string>
+    <string name="ui_health_scope" formatted="false">"علامت تأیید فقط دریافت پاسخ HTTPS از نشانی آزمون با گواهی معتبر را نشان می‌دهد. پخش ویدئو، ورود به حساب و کارکرد کامل برنامه آزمایش نشده‌اند؛ حتی «کامل» یعنی پاسخ هر سه نشانی آزمون."</string>
+    <string name="ui_source_metrics" formatted="false">"گزارش کیفیت منابع"</string>
+    <string name="ui_source_metrics_scope" formatted="false">"اندازه‌گیری محلی از این نسخه به بعد؛ نرخ موفقیت بر اساس آخرین تست هر نامزد پس از دریافت اخیر، در همین نوع شبکه و تنظیمات آزمون است. موارد تست‌نشده شکست محسوب نمی‌شوند. اشتراک بین منابع در ۷ روز اخیر شمرده می‌شود. زمان تغییر محتوا، زمان مشاهدهٔ تغییر است و تاریخ انتشار منبع نیست. این آمار تضمین کیفیت آینده نیست."</string>
+    <string name="ui_source_fetch_age" formatted="false">"آخرین دریافت معتبر"</string>
+    <string name="ui_source_changed_age" formatted="false">"آخرین تغییر محتوای مشاهده‌شده"</string>
+    <string name="ui_source_candidates" formatted="false">"نامزد یکتا"</string>
+    <string name="ui_source_duplicates" formatted="false">"مشترک با منابع دیگر"</string>
+    <string name="ui_source_yield" formatted="false">"پاسخ HTTPS / تست‌شده"</string>
+    <string name="ui_source_fetches" formatted="false">"دریافت معتبر / تلاش‌ها"</string>
+    <string name="ui_source_empty" formatted="false">"دریافت اخیر خالی یا ناموفق بود"</string>
+    <string name="ui_minutes_ago" formatted="false">"دقیقه پیش"</string>
+    <string name="ui_scan_capacity" formatted="false">"ظرفیت هم‌زمان"</string>
+    <string name="ui_scan_rate" formatted="false">"تست/ثانیه"</string>
+    <string name="ui_source_internal_duplicates" formatted="false">"تکرار در دادهٔ پردازش‌شدهٔ منبع"</string>
 </resources>
