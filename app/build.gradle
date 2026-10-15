@@ -11,8 +11,8 @@ android {
         buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(project.findProperty('privacyPolicyUrl') ?: '')
         minSdk 29
         targetSdk 36
-        versionCode 45
-        versionName '0.29.6'
+        versionCode 46
+        versionName '0.29.7'
     }
     buildFeatures { buildConfig true }
     testOptions { unitTests.includeAndroidResources = true }
@@ -107,6 +107,7 @@ dependencies {
 
 // Propagate an explicitly configured build proxy to Robolectric's separate JVM.
 tasks.withType(Test).configureEach {
+    systemProperty 'persiansocks.previewDir', project.findProperty('previewDir') ?: ''
     systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
     ['http.proxyHost','http.proxyPort','https.proxyHost','https.proxyPort'].each { key ->
         if (System.getProperty(key) != null) systemProperty key, System.getProperty(key)

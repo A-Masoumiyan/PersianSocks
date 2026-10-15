@@ -559,4 +559,26 @@
     <string name="ui_scan_total">کل</string>
     <string name="ui_scan_checked">بررسی‌شده</string>
     <string name="ui_scan_healthy">اسکن مجدد سالم‌ها</string>
+    <string name="ui_design_connect">اتصال به VPN</string>
+    <string name="ui_design_disconnect">قطع اتصال</string>
+    <string name="ui_design_cancel">لغو اتصال</string>
+    <string name="ui_design_power_hint">با دکمهٔ روشن / خاموش کنترل کن</string>
+    <string name="ui_design_connecting">●  در حال اتصال</string>
+    <string name="ui_design_disconnected">○  قطع اتصال</string>
+    <string name="ui_design_restart">از نو</string>
+    <string name="ui_design_sources">منابع</string>
+    <string name="ui_design_scan">اسکن</string>
+    <string name="ui_design_pause">مکث</string>
+    <string name="ui_design_resume">ادامه</string>
+    <string name="ui_design_saved">ذخیره‌ها</string>
+    <string name="ui_design_all">همه</string>
+    <string name="ui_design_filters">فیلتر</string>
+    <string name="ui_design_speed">سرعت</string>
+    <string name="ui_design_ping">پینگ</string>
+    <string name="ui_design_network">اتصال و شبکه</string>
+    <string name="ui_design_tools">ابزارها</string>
+    <string name="ui_design_tests">تنظیمات تست</string>
+    <string name="ui_design_connect_accessibility">اتصال VPN</string>
+    <string name="ui_design_disconnect_accessibility">قطع اتصال VPN</string>
+    <string name="ui_design_cancel_accessibility">لغو اتصال VPN</string>
 </resources>
