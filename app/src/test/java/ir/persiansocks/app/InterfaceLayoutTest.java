@@ -30,7 +30,7 @@ public class InterfaceLayoutTest {
         forceTree(view);view.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,height==0?View.MeasureSpec.UNSPECIFIED:View.MeasureSpec.EXACTLY));
         view.layout(0,0,width,view.getMeasuredHeight());
     }
-    private static void forceTree(View view){view.forceLayout();if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++)forceTree(group.getChildAt(i));}}
+    private static void forceTree(View view){view.forceLayout();view.invalidate();if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++)forceTree(group.getChildAt(i));}}
     @Test public void badgesWrapWithinNarrowAndWideCardsInBothDirections(){
         Context c=context();
         for(String language:new String[]{"fa","en"})for(int width:new int[]{200,264,304,388}){
