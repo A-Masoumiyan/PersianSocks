@@ -191,7 +191,7 @@ func TestWindowsKillFirewallIPv4IPv6TCPUDPAndSessionLoss(t *testing.T) {
 	afterArm := streamTarget.count.Load()
 	time.Sleep(600 * time.Millisecond)
 	if streamTarget.count.Load() != afterArm {
-		t.Fatal("pre-existing TCP connection continued sending after the kill switch was armed")
+		t.Error("pre-existing TCP connection continued sending after the kill switch was armed")
 	}
 	select {
 	case <-streamDone:

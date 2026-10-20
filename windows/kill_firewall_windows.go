@@ -82,7 +82,7 @@ func (f *windowsKillFirewall) Arm(allowed []string, tunName string) error {
 		}
 	}
 	if !exists {
-		if err = f.session.AddSublayer(&wf.Sublayer{ID: f.sublayer, Name: "PersianSocks Kill Switch", Weight: 0xf000}); err != nil {
+		if err = f.session.AddSublayer(&wf.Sublayer{ID: f.sublayer, Name: "PersianSocks Kill Switch", Weight: 0xffff}); err != nil {
 			return err
 		}
 	}
