@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -25,7 +26,7 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.5.0"
+const version = "0.6.0"
 const scanEngineVersion = 2
 const maxScanWorkers = 48
 
@@ -36,6 +37,7 @@ type Source struct {
 	Type     string `json:"type"`
 }
 type Settings struct {
+	ScanCountry   string   `json:"scanCountry"`
 	ExitOnClose   bool     `json:"exitOnClose"`
 	Workers       int      `json:"workers"`
 	Timeout       int      `json:"timeout"`
@@ -57,6 +59,7 @@ type Checkpoint struct {
 	Targets  []Target   `json:"targets"`
 }
 type Disk struct {
+	Favorites  map[string]Endpoint   `json:"favorites,omitempty"`
 	ScanEngine int                   `json:"scanEngine"`
 	Raw        []Endpoint            `json:"raw"`
 	Results    map[string]Endpoint   `json:"results"`
@@ -127,6 +130,9 @@ func defaultSettings() Settings {
 	return Settings{Workers: 24, Timeout: 8, Max: 5000, Failover: true, ScanTypes: []string{"SOCKS5", "HTTP", "HTTPS"}, SplitMode: "all"}
 }
 func validateSettings(s Settings) error {
+	if err := validateCountry(s.ScanCountry); err != nil {
+		return err
+	}
 	if s.Workers < 1 || s.Workers > maxScanWorkers || s.Timeout < 3 || s.Timeout > 30 || s.Max < 0 || s.Max > 100000 {
 		return errors.New("تعداد کارگر ۱ تا ۴۸، مهلت ۳ تا ۳۰ ثانیه و سقف ۰ تا ۱۰۰۰۰۰ است؛ صفر یعنی همه")
 	}
@@ -213,6 +219,9 @@ func newApp(dir string) *App {
 	if cp != nil && (len(cp.Input) != len(cp.Done) || validateSettings(cp.Settings) != nil || len(cp.Targets) == 0) {
 		a.disk.Checkpoint = nil
 	}
+	if a.disk.Favorites == nil {
+		a.disk.Favorites = map[string]Endpoint{}
+	}
 	if a.disk.Tests == nil {
 		a.disk.Tests = map[string]TestResult{}
 	}
@@ -235,6 +244,11 @@ func (a *App) save() error {
 	a.saveMu.Lock()
 	defer a.saveMu.Unlock()
 	a.mu.Lock()
+	for k := range a.disk.Favorites {
+		if e, ok := a.disk.Results[k]; ok {
+			a.disk.Favorites[k] = e
+		}
+	}
 	b, err := json.Marshal(a.disk)
 	a.mu.Unlock()
 	if err != nil {
@@ -346,7 +360,7 @@ func (a *App) fetch() error {
 						continue
 					}
 					if r.StatusCode == 200 {
-						scanner := bufio.NewScanner(r.Body)
+						scanner := bufio.NewScanner(io.LimitReader(r.Body, 16<<20))
 						scanner.Buffer(make([]byte, 4096), 65536)
 						seen := map[string]bool{}
 						for scanner.Scan() {
@@ -377,6 +391,16 @@ func (a *App) fetch() error {
 		raw := balanced(groups)
 		a.mu.Lock()
 		a.disk.Raw = raw
+		ir, irSOCKS := 0, 0
+		for _, e := range raw {
+			if e.Country == "IR" {
+				ir++
+				if e.Type == "SOCKS5" {
+					irSOCKS++
+				}
+			}
+		}
+		reports = append(reports, fmt.Sprintf("ایران: %d نامزد یکتا؛ %d SOCKS5؛ سلامت هنوز تست نشده", ir, irSOCKS))
 		a.sourceReport = reports
 		a.message = fmt.Sprintf("%d پروکسی یکتا دریافت شد؛ اسکن را شروع کن", len(raw))
 		if ctx.Err() != nil {
@@ -409,7 +433,13 @@ func (a *App) startScan(mode string) error {
 		s = cp.Settings
 	} else {
 		inputs := []Endpoint{}
-		if mode == "healthy" {
+		if mode == "saved" {
+			for _, e := range a.disk.Favorites {
+				if scanAccepts(e, s) {
+					inputs = append(inputs, e)
+				}
+			}
+		} else if mode == "healthy" {
 			for _, e := range a.disk.Results {
 				if scanAccepts(e, s) {
 					inputs = append(inputs, e)
@@ -534,6 +564,9 @@ func (a *App) snapshot(r *http.Request) any {
 	a.lastSeen = time.Now()
 	q := r.URL.Query()
 	f := a.disk.Filter
+	if q.Has("country") {
+		f.Country = q.Get("country")
+	}
 	if q.Has("type") {
 		f.Type = q.Get("type")
 	}
@@ -546,7 +579,7 @@ func (a *App) snapshot(r *http.Request) any {
 	if q.Has("ping") {
 		fmt.Sscanf(q.Get("ping"), "%d", &f.Ping)
 	}
-	rows := filteredRows(a.disk.Results, f, a.disk.Settings.TLSOnly)
+	rows := a.rowsLocked(f)
 	count := len(rows)
 	page := 0
 	fmt.Sscanf(q.Get("page"), "%d", &page)
@@ -578,7 +611,7 @@ func (a *App) snapshot(r *http.Request) any {
 		key = q.Get("selected")
 	}
 	var selected *Endpoint
-	if e, ok := a.disk.Results[key]; ok {
+	if e, ok := a.endpointLocked(key); ok {
 		selected = &e
 	}
 	ts, _ := customTargets(a.disk.Settings.CustomTargets)
@@ -600,7 +633,28 @@ func (a *App) snapshot(r *http.Request) any {
 	batch := a.speedBatch
 	batch.Done = a.speedBatchDone
 	batch.Total = a.speedBatchTotal
-	return map[string]any{"desktop": desktopState(), "speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": batch.Done, "total": batch.Total, "bytes": batch.Bytes, "failed": batch.Failed, "skipped": batch.Skipped, "current": batch.Current, "filter": batch.Filter, "canceled": batch.Canceled}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
+	favoriteKeys := map[string]bool{}
+	for k := range a.disk.Favorites {
+		favoriteKeys[k] = true
+	}
+	countries := map[string]int{}
+	for _, e := range a.disk.Raw {
+		c := e.Country
+		if c == "" {
+			c = "UNKNOWN"
+		}
+		countries[c]++
+	}
+	for _, e := range a.disk.Favorites {
+		c := e.Country
+		if c == "" {
+			c = "UNKNOWN"
+		}
+		if countries[c] == 0 {
+			countries[c] = 1
+		}
+	}
+	return map[string]any{"favoriteKeys": favoriteKeys, "favoriteCount": len(favoriteKeys), "countries": countries, "desktop": desktopState(), "speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": batch.Done, "total": batch.Total, "bytes": batch.Bytes, "failed": batch.Failed, "skipped": batch.Skipped, "current": batch.Current, "filter": batch.Filter, "canceled": batch.Canceled}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
 }
 
 type Action struct {
@@ -614,9 +668,11 @@ type Action struct {
 
 func (a *App) act(v Action) error {
 	switch v.Action {
+	case "favorite":
+		return a.toggleFavorite(v.Key)
 	case "fetch":
 		return a.fetch()
-	case "scan", "resume", "healthy":
+	case "scan", "resume", "healthy", "saved":
 		return a.startScan(v.Action)
 	case "stop":
 		a.mu.Lock()
@@ -665,7 +721,7 @@ func (a *App) act(v Action) error {
 		go a.saveChecked()
 	case "select":
 		a.mu.Lock()
-		if _, ok := a.disk.Results[v.Key]; !ok {
+		if _, ok := a.endpointLocked(v.Key); !ok {
 			a.mu.Unlock()
 			return errors.New("پروکسی موجود نیست")
 		}
@@ -834,10 +890,7 @@ func (a *App) handler() http.Handler {
 			json.NewEncoder(w).Encode(map[string]string{"path": path, "error": msg})
 		case "/api/export":
 			a.mu.Lock()
-			rows := []Endpoint{}
-			for _, e := range a.disk.Results {
-				rows = append(rows, e)
-			}
+			rows := a.rowsLocked(a.disk.Filter)
 			a.mu.Unlock()
 			sort.Slice(rows, func(i, j int) bool { return rows[i].Ping < rows[j].Ping })
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")

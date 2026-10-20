@@ -34,7 +34,7 @@ func (a *App) startFilteredSpeed() error {
 		a.mu.Unlock()
 		return errors.New("شبکهٔ اصلی آماده نیست")
 	}
-	rows := filteredRows(a.disk.Results, a.disk.Filter, a.disk.Settings.TLSOnly)
+	rows := a.rowsLocked(a.disk.Filter)
 	if len(rows) == 0 {
 		a.mu.Unlock()
 		return errors.New("نتیجه‌ای مطابق فیلتر وجود ندارد")

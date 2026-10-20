@@ -92,7 +92,7 @@ func (a *App) connectMode(key string, reset bool) error {
 		a.mu.Unlock()
 		return errors.New("ابتدا اتصال قبلی را قطع کن")
 	}
-	e, ok := a.disk.Results[key]
+	e, ok := a.endpointLocked(key)
 	if !ok {
 		a.mu.Unlock()
 		return errors.New("یک پروکسی سالم انتخاب کن")
@@ -455,7 +455,7 @@ func (a *App) recoverConnection() {
 			a.mu.Unlock()
 			return
 		}
-		rows := filteredRows(a.disk.Results, a.disk.Filter, a.disk.Settings.TLSOnly)
+		rows := a.rowsLocked(a.disk.Filter)
 		key := ""
 		for _, e := range rows {
 			if !attempted[e.key()] && time.Since(a.cooldown[e.key()]) > 5*time.Minute {
