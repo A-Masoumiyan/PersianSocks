@@ -74,3 +74,45 @@ func TestFirewallFailureNeverReportsProtectedOrConnects(t *testing.T) {
 		t.Fatal("connection allowed before firewall was ready")
 	}
 }
+
+func TestChatGPTNonAddressDNSNeverUsesPhysicalResolver(t *testing.T) {
+	s := defaultSettings()
+	s.RoutingMode = "chatgpt"
+	for _, guard := range []bool{false, true} {
+		var cfg map[string]any
+		var err error
+		if guard {
+			cfg, err = makeGuardConfig(Physical{}, 12080, s)
+		} else {
+			cfg, err = makeTunnelConfig(Endpoint{Host: "127.0.0.1", Port: 1080, Type: "SOCKS5"}, Physical{}, 12080, 0, "", s)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		// HTTPS/SVCB and TXT must match a protected-domain rule after the
+		// A/AAAA FakeIP rule, before reaching the physical DNS final resolver.
+		found := false
+		for _, raw := range cfg["dns"].(map[string]any)["rules"].([]any) {
+			r := raw.(map[string]any)
+			if _, ok := r["query_type"]; ok {
+				continue
+			}
+			domains, _ := r["domain_suffix"].([]string)
+			for _, domain := range domains {
+				if domain != "chatgpt.com" {
+					continue
+				}
+				found = true
+				if guard && r["action"] != "reject" {
+					t.Fatal("offline protected DNS not rejected")
+				}
+				if !guard && r["server"] != "remote-dns" {
+					t.Fatal("protected DNS can use physical resolver")
+				}
+			}
+		}
+		if !found {
+			t.Fatal("protected non-address DNS rule missing")
+		}
+	}
+}

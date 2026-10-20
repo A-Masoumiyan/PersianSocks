@@ -98,6 +98,12 @@ func makeTunnelConfig(e Endpoint, p Physical, proxyPort, statsPort int, secret s
 	dns["servers"] = append(dns["servers"].([]any), map[string]any{"type": "fakeip", "tag": "route-fakeip", "inet4_range": "198.18.0.0/15", "inet6_range": "fc00::/18"})
 	if restrictedRouting(s) {
 		dns["rules"] = []any{map[string]any{"domain_suffix": []string{"local", "lan", "home.arpa", "in-addr.arpa", "ip6.arpa"}, "action": "route", "server": "local-dns"}, map[string]any{"query_type": []string{"A", "AAAA"}, "action": "route", "server": "route-fakeip"}}
+		// FakeIP keeps A/AAAA routing stable; other protected-domain records
+		// (for example HTTPS/SVCB) must also avoid the physical DNS resolver.
+		if s.RoutingMode == "domains" || s.RoutingMode == "chatgpt" {
+			ds, _ := routeDomains(s)
+			dns["rules"] = append(dns["rules"].([]any), map[string]any{"domain_suffix": ds, "action": "route", "server": "remote-dns"})
+		}
 		dns["final"] = "local-dns"
 	}
 	config := map[string]any{"log": map[string]any{"level": "info", "timestamp": true}, "dns": dns,

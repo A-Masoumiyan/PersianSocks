@@ -22,12 +22,16 @@ func TestKillSocketChild(t *testing.T) {
 	if os.Getenv("PERSIANSOCKS_KILL_CHILD") != "1" {
 		return
 	}
+	exe, _ := os.Executable()
+	id, _ := wf.AppID(exe)
+	fmt.Printf("PROBE APP: %s ID: %s\n", exe, id)
 	network, address := os.Getenv("PERSIANSOCKS_KILL_NETWORK"), os.Getenv("PERSIANSOCKS_KILL_ADDRESS")
 	c, err := net.DialTimeout(network, address, 800*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer c.Close()
+	if os.Getenv("PERSIANSOCKS_KILL_DIAL_ONLY") == "1" { fmt.Println("KILL-PROBE-OK"); return }
 	c.SetDeadline(time.Now().Add(800 * time.Millisecond))
 	repeat := 1
 	if os.Getenv("PERSIANSOCKS_KILL_STREAM") == "1" {
@@ -187,6 +191,11 @@ func TestWindowsKillFirewallIPv4IPv6TCPUDPAndSessionLoss(t *testing.T) {
 	if e = f.Arm([]string{executable}, "missing-tun-interface"); e != nil {
 		t.Fatal(e)
 	}
+	if rules, er := f.owned(); er == nil { for _, r := range rules { t.Logf("WFP RULE: %s %s disabled=%t weight=%d matches=%+v", r.Name, r.Action, r.Disabled, r.Weight, r.Conditions); for _, m := range r.Conditions { t.Logf("  MATCH: %v %v %v", m.Field, m.Op, m.Value) } } } else { t.Error(er) }
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	remote := exec.CommandContext(ctx, child, "-test.run=^TestKillSocketChild$")
+	remote.Env = append(os.Environ(), "PERSIANSOCKS_KILL_CHILD=1", "PERSIANSOCKS_KILL_DIAL_ONLY=1", "PERSIANSOCKS_KILL_NETWORK=tcp4", "PERSIANSOCKS_KILL_ADDRESS=1.1.1.1:443")
+	out, er := remote.CombinedOutput(); cancel(); t.Logf("PHYSICAL-DIAGNOSTIC: err=%v %s", er, out)
 	time.Sleep(350 * time.Millisecond)
 	afterArm := streamTarget.count.Load()
 	time.Sleep(600 * time.Millisecond)
