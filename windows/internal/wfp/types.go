@@ -185,8 +185,8 @@ type fwpmFilter0 struct {
 	Action              fwpmAction0
 
 	// Only one of RawContext/ProviderContextKey must be set.
-	RawContext         uint64
-	ProviderContextKey windows.GUID
+	RawContext      uint64
+	contextUnionPad uint64 // remaining bytes of the 16-byte C union
 
 	Reserved        *windows.GUID
 	FilterID        uint64

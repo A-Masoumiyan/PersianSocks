@@ -60,6 +60,25 @@ func tunLUID(name string) uint64 {
 	}
 	return luid
 }
+
+// WFP app identities must use the long path. Go/Windows temp and launch paths
+// can contain 8.3 components (RUNNER~1); FwpmGetAppIdFromFileName only converts
+// that spelling to a device path, whereas ALE reports the canonical long name.
+func killAppID(exe string) (string, error) {
+	p, err := windows.UTF16PtrFromString(exe)
+	if err != nil {
+		return "", err
+	}
+	buf := make([]uint16, 32768)
+	n, err := windows.GetLongPathName(p, &buf[0], uint32(len(buf)))
+	if err != nil {
+		return "", err
+	}
+	if n == 0 || int(n) >= len(buf) {
+		return "", errors.New("cannot normalize firewall application path")
+	}
+	return wf.AppID(windows.UTF16ToString(buf[:n]))
+}
 func (f *windowsKillFirewall) Arm(allowed []string, tunName string) error {
 	existsKey := []any{}
 	for _, p := range allowed {
@@ -111,7 +130,7 @@ func (f *windowsKillFirewall) Arm(allowed []string, tunName string) error {
 		if _, e := os.Stat(exe); e != nil {
 			continue
 		}
-		id, e := wf.AppID(exe)
+		id, e := killAppID(exe)
 		if e != nil {
 			return e
 		}
@@ -150,7 +169,7 @@ func (f *windowsKillFirewall) Arm(allowed []string, tunName string) error {
 			err = add(layer, "block direct fallback", 1, wf.ActionBlock)
 		} else {
 			for _, exe := range f.scope {
-				id, e := wf.AppID(exe)
+				id, e := killAppID(exe)
 				if e != nil {
 					err = e
 					break
