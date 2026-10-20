@@ -3,9 +3,6 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -61,28 +58,6 @@ func preparePlatform() bool {
 }
 func hideCommand(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
-}
-func physicalNetwork() (Physical, error) {
-	script := `$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $ids=@(Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | Select-Object -ExpandProperty ifIndex); $route=Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' | Where-Object { $_.InterfaceIndex -in $ids } | Sort-Object @{Expression={$_.RouteMetric + (Get-NetIPInterface -InterfaceIndex $_.InterfaceIndex -AddressFamily IPv4).InterfaceMetric}} | Select-Object -First 1; if(!$route){throw 'No physical default route'}; $cfg=Get-NetIPConfiguration -InterfaceIndex $route.InterfaceIndex; @{index=[int]$route.InterfaceIndex;name=$cfg.InterfaceAlias;ip=($cfg.IPv4Address | Select-Object -First 1).IPAddress;dns=@((Get-DnsClientServerAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4).ServerAddresses)} | ConvertTo-Json -Compress`
-	ctx, cancel := context.WithTimeout(platformCommandContext, 15*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
-	hideCommand(cmd)
-	b, err := cmd.Output()
-	if err != nil {
-		return Physical{}, fmt.Errorf("شناسایی کارت شبکهٔ اصلی: %w", err)
-	}
-	var p Physical
-	if err = json.Unmarshal(b, &p); err != nil {
-		return p, err
-	}
-	if !physicalReady(p) {
-		return p, errors.New("کارت شبکهٔ اصلی آدرس ندارد")
-	}
-	return p, nil
-}
-func physicalReady(p Physical) bool {
-	return p.Index > 0 && p.Name != "" && p.IP != "" && len(p.DNS) > 0
 }
 func socketControl(index int) func(string, string, syscall.RawConn) error {
 	if index == 0 {

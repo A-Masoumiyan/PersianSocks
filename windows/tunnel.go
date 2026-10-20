@@ -40,8 +40,11 @@ func tunnelConfig(e Endpoint, p Physical, proxyPort int) map[string]any {
 	return c
 }
 func makeTunnelConfig(e Endpoint, p Physical, proxyPort, statsPort int, secret string, s Settings) (map[string]any, error) {
+	if err := validateRouting(s); err != nil {
+		return nil, err
+	}
 	exe, _ := os.Executable()
-	out := map[string]any{"tag": "proxy", "server": e.Host, "server_port": e.Port, "bind_interface": p.Name, "connect_timeout": "8s"}
+	out := map[string]any{"tag": "proxy", "server": e.Host, "server_port": e.Port, "bind_interface": p.Name, "connect_timeout": "8s", "domain_resolver": "local-dns"}
 	if e.Type == "SOCKS5" {
 		out["type"] = "socks"
 		out["version"] = "5"
@@ -51,25 +54,58 @@ func makeTunnelConfig(e Endpoint, p Physical, proxyPort, statsPort int, secret s
 			out["tls"] = map[string]any{"enabled": true, "server_name": e.Host}
 		}
 	}
-	config := map[string]any{
-		"log":       map[string]any{"level": "warn", "timestamp": true},
-		"dns":       map[string]any{"servers": []any{map[string]any{"type": "https", "tag": "remote-dns", "server": "1.1.1.1", "tls": map[string]any{"enabled": true, "server_name": "cloudflare-dns.com"}, "detour": "proxy"}}, "final": "remote-dns", "strategy": "ipv4_only"},
-		"inbounds":  []any{map[string]any{"type": "tun", "tag": "tun", "interface_name": "PersianSocks-TUN", "address": []string{"172.29.251.1/30", "fdfe:dcba:9876::1/126"}, "mtu": 1500, "auto_route": true, "strict_route": false, "dns_mode": "hijack", "stack": "mixed"}, map[string]any{"type": "mixed", "tag": "local-proxy", "listen": "127.0.0.1", "listen_port": proxyPort}},
-		"outbounds": []any{out, map[string]any{"type": "direct", "tag": "direct", "bind_interface": p.Name}},
-		"route":     map[string]any{"default_interface": p.Name, "final": "proxy", "rules": []any{map[string]any{"inbound": "tun", "process_path": exe, "action": "route", "outbound": "direct"}, map[string]any{"protocol": "dns", "action": "hijack-dns"}, map[string]any{"inbound": "tun", "ip_is_private": true, "action": "route", "outbound": "direct"}}},
+	dnsIP := "1.1.1.1"
+	if ds := usableDNS(p.DNS); len(ds) > 0 {
+		dnsIP = ds[0]
 	}
-	rules := []any{map[string]any{"inbound": "local-proxy", "action": "route", "outbound": "proxy"}, map[string]any{"inbound": "tun", "process_path": exe, "action": "route", "outbound": "direct"}, map[string]any{"protocol": "dns", "action": "hijack-dns"}, map[string]any{"inbound": "tun", "ip_is_private": true, "action": "route", "outbound": "direct"}}
-	split, err := splitRules(s)
+	dns := map[string]any{"servers": []any{
+		map[string]any{"type": "https", "tag": "remote-dns", "server": "1.1.1.1", "tls": map[string]any{"enabled": true, "server_name": "cloudflare-dns.com"}, "detour": "proxy"},
+		map[string]any{"type": "udp", "tag": "local-dns", "server": dnsIP, "detour": "direct"},
+	}, "final": "remote-dns", "strategy": "ipv4_only", "reverse_mapping": true}
+	tun := map[string]any{"type": "tun", "tag": "tun", "interface_name": "PersianSocks-TUN", "address": []string{"172.29.251.1/30", "fdfe:dcba:9876::1/126"}, "mtu": 1500, "auto_route": true, "strict_route": true, "dns_mode": "hijack", "stack": "mixed"}
+	rules := []any{
+		map[string]any{"inbound": "local-proxy", "action": "route", "outbound": "proxy"},
+		map[string]any{"inbound": "tun", "process_path": exe, "action": "route", "outbound": "direct"},
+		map[string]any{"inbound": "tun", "port": 53, "action": "hijack-dns"},
+		map[string]any{"inbound": "tun", "action": "sniff", "timeout": "300ms"},
+		map[string]any{"protocol": "dns", "action": "hijack-dns"},
+		map[string]any{"inbound": "tun", "ip_is_private": true, "action": "route", "outbound": "direct"},
+	}
+	split, err := scopedRules(s)
 	if err != nil {
 		return nil, err
 	}
-	rules = append(rules, split...)
-	config["route"].(map[string]any)["rules"] = rules
+	// HTTP proxies cannot carry UDP. Reject QUIC only for traffic that would use
+	// the proxy, letting browsers retry HTTPS/TCP; unrelated UDP remains direct.
+	for _, rule := range split {
+		r := rule.(map[string]any)
+		if r["outbound"] == "proxy" {
+			reject := map[string]any{}
+			for k, v := range r {
+				reject[k] = v
+			}
+			reject["protocol"] = "quic"
+			reject["network"] = "udp"
+			reject["port"] = 443
+			reject["action"] = "reject"
+			delete(reject, "outbound")
+			rules = append(rules, reject)
+		}
+		rules = append(rules, r)
+	}
+	dns["servers"] = append(dns["servers"].([]any), map[string]any{"type": "fakeip", "tag": "route-fakeip", "inet4_range": "198.18.0.0/15", "inet6_range": "fc00::/18"})
+	if restrictedRouting(s) {
+		dns["rules"] = []any{map[string]any{"domain_suffix": []string{"local", "lan", "home.arpa", "in-addr.arpa", "ip6.arpa"}, "action": "route", "server": "local-dns"}, map[string]any{"query_type": []string{"A", "AAAA"}, "action": "route", "server": "route-fakeip"}}
+		dns["final"] = "local-dns"
+	}
+	config := map[string]any{"log": map[string]any{"level": "info", "timestamp": true}, "dns": dns,
+		"inbounds":  []any{tun, map[string]any{"type": "mixed", "tag": "local-proxy", "listen": "127.0.0.1", "listen_port": proxyPort}},
+		"outbounds": []any{out, map[string]any{"type": "direct", "tag": "direct", "bind_interface": p.Name, "domain_resolver": "local-dns"}},
+		"route":     map[string]any{"default_interface": p.Name, "default_domain_resolver": "local-dns", "find_process": true, "final": "proxy", "rules": rules}}
 	if statsPort > 0 {
 		config["experimental"] = map[string]any{"clash_api": map[string]any{"external_controller": fmt.Sprintf("127.0.0.1:%d", statsPort), "secret": secret}}
 	}
 	return config, nil
-
 }
 func verifyFile(path, expected string) error {
 	if expected == "" {
@@ -101,7 +137,7 @@ func (a *App) connectMode(key string, reset bool) error {
 		a.mu.Unlock()
 		return errors.New("پروکسی انتخاب‌شده با فیلتر فعلی سازگار نیست")
 	}
-	if _, err := splitRules(a.disk.Settings); err != nil {
+	if _, err := scopedRules(a.disk.Settings); err != nil {
 		a.mu.Unlock()
 		return err
 	}
@@ -203,6 +239,12 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	if err != nil {
 		return err
 	}
+	experimental, ok := tunnel["experimental"].(map[string]any)
+	if !ok {
+		experimental = map[string]any{}
+		tunnel["experimental"] = experimental
+	}
+	experimental["cache_file"] = map[string]any{"enabled": true, "path": filepath.Join(a.dir, "route-cache.db"), "store_fakeip": true}
 	b, err := json.MarshalIndent(tunnel, "", "  ")
 	if err != nil {
 		return err
@@ -247,6 +289,7 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	go func() { err := cmd.Wait(); done <- err; close(done) }()
 	fail := func(err error) error {
 		stopCore(cmd, done)
+		flushDNS()
 		closeGuard(job)
 		a.mu.Lock()
 		if a.core == cmd {
@@ -291,6 +334,7 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	if ctx.Err() != nil {
 		return fail(ctx.Err())
 	}
+	flushDNS()
 	a.mu.Lock()
 	a.vpnState = "on"
 	a.connected = &e
@@ -304,6 +348,7 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	a.mu.Unlock()
 	go func() {
 		<-done
+		flushDNS()
 		closeGuard(job)
 		a.mu.Lock()
 		if a.core == cmd {
@@ -346,6 +391,7 @@ func (a *App) disconnect() {
 	a.vpnState = "stopping"
 	a.mu.Unlock()
 	stopCore(cmd, done)
+	flushDNS()
 	a.mu.Lock()
 	a.vpnState = "off"
 	a.connected = nil

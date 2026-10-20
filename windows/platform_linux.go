@@ -39,3 +39,5 @@ func startDesktopUI(a *App, done <-chan struct{}) { openUI(a.origin + "/#" + a.t
 
 func stopDesktopUI()             {}
 func desktopState() DesktopState { return DesktopState{} }
+
+func flushDNS() {}

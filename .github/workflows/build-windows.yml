@@ -38,6 +38,7 @@ jobs:
       - name: Validate on Windows
         shell: pwsh
         run: |
+          $env:PERSIANSOCKS_TEST_TUN = '1'
           $env:PERSIANSOCKS_TEST_CORE = (Resolve-Path windows/release/bin/sing-box.exe).Path
           Set-Location windows
           go test -race -buildvcs=false -v .
@@ -52,12 +53,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          $tag = 'windows-v0.6.0'
-          $name = 'PersianSocks-Windows-0.6.0-x64.exe'
+          $tag = 'windows-v0.7.0'
+          $name = 'PersianSocks-Windows-0.7.0-x64.exe'
           Copy-Item windows/release/PersianSocks.exe $name
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --target $env:GITHUB_SHA --title 'ورژن جدید — PersianSocks | Windows 0.6.0' --latest=false --notes-file .github/windows-0.6.0-notes.md $name
+            gh release create $tag --target $env:GITHUB_SHA --title 'ورژن جدید — PersianSocks | Windows 0.7.0' --latest=false --notes-file .github/windows-0.7.0-notes.md $name
           } else {
             gh release upload $tag $name --clobber
           }
@@ -67,5 +68,5 @@ jobs:
           if (!$asset -or $asset.size -ne (Get-Item $name).Length) { throw 'Uploaded size mismatch' }
       - uses: actions/upload-artifact@v4
         with:
-          name: PersianSocks-Windows-0.6.0-x64
+          name: PersianSocks-Windows-0.7.0-x64
           path: windows/release/PersianSocks.exe

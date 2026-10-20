@@ -18,6 +18,7 @@ func installedApps() ([]InstalledApp, error) {
  @([Environment]::GetFolderPath('Programs'),[Environment]::GetFolderPath('CommonPrograms'))|ForEach-Object{Get-ChildItem -LiteralPath $_ -Filter '*.lnk' -Recurse|ForEach-Object{$lnk=$shell.CreateShortcut($_.FullName);AddApp $_.BaseName $lnk.TargetPath}}
  @('HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths','HKLM:\Software\Microsoft\Windows\CurrentVersion\App Paths','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths')|ForEach-Object{Get-ChildItem $_|ForEach-Object{$path=$_.GetValue('');AddApp $_.PSChildName $path}}
  @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')|ForEach-Object{Get-ItemProperty "$_\*"|ForEach-Object{if($_.DisplayName -and $_.DisplayIcon){$path=$_.DisplayIcon -replace ',\s*-?\d+$','';AddApp $_.DisplayName $path ($_.SystemComponent -eq 1)}}}
+ Get-AppxPackage|ForEach-Object{$pkg=$_;try{(Get-AppxPackageManifest -Package $pkg.PackageFullName).Package.Applications.Application|ForEach-Object{if($_.Executable){AddApp ($pkg.Name+' / '+$_.Id) (Join-Path $pkg.InstallLocation $_.Executable)}}}catch{}}
  Get-CimInstance Win32_Process|ForEach-Object{AddApp $_.Name $_.ExecutablePath}
  @($items.Values|Sort-Object name)|ConvertTo-Json -Depth 3 -Compress`
 	ctx, cancel := context.WithTimeout(platformCommandContext, 30*time.Second)
