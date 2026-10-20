@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"embed"
@@ -9,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +17,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -26,7 +25,7 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.8.0"
+const version = "0.9.0"
 const scanEngineVersion = 2
 const maxScanWorkers = 48
 
@@ -35,6 +34,8 @@ type Source struct {
 	URL      string `json:"url"`
 	Fallback string `json:"fallback"`
 	Type     string `json:"type"`
+	Format   string `json:"format,omitempty"`
+	Country  string `json:"country,omitempty"`
 }
 type Settings struct {
 	KillSwitchOff bool     `json:"killSwitchOff"`
@@ -58,85 +59,91 @@ type Settings struct {
 	SplitShowAll  bool     `json:"splitShowAll"`
 }
 type Checkpoint struct {
+	Rapid    bool       `json:"rapid,omitempty"`
 	Input    []Endpoint `json:"input"`
 	Done     []bool     `json:"done"`
 	Settings Settings   `json:"settings"`
 	Targets  []Target   `json:"targets"`
 }
 type Disk struct {
-	Favorites  map[string]Endpoint   `json:"favorites,omitempty"`
-	ScanEngine int                   `json:"scanEngine"`
-	Raw        []Endpoint            `json:"raw"`
-	Results    map[string]Endpoint   `json:"results"`
-	Checkpoint *Checkpoint           `json:"checkpoint,omitempty"`
-	Settings   Settings              `json:"settings"`
-	Filter     Filter                `json:"filter"`
-	Selected   string                `json:"selected"`
-	Tests      map[string]TestResult `json:"tests"`
-	Traffic    Traffic               `json:"traffic"`
+	InitialFetchVersion int                   `json:"initialFetchVersion"`
+	InitialFetchDone    bool                  `json:"initialFetchDone,omitempty"`
+	Favorites           map[string]Endpoint   `json:"favorites,omitempty"`
+	ScanEngine          int                   `json:"scanEngine"`
+	Raw                 []Endpoint            `json:"raw"`
+	Results             map[string]Endpoint   `json:"results"`
+	Checkpoint          *Checkpoint           `json:"checkpoint,omitempty"`
+	Settings            Settings              `json:"settings"`
+	Filter              Filter                `json:"filter"`
+	Selected            string                `json:"selected"`
+	Tests               map[string]TestResult `json:"tests"`
+	Traffic             Traffic               `json:"traffic"`
 }
 type App struct {
-	firewall          killFirewall
-	guardCloser       func()
-	protectionStarted bool
-	killArmed         bool
-	killError         string
-	guardMode         bool
-	corePhysical      Physical
-	closing           bool
-	mu                sync.Mutex
-	saveMu            sync.Mutex
-	disk              Disk
-	dir               string
-	physical          Physical
-	scanCancel        context.CancelFunc
-	scanRunning       bool
-	fetching          bool
-	message           string
-	err               string
-	scanError         string
-	sourceReport      []string
-	test              map[string]bool
-	vpnState          string
-	connected         *Endpoint
-	connectCancel     context.CancelFunc
-	core              *exec.Cmd
-	coreDone          chan error
-	coreLog           *logTail
-	job               uintptr
-	token             string
-	origin            string
-	lastSeen          time.Time
-	speedBatchCancel  context.CancelFunc
-	speedBatchDone    int
-	speedBatchTotal   int
-	speedBatch        SpeedBatch
-	speedRunner       speedProbe
-	shutdown          func()
-	connectMu         sync.Mutex
-	attemptVersion    map[string]uint64
-	sequence          uint64
-	lastDone          int
-	lastTotal         int
-	fetchCancel       context.CancelFunc
-	tasks             map[string]*TestTask
-	report            []string
-	apps              []InstalledApp
-	appsLoading       bool
-	appsLoaded        bool
-	appsError         string
-	corePort          int
-	statsPort         int
-	trafficDown       int64
-	trafficUp         int64
-	trafficAt         time.Time
-	activeSettings    Settings
-	cooldown          map[string]time.Time
-	recovering        bool
-	autoConnect       bool
-	userDisconnect    bool
-	controlGeneration uint64
-	fastScan          bool
+	firewall              killFirewall
+	guardCloser           func()
+	protectionStarted     bool
+	killArmed             bool
+	killError             string
+	guardMode             bool
+	corePhysical          Physical
+	closing               bool
+	mu                    sync.Mutex
+	saveMu                sync.Mutex
+	disk                  Disk
+	dir                   string
+	physical              Physical
+	scanCancel            context.CancelFunc
+	scanRunning           bool
+	initialFetchAttempted bool
+	fetchDone             int
+	fetchTotal            int
+	fetching              bool
+	message               string
+	err                   string
+	scanError             string
+	sourceReport          []string
+	test                  map[string]bool
+	vpnState              string
+	connected             *Endpoint
+	connectCancel         context.CancelFunc
+	core                  *exec.Cmd
+	coreDone              chan error
+	coreLog               *logTail
+	job                   uintptr
+	token                 string
+	origin                string
+	lastSeen              time.Time
+	speedBatchCancel      context.CancelFunc
+	speedBatchDone        int
+	speedBatchTotal       int
+	speedBatch            SpeedBatch
+	speedRunner           speedProbe
+	shutdown              func()
+	connectMu             sync.Mutex
+	attemptVersion        map[string]uint64
+	sequence              uint64
+	lastDone              int
+	lastTotal             int
+	fetchCancel           context.CancelFunc
+	tasks                 map[string]*TestTask
+	report                []string
+	apps                  []InstalledApp
+	appsLoading           bool
+	appsLoaded            bool
+	appsError             string
+	corePort              int
+	statsPort             int
+	trafficDown           int64
+	trafficUp             int64
+	trafficAt             time.Time
+	activeSettings        Settings
+	cooldown              map[string]time.Time
+	recovering            bool
+	autoConnect           bool
+	userDisconnect        bool
+	controlGeneration     uint64
+	fastScan              bool
 }
 
 func defaultSettings() Settings {
@@ -215,12 +222,16 @@ func customTargets(raw string) ([]Target, error) {
 	return ts, nil
 }
 func newApp(dir string) *App {
-	a := &App{dir: dir, disk: Disk{ScanEngine: scanEngineVersion, Results: map[string]Endpoint{}, Settings: defaultSettings()}, test: map[string]bool{}, attemptVersion: map[string]uint64{}, vpnState: "off", lastSeen: time.Now()}
+	a := &App{dir: dir, disk: Disk{InitialFetchVersion: 1, ScanEngine: scanEngineVersion, Results: map[string]Endpoint{}, Settings: defaultSettings()}, test: map[string]bool{}, attemptVersion: map[string]uint64{}, vpnState: "off", lastSeen: time.Now()}
 	os.MkdirAll(dir, 0700)
 	if b, err := os.ReadFile(filepath.Join(dir, "state.json")); err == nil && len(b) < 512_000_000 {
 		var d Disk
 		if json.Unmarshal(b, &d) == nil && d.Results != nil && validateSettings(d.Settings) == nil {
 			a.disk = d
+			a.disk.InitialFetchVersion = 1
+			if d.InitialFetchVersion == 0 && (len(d.Raw) > 0 || len(d.Results) > 0 || d.Checkpoint != nil) {
+				a.disk.InitialFetchDone = true
+			}
 		}
 	}
 	migrated := a.disk.ScanEngine < scanEngineVersion
@@ -320,6 +331,10 @@ func parseList(raw, typ, source string) []Endpoint {
 }
 func (a *App) fetch() error {
 	a.mu.Lock()
+	if a.closing {
+		a.mu.Unlock()
+		return errors.New("برنامه در حال خروج است")
+	}
 	if !physicalReady(a.physical) {
 		a.mu.Unlock()
 		return errors.New("کارت شبکهٔ اصلی هنوز آماده نیست")
@@ -332,6 +347,7 @@ func (a *App) fetch() error {
 	a.fetchCancel = cancel
 	a.fetching = true
 	a.message = "در حال دریافت منابع"
+	a.fetchDone = 0
 	a.err = ""
 	s := a.disk.Settings
 	p := a.physical
@@ -344,11 +360,15 @@ func (a *App) fetch() error {
 		json.Unmarshal(b, &sources)
 		custom, _ := parseCustomSources(s.CustomSources)
 		sources = append(sources, custom...)
+		a.mu.Lock()
+		a.fetchTotal = len(sources)
+		a.mu.Unlock()
 		groups := make([][]Endpoint, len(sources)+4)
 		reports := make([]string, len(sources))
-		sem := make(chan struct{}, 6)
+		sem := make(chan struct{}, 8)
 		var wg sync.WaitGroup
-		tr := &http.Transport{DialContext: p.dial, Proxy: nil, TLSHandshakeTimeout: 5 * time.Second, MaxIdleConns: 6, DisableKeepAlives: true}
+		var live atomic.Int32
+		tr := &http.Transport{DialContext: p.dial, Proxy: nil, TLSHandshakeTimeout: 5 * time.Second, MaxIdleConns: 8, DisableKeepAlives: true}
 		defer tr.CloseIdleConnections()
 		client := &http.Client{Transport: tr, Timeout: 30 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 			if len(via) > 3 || r.URL.Scheme != "https" {
@@ -366,6 +386,12 @@ func (a *App) fetch() error {
 					return
 				}
 				defer func() { <-sem }()
+				defer func() {
+					a.mu.Lock()
+					a.fetchDone++
+					a.message = fmt.Sprintf("دریافت منابع: %d از %d", a.fetchDone, a.fetchTotal)
+					a.mu.Unlock()
+				}()
 				for _, u := range []string{src.URL, src.Fallback} {
 					if u == "" {
 						continue
@@ -376,22 +402,14 @@ func (a *App) fetch() error {
 						continue
 					}
 					if r.StatusCode == 200 {
-						scanner := bufio.NewScanner(io.LimitReader(r.Body, 16<<20))
-						scanner.Buffer(make([]byte, 4096), 65536)
-						seen := map[string]bool{}
-						for scanner.Scan() {
-							if ctx.Err() != nil {
-								break
-							}
-							if e, ok := parseEndpoint(scanner.Text(), src.Type, src.Name); ok && !seen[e.key()] {
-								seen[e.key()] = true
-								e.Country = country(e.Host)
-								groups[i] = append(groups[i], e)
-							}
+						parsed, er := readSource(r.Body, src)
+						if er == nil {
+							groups[i] = parsed
 						}
 					}
 					r.Body.Close()
 					if len(groups[i]) > 0 {
+						live.Add(int32(len(groups[i])))
 						break
 					}
 				}
@@ -404,9 +422,12 @@ func (a *App) fetch() error {
 		}
 		groups[len(sources)+3] = old
 		wg.Wait()
-		raw := balanced(groups)
+		raw := prioritizeIran(balanced(groups))
 		a.mu.Lock()
 		a.disk.Raw = raw
+		if live.Load() > 0 {
+			a.disk.InitialFetchDone = true
+		}
 		ir, irSOCKS := 0, 0
 		for _, e := range raw {
 			if e.Country == "IR" {
@@ -438,6 +459,7 @@ func (a *App) startScan(mode string) error {
 		return errors.New("ابتدا اسکن فعلی را متوقف کن")
 	}
 	s := a.disk.Settings
+	rapid := mode == "rapid"
 	if mode == "resume" {
 		cp := a.disk.Checkpoint
 		if cp == nil {
@@ -447,6 +469,7 @@ func (a *App) startScan(mode string) error {
 			return errors.New("تنظیمات تست تغییر کرده؛ اسکن را از ابتدا شروع کن")
 		}
 		s = cp.Settings
+		rapid = cp.Rapid
 	} else {
 		inputs := []Endpoint{}
 		if mode == "saved" {
@@ -481,7 +504,7 @@ func (a *App) startScan(mode string) error {
 		if s.Slow && s.Timeout < 20 {
 			s.Timeout = 20
 		}
-		a.disk.Checkpoint = &Checkpoint{Input: inputs, Done: make([]bool, len(inputs)), Settings: s, Targets: ts}
+		a.disk.Checkpoint = &Checkpoint{Rapid: rapid, Input: inputs, Done: make([]bool, len(inputs)), Settings: s, Targets: ts}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.scanCancel = cancel
@@ -491,11 +514,15 @@ func (a *App) startScan(mode string) error {
 	a.scanError = ""
 	a.message = "اسکن روی اینترنت مستقیم"
 	cp := a.disk.Checkpoint
+	workers := scanWorkerCount(s, cp.Rapid)
+	if cp.Rapid {
+		a.message = fmt.Sprintf("اسکن سریع • %d تست هم‌زمان • ظرفیت ۸×", workers)
+	}
 	p := a.physical
 	go func() {
 		jobs := make(chan int)
 		var wg sync.WaitGroup
-		for n := 0; n < s.Workers; n++ {
+		for n := 0; n < workers; n++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -622,6 +649,10 @@ func (a *App) snapshot(r *http.Request) any {
 			}
 		}
 	}
+	scanSettings := a.disk.Settings
+	if cp != nil {
+		scanSettings = cp.Settings
+	}
 	key := a.disk.Selected
 	if q.Has("selected") {
 		key = q.Get("selected")
@@ -670,7 +701,7 @@ func (a *App) snapshot(r *http.Request) any {
 			countries[c] = 1
 		}
 	}
-	return map[string]any{"killSwitch": map[string]any{"enabled": killEnabled(a.disk.Settings), "started": a.protectionStarted, "armed": a.killArmed, "error": a.killError, "guard": a.guardMode}, "favoriteKeys": favoriteKeys, "favoriteCount": len(favoriteKeys), "countries": countries, "desktop": desktopState(), "speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": batch.Done, "total": batch.Total, "bytes": batch.Bytes, "failed": batch.Failed, "skipped": batch.Skipped, "current": batch.Current, "filter": batch.Filter, "canceled": batch.Canceled}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
+	return map[string]any{"killSwitch": map[string]any{"enabled": killEnabled(a.disk.Settings), "started": a.protectionStarted, "armed": a.killArmed, "error": a.killError, "guard": a.guardMode}, "favoriteKeys": favoriteKeys, "favoriteCount": len(favoriteKeys), "countries": countries, "desktop": desktopState(), "speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": batch.Done, "total": batch.Total, "bytes": batch.Bytes, "failed": batch.Failed, "skipped": batch.Skipped, "current": batch.Current, "filter": batch.Filter, "canceled": batch.Canceled}, "scanRapid": cp != nil && cp.Rapid, "scanWorkers": scanWorkerCount(scanSettings, cp != nil && cp.Rapid), "fetchDone": a.fetchDone, "fetchTotal": a.fetchTotal, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
 }
 
 type Action struct {
@@ -688,7 +719,7 @@ func (a *App) act(v Action) error {
 		return a.toggleFavorite(v.Key)
 	case "fetch":
 		return a.fetch()
-	case "scan", "resume", "healthy", "saved":
+	case "scan", "rapid", "resume", "healthy", "saved":
 		return a.startScan(v.Action)
 	case "stop":
 		a.mu.Lock()
@@ -1020,6 +1051,7 @@ func main() {
 			a.err = err.Error()
 		}
 		a.mu.Unlock()
+		a.maybeInitialFetch()
 	}()
 	if os.Getenv("PERSIANSOCKS_NO_BROWSER") == "" {
 		startDesktopUI(a, done)
@@ -1050,6 +1082,7 @@ func main() {
 				go a.ensureProtection()
 				a.refreshPhysical()
 			}
+			a.maybeInitialFetch()
 			if running {
 				a.saveChecked()
 			}
