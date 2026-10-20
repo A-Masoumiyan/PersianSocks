@@ -115,7 +115,7 @@ func scopedRules(s Settings) ([]any, error) {
 	}
 	out := []any{}
 	if s.RoutingMode == "chatgpt" {
-		out = append(out, map[string]any{"inbound": "tun", "process_path_regex": []string{`(?i)(?:^|[\\/])ChatGPT\.exe$`, `(?i)[\\/]WindowsApps[\\/]OpenAI\.ChatGPT_[^\\/]+[\\/].*\.exe$`, `(?i)[\\/]ChatGPT[\\/].*\.exe$`}, "action": "route", "outbound": "proxy"})
+		out = append(out, map[string]any{"inbound": "tun", "process_path_regex": []string{`(?i)(?:^|[\\/])ChatGPT\.exe$`, `(?i)[\\/]WindowsApps[\\/]OpenAI\.ChatGPT(?:-Desktop)?_[^\\/]+[\\/].*\.exe$`, `(?i)[\\/]ChatGPT[\\/].*\.exe$`}, "action": "route", "outbound": "proxy"})
 	}
 	out = append(out, map[string]any{"inbound": "tun", "domain_suffix": ds, "action": "route", "outbound": "proxy"})
 	if s.RoutingMode == "chatgpt" && killEnabled(s) {

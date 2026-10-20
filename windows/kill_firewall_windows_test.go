@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tailscale/wf"
 	"golang.org/x/sys/windows"
+	wf "persiansocks/internal/wfp"
 )
 
 func TestKillSocketChild(t *testing.T) {

@@ -166,7 +166,6 @@ func (a *App) connectMode(key string, reset bool) error {
 	go func() {
 		a.connectMu.Lock()
 		defer a.connectMu.Unlock()
-		a.stopGuardLocked()
 		err := a.armKillLocked(a.expectedCore())
 		if err == nil {
 			err = a.startCore(ctx, e, p)
@@ -220,6 +219,7 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	}
 	a.mu.Unlock()
 	e = fresh
+	a.stopGuardLocked()
 	bin, err := a.runtimeCore()
 	if err != nil {
 		return err

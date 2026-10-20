@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/tailscale/wf"
 	"golang.org/x/sys/windows"
+	wf "persiansocks/internal/wfp"
 )
 
 var killSublayer = wf.SublayerID{0x8539c5d4, 0xd729, 0x431e, [8]byte{0x95, 0x2d, 0xd7, 0x52, 0x72, 0xb1, 0x08, 0x80}}

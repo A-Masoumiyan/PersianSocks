@@ -41,7 +41,7 @@ jobs:
           $env:PERSIANSOCKS_TEST_TUN = '1'
           $env:PERSIANSOCKS_TEST_CORE = (Resolve-Path windows/release/bin/sing-box.exe).Path
           Set-Location windows
-          go test -race -buildvcs=false -v .
+          go test -race -buildvcs=false -v ./...
           if ($LASTEXITCODE -ne 0) { throw 'Windows tests failed' }
       - name: Validate actual EXE close and restore
         shell: pwsh
