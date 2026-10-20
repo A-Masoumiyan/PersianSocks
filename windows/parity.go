@@ -238,13 +238,22 @@ func splitRules(s Settings) ([]any, error) {
 	seen := map[string]bool{}
 	for _, path := range s.SplitApps {
 		info, err := os.Stat(path)
-		if err != nil || info.IsDir() {
+		if err != nil {
+			// Store package paths change with app updates; keep their identity matcher.
+			packaged := strings.Contains(strings.ToLower(strings.ReplaceAll(path, `\`, "/")), "/windowsapps/") && len(appFamilyPatterns(path)) > 0
+			if !os.IsPermission(err) && !packaged {
+				continue
+			}
+		} else if info.IsDir() {
 			continue
 		}
 		clean := filepath.Clean(path)
 		if !seen[strings.ToLower(clean)] {
 			seen[strings.ToLower(clean)] = true
 			paths = append(paths, `(?i)^`+regexp.QuoteMeta(clean)+`$`)
+			if !s.SplitExact {
+				paths = append(paths, appFamilyPatterns(clean)...)
+			}
 		}
 	}
 	if len(paths) == 0 && s.SplitMode == "only" {
@@ -323,7 +332,12 @@ func (a *App) applySettings(s Settings) error {
 			t.cancel()
 		}
 	}
-	disconnect := old.TLSOnly != s.TLSOnly && a.vpnState != "off"
+	routingChanged := routingSignature(old) != routingSignature(s)
+	reconnectKey := ""
+	if routingChanged && a.vpnState != "off" {
+		reconnectKey = a.disk.Selected
+	}
+	disconnect := (old.TLSOnly != s.TLSOnly || routingChanged) && a.vpnState != "off"
 	if disconnect {
 		a.userDisconnect = true
 		a.controlGeneration++
@@ -335,10 +349,25 @@ func (a *App) applySettings(s Settings) error {
 	if validateFilter(a.disk.Filter, s) != nil {
 		a.disk.Filter.Service = ""
 	}
-	a.recordLocked("تنظیمات ذخیره شد؛ اسپلیت تونل با اتصال بعدی اعمال می‌شود")
+	generation := a.controlGeneration
+	a.recordLocked("تنظیمات ذخیره شد؛ تغییر مسیرهای اتصال روی تونل تازه اعمال می‌شود")
 	a.mu.Unlock()
 	if disconnect {
-		go a.disconnect()
+		go func() {
+			a.disconnect()
+			if reconnectKey != "" {
+				a.mu.Lock()
+				ok := generation == a.controlGeneration
+				a.mu.Unlock()
+				if ok {
+					if err := a.connect(reconnectKey); err != nil {
+						a.mu.Lock()
+						a.err = err.Error()
+						a.mu.Unlock()
+					}
+				}
+			}
+		}()
 	}
 	a.saveChecked()
 	return nil

@@ -26,7 +26,7 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.6.0"
+const version = "0.7.0"
 const scanEngineVersion = 2
 const maxScanWorkers = 48
 
@@ -37,6 +37,10 @@ type Source struct {
 	Type     string `json:"type"`
 }
 type Settings struct {
+	RoutingMode   string   `json:"routingMode"`
+	RoutePresets  []string `json:"routePresets"`
+	RouteDomains  string   `json:"routeDomains"`
+	SplitExact    bool     `json:"splitExact"`
 	ScanCountry   string   `json:"scanCountry"`
 	ExitOnClose   bool     `json:"exitOnClose"`
 	Workers       int      `json:"workers"`
@@ -130,6 +134,9 @@ func defaultSettings() Settings {
 	return Settings{Workers: 24, Timeout: 8, Max: 5000, Failover: true, ScanTypes: []string{"SOCKS5", "HTTP", "HTTPS"}, SplitMode: "all"}
 }
 func validateSettings(s Settings) error {
+	if err := validateRouting(s); err != nil {
+		return err
+	}
 	if err := validateCountry(s.ScanCountry); err != nil {
 		return err
 	}
@@ -706,6 +713,12 @@ func (a *App) act(v Action) error {
 		}
 		a.mu.Unlock()
 		go a.disconnect()
+	case "chatgptOnly":
+		a.mu.Lock()
+		s := a.disk.Settings
+		a.mu.Unlock()
+		s.RoutingMode = "chatgpt"
+		return a.applySettings(s)
 	case "settings":
 		return a.applySettings(v.Settings)
 	case "filter":
@@ -1005,6 +1018,9 @@ func main() {
 			running := a.scanRunning || a.vpnState == "on"
 			expired := false // tray and widget remain available after the UI is closed
 			a.mu.Unlock()
+			if !running {
+				a.refreshPhysical()
+			}
 			if running {
 				a.saveChecked()
 			}
