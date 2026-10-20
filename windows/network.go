@@ -59,7 +59,7 @@ func usableDNS(values []string) []string {
 
 func validNetworkIPv4(s string) bool {
 	ip := net.ParseIP(s)
-	return ip != nil && ip.To4() != nil && !ip.IsUnspecified() && !ip.IsLoopback() && !ip.IsLinkLocalUnicast()
+	return ip != nil && ip.To4() != nil && !ip.IsUnspecified() && !ip.IsLinkLocalUnicast()
 }
 
 func (a *App) refreshPhysical() {
