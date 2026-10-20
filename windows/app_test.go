@@ -268,7 +268,7 @@ func TestStopResumeUsesSavedInputs(t *testing.T) {
 			c()
 		}
 	}()
-	a.disk.Checkpoint = &Checkpoint{Input: append([]Endpoint(nil), a.disk.Raw...), Done: make([]bool, 4), Settings: a.disk.Settings, Targets: []Target{{"test", "test", server.URL}}}
+	a.disk.Checkpoint = &Checkpoint{Rapid: true, Input: append([]Endpoint(nil), a.disk.Raw...), Done: make([]bool, 4), Settings: a.disk.Settings, Targets: []Target{{"test", "test", server.URL}}}
 	if err := a.startScan("resume"); err != nil {
 		t.Fatal(err)
 	}
@@ -290,9 +290,9 @@ func TestStopResumeUsesSavedInputs(t *testing.T) {
 	wait()
 	a.mu.Lock()
 	cp := a.disk.Checkpoint
-	if cp == nil {
+	if cp == nil || !cp.Rapid {
 		a.mu.Unlock()
-		t.Fatal("cancelled checkpoint lost")
+		t.Fatal("cancelled rapid checkpoint lost")
 	}
 	if cp.Done[0] || cp.Done[1] {
 		a.mu.Unlock()
