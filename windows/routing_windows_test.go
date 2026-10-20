@@ -108,8 +108,10 @@ func TestRealWindowsTUNScopedRoutes(t *testing.T) {
 	if e = os.WriteFile(unrelated, data, 0700); e != nil {
 		t.Fatal(e)
 	}
-	for _, mode := range []string{"apps", "domains", "chatgpt"} {
-		t.Run(mode, func(t *testing.T) {
+	for _, caseName := range []string{"apps", "domains", "chatgpt", "guard-apps", "guard-domains", "guard-chatgpt"} {
+		guardTest := strings.HasPrefix(caseName, "guard-")
+		mode := strings.TrimPrefix(caseName, "guard-")
+		t.Run(caseName, func(t *testing.T) {
 			origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "VIA-PROXY") }))
 			defer origin.Close()
 			direct := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "VIA-DIRECT") }))
@@ -125,6 +127,9 @@ func TestRealWindowsTUNScopedRoutes(t *testing.T) {
 			s.RouteDomains = "tunnel.example"
 			port, dnsPort := reserveRoutingPort(t), reserveRoutingPort(t)
 			cfg, err := makeTunnelConfig(endpoint, Physical{}, port, 0, "", s)
+			if guardTest {
+				cfg, err = makeGuardConfig(Physical{}, port, s)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -189,6 +194,10 @@ func TestRealWindowsTUNScopedRoutes(t *testing.T) {
 			if !ready {
 				t.Fatalf("TUN did not start: %s", log.String())
 			}
+			fw := newIsolatedKill(t, []string{selected, unrelated}, true)
+			if e := fw.Arm([]string{executable, bin}, "PersianSocks-RouteTest"); e != nil {
+				t.Fatal(e)
+			}
 			probe := func(exe, ip, host, want string) {
 				t.Helper()
 				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -197,6 +206,12 @@ func TestRealWindowsTUNScopedRoutes(t *testing.T) {
 				child.Env = append(os.Environ(), "PERSIANSOCKS_ROUTING_CHILD=1", "PERSIANSOCKS_PROBE_URL=http://"+net.JoinHostPort(ip, "80")+"/", "PERSIANSOCKS_PROBE_HOST="+host)
 				hideCommand(child)
 				out, e := child.CombinedOutput()
+				if want == "" {
+					if e == nil {
+						t.Fatalf("guard allowed protected request: %s", out)
+					}
+					return
+				}
 				if e != nil || !strings.Contains(string(out), "ROUTE-BODY: "+want) {
 					t.Fatalf("%s %s expected %s: %v %s\nCORE: %s", filepath.Base(exe), host, want, e, out, log.String())
 				}
@@ -206,8 +221,15 @@ func TestRealWindowsTUNScopedRoutes(t *testing.T) {
 			if mode == "domains" {
 				ip = queryRoutingFakeIP(t, dnsPort, host)
 			}
-			probe(selected, ip, host, "VIA-PROXY")
-			if count.Load() == 0 {
+			wantSelected := "VIA-PROXY"
+			if guardTest {
+				wantSelected = ""
+			}
+			probe(selected, ip, host, wantSelected)
+			if guardTest && count.Load() != 0 {
+				t.Fatal("guard contacted upstream proxy")
+			}
+			if !guardTest && count.Load() == 0 {
 				t.Fatal("selected request bypassed proxy")
 			}
 			before := count.Load()
@@ -220,9 +242,29 @@ func TestRealWindowsTUNScopedRoutes(t *testing.T) {
 				t.Fatal("unrelated app/domain reached proxy")
 			}
 			if mode == "chatgpt" {
-				probe(unrelated, ip, "chatgpt.com", "VIA-PROXY")
+				probe(unrelated, ip, "chatgpt.com", wantSelected)
 			}
-			t.Logf("Real Wintun %s: selected request proxied, unrelated request direct; upstream connections %d", mode, count.Load())
+			if err := cmd.Process.Kill(); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("core crash did not complete")
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			fallback := exec.CommandContext(ctx, selected, "-test.run=^TestRoutingProbeChild$")
+			fallback.Env = append(os.Environ(), "PERSIANSOCKS_ROUTING_CHILD=1", "PERSIANSOCKS_PROBE_URL="+direct.URL, "PERSIANSOCKS_PROBE_HOST=chatgpt.com")
+			hideCommand(fallback)
+			if out, e := fallback.CombinedOutput(); e == nil {
+				t.Fatalf("direct fallback escaped after core crash: %s", out)
+			}
+			if e := fw.Release(); e != nil {
+				t.Fatal(e)
+			}
+			t.Logf("Real Wintun %s: selected request proxied, unrelated request direct; upstream connections %d", caseName, count.Load())
+			t.Log("Independent WFP guard blocked direct fallback after forced core termination")
 		})
 	}
 }

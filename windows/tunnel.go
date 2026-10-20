@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -63,6 +62,9 @@ func makeTunnelConfig(e Endpoint, p Physical, proxyPort, statsPort int, secret s
 		map[string]any{"type": "udp", "tag": "local-dns", "server": dnsIP, "detour": "direct"},
 	}, "final": "remote-dns", "strategy": "ipv4_only", "reverse_mapping": true}
 	tun := map[string]any{"type": "tun", "tag": "tun", "interface_name": "PersianSocks-TUN", "address": []string{"172.29.251.1/30", "fdfe:dcba:9876::1/126"}, "mtu": 1500, "auto_route": true, "strict_route": true, "dns_mode": "hijack", "stack": "mixed"}
+	if killEnabled(s) {
+		tun["strict_route"] = false
+	}
 	rules := []any{
 		map[string]any{"inbound": "local-proxy", "action": "route", "outbound": "proxy"},
 		map[string]any{"inbound": "tun", "process_path": exe, "action": "route", "outbound": "direct"},
@@ -96,6 +98,12 @@ func makeTunnelConfig(e Endpoint, p Physical, proxyPort, statsPort int, secret s
 	dns["servers"] = append(dns["servers"].([]any), map[string]any{"type": "fakeip", "tag": "route-fakeip", "inet4_range": "198.18.0.0/15", "inet6_range": "fc00::/18"})
 	if restrictedRouting(s) {
 		dns["rules"] = []any{map[string]any{"domain_suffix": []string{"local", "lan", "home.arpa", "in-addr.arpa", "ip6.arpa"}, "action": "route", "server": "local-dns"}, map[string]any{"query_type": []string{"A", "AAAA"}, "action": "route", "server": "route-fakeip"}}
+		// FakeIP keeps A/AAAA routing stable; other protected-domain records
+		// (for example HTTPS/SVCB) must also avoid the physical DNS resolver.
+		if s.RoutingMode == "domains" || s.RoutingMode == "chatgpt" {
+			ds, _ := routeDomains(s)
+			dns["rules"] = append(dns["rules"].([]any), map[string]any{"domain_suffix": ds, "action": "route", "server": "remote-dns"})
+		}
 		dns["final"] = "local-dns"
 	}
 	config := map[string]any{"log": map[string]any{"level": "info", "timestamp": true}, "dns": dns,
@@ -123,6 +131,9 @@ func verifyFile(path, expected string) error {
 }
 func (a *App) connect(key string) error { return a.connectMode(key, true) }
 func (a *App) connectMode(key string, reset bool) error {
+	if err := a.protectionReady(); err != nil {
+		return err
+	}
 	a.mu.Lock()
 	if a.vpnState != "off" {
 		a.mu.Unlock()
@@ -161,7 +172,10 @@ func (a *App) connectMode(key string, reset bool) error {
 	go func() {
 		a.connectMu.Lock()
 		defer a.connectMu.Unlock()
-		err := a.startCore(ctx, e, p)
+		err := a.armKillLocked(a.expectedCore())
+		if err == nil {
+			err = a.startCore(ctx, e, p)
+		}
 		a.mu.Lock()
 		a.connectCancel = nil
 		if err != nil {
@@ -173,6 +187,7 @@ func (a *App) connectMode(key string, reset bool) error {
 		}
 		recover := err != nil && ctx.Err() == nil && a.disk.Settings.Failover && !a.userDisconnect && !a.recovering
 		a.mu.Unlock()
+		go a.ensureProtection()
 		if recover {
 			go a.recoverConnection()
 		}
@@ -210,18 +225,13 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	}
 	a.mu.Unlock()
 	e = fresh
-	exe, _ := os.Executable()
-	name := "sing-box.exe"
-	if runtime.GOOS != "windows" {
-		name = "sing-box"
+	a.stopGuardLocked()
+	bin, err := a.runtimeCore()
+	if err != nil {
+		return err
 	}
-	bin := filepath.Join(filepath.Dir(exe), "bin", name)
-	if runtime.GOOS == "windows" {
-		var err error
-		bin, err = prepareBundledRuntime(filepath.Join(a.dir, "runtime", "1.14.3"))
-		if err != nil {
-			return err
-		}
+	if err = a.armKillLocked(bin); err != nil {
+		return err
 	}
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
@@ -279,18 +289,20 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 		cmd.Wait()
 		return err
 	}
+	closeJob := sync.OnceFunc(func() { closeGuard(job) })
 	done := make(chan error, 1)
 	a.mu.Lock()
 	a.core = cmd
 	a.coreDone = done
 	a.coreLog = log
 	a.job = job
+	a.guardCloser = closeJob
 	a.mu.Unlock()
 	go func() { err := cmd.Wait(); done <- err; close(done) }()
 	fail := func(err error) error {
 		stopCore(cmd, done)
 		flushDNS()
-		closeGuard(job)
+		closeJob()
 		a.mu.Lock()
 		if a.core == cmd {
 			a.core = nil
@@ -324,6 +336,9 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	if !ready {
 		return fail(errors.New("موتور آماده نشد: " + log.String()))
 	}
+	if err = a.armKillLocked(bin); err != nil {
+		return fail(err)
+	}
 	ts = verificationTargets(e, settings, f)
 	verifyCtx, cancel := context.WithTimeout(ctx, time.Duration(settings.Timeout*len(ts)+2)*time.Second)
 	_, err = (Probe{}).inspect(verifyCtx, Endpoint{Host: "127.0.0.1", Port: port, Type: "SOCKS5"}, 8, ts)
@@ -337,6 +352,7 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	flushDNS()
 	a.mu.Lock()
 	a.vpnState = "on"
+	a.guardMode = false
 	a.connected = &e
 	a.corePort = port
 	a.statsPort = statsPort
@@ -349,10 +365,11 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 	go func() {
 		<-done
 		flushDNS()
-		closeGuard(job)
+		closeJob()
 		a.mu.Lock()
 		if a.core == cmd {
 			a.core = nil
+			a.guardMode = false
 			a.job = 0
 			a.connected = nil
 			a.corePort = 0
@@ -364,6 +381,7 @@ func (a *App) startCore(ctx context.Context, e Endpoint, p Physical) error {
 				a.cooldown[e.key()] = time.Now()
 				a.err = "موتور اتصال متوقف شد: " + log.String()
 				a.recordLocked(a.err)
+				go a.ensureProtection()
 				if a.disk.Settings.Failover && !a.userDisconnect && !a.recovering {
 					go a.recoverConnection()
 				}
@@ -377,7 +395,17 @@ func (a *App) disconnect() {
 	a.connectMu.Lock()
 	defer a.connectMu.Unlock()
 	a.mu.Lock()
-	cmd, done := a.core, a.coreDone
+	if a.guardMode && !a.closing && killEnabled(a.disk.Settings) {
+		a.vpnState = "off"
+		a.connected = nil
+		a.mu.Unlock()
+		return
+	}
+	cmd, done, closeJob := a.core, a.coreDone, a.guardCloser
+	a.guardCloser = nil
+	a.core = nil
+	a.guardMode = false
+	a.job = 0
 	if cmd == nil {
 		a.vpnState = "off"
 		a.connected = nil
@@ -391,6 +419,9 @@ func (a *App) disconnect() {
 	a.vpnState = "stopping"
 	a.mu.Unlock()
 	stopCore(cmd, done)
+	if closeJob != nil {
+		closeJob()
+	}
 	flushDNS()
 	a.mu.Lock()
 	a.vpnState = "off"
@@ -400,7 +431,11 @@ func (a *App) disconnect() {
 	a.disk.Traffic.DownRate = 0
 	a.disk.Traffic.UpRate = 0
 	a.recordLocked("اتصال قطع شد")
+	closing := a.closing
 	a.mu.Unlock()
+	if !closing {
+		go a.ensureProtection()
+	}
 }
 
 func (a *App) monitor(done <-chan struct{}) {

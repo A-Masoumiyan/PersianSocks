@@ -10,6 +10,7 @@ public static class WindowSmoke {
 $exe=(Resolve-Path windows/release/PersianSocks.exe).Path
 $data=Join-Path $env:RUNNER_TEMP 'PersianSocks-desktop-smoke'
 $env:PERSIANSOCKS_DATA=$data
+$env:PERSIANSOCKS_DESKTOP_SMOKE='1'
 Remove-Item Env:PERSIANSOCKS_NO_BROWSER -ErrorAction SilentlyContinue
 $p=Start-Process -FilePath $exe -PassThru
 function Wait-For($condition,$message){for($i=0;$i -lt 150;$i++){if(&$condition){return};Start-Sleep -Milliseconds 200};throw $message}
@@ -42,4 +43,5 @@ try {
 } finally {
  if(!$p.HasExited){$p.Kill()}
  Remove-Item Env:PERSIANSOCKS_DATA -ErrorAction SilentlyContinue
+ Remove-Item Env:PERSIANSOCKS_DESKTOP_SMOKE -ErrorAction SilentlyContinue
 }

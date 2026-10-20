@@ -67,7 +67,7 @@ func validateRouting(s Settings) error {
 	return nil
 }
 func routingSignature(s Settings) string {
-	b, _ := json.Marshal([]any{s.RoutingMode, s.RoutePresets, s.RouteDomains, s.SplitMode, s.SplitApps, s.SplitExact})
+	b, _ := json.Marshal([]any{s.KillSwitchOff, s.RoutingMode, s.RoutePresets, s.RouteDomains, s.SplitMode, s.SplitApps, s.SplitExact})
 	return string(b)
 }
 func restrictedRouting(s Settings) bool {
@@ -115,9 +115,12 @@ func scopedRules(s Settings) ([]any, error) {
 	}
 	out := []any{}
 	if s.RoutingMode == "chatgpt" {
-		out = append(out, map[string]any{"inbound": "tun", "process_path_regex": []string{`(?i)(?:^|[\\/])ChatGPT\.exe$`, `(?i)[\\/]WindowsApps[\\/]OpenAI\.ChatGPT_[^\\/]+[\\/].*\.exe$`, `(?i)[\\/]ChatGPT[\\/].*\.exe$`}, "action": "route", "outbound": "proxy"})
+		out = append(out, map[string]any{"inbound": "tun", "process_path_regex": []string{`(?i)(?:^|[\\/])ChatGPT\.exe$`, `(?i)[\\/]WindowsApps[\\/]OpenAI\.ChatGPT(?:-Desktop)?_[^\\/]+[\\/].*\.exe$`, `(?i)[\\/]ChatGPT[\\/].*\.exe$`}, "action": "route", "outbound": "proxy"})
 	}
 	out = append(out, map[string]any{"inbound": "tun", "domain_suffix": ds, "action": "route", "outbound": "proxy"})
+	if s.RoutingMode == "chatgpt" && killEnabled(s) {
+		out = append(out, map[string]any{"inbound": "tun", "process_path_regex": []string{`(?i)(?:^|[\\/])msedgewebview2\.exe$`}, "action": "reject"})
+	}
 	for _, preset := range s.RoutePresets {
 		if s.RoutingMode == "domains" && preset == "telegram" {
 			out = append(out, map[string]any{"inbound": "tun", "ip_cidr": telegramCIDRs, "action": "route", "outbound": "proxy"})

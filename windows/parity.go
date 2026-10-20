@@ -352,6 +352,13 @@ func (a *App) applySettings(s Settings) error {
 	generation := a.controlGeneration
 	a.recordLocked("تنظیمات ذخیره شد؛ تغییر مسیرهای اتصال روی تونل تازه اعمال می‌شود")
 	a.mu.Unlock()
+	a.connectMu.Lock()
+	killErr := a.armKillLocked(a.expectedCore())
+	a.connectMu.Unlock()
+	if killErr != nil {
+		a.saveChecked()
+		return killErr
+	}
 	if disconnect {
 		go func() {
 			a.disconnect()
@@ -370,6 +377,7 @@ func (a *App) applySettings(s Settings) error {
 		}()
 	}
 	a.saveChecked()
+	go a.ensureProtection()
 	return nil
 }
 func (a *App) runSingle(key, kind string) error {

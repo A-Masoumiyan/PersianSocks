@@ -26,7 +26,7 @@ import (
 var bundle embed.FS
 var geo []byte
 
-const version = "0.7.0"
+const version = "0.8.0"
 const scanEngineVersion = 2
 const maxScanWorkers = 48
 
@@ -37,6 +37,7 @@ type Source struct {
 	Type     string `json:"type"`
 }
 type Settings struct {
+	KillSwitchOff bool     `json:"killSwitchOff"`
 	RoutingMode   string   `json:"routingMode"`
 	RoutePresets  []string `json:"routePresets"`
 	RouteDomains  string   `json:"routeDomains"`
@@ -75,6 +76,14 @@ type Disk struct {
 	Traffic    Traffic               `json:"traffic"`
 }
 type App struct {
+	firewall          killFirewall
+	guardCloser       func()
+	protectionStarted bool
+	killArmed         bool
+	killError         string
+	guardMode         bool
+	corePhysical      Physical
+	closing           bool
 	mu                sync.Mutex
 	saveMu            sync.Mutex
 	disk              Disk
@@ -661,7 +670,7 @@ func (a *App) snapshot(r *http.Request) any {
 			countries[c] = 1
 		}
 	}
-	return map[string]any{"favoriteKeys": favoriteKeys, "favoriteCount": len(favoriteKeys), "countries": countries, "desktop": desktopState(), "speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": batch.Done, "total": batch.Total, "bytes": batch.Bytes, "failed": batch.Failed, "skipped": batch.Skipped, "current": batch.Current, "filter": batch.Filter, "canceled": batch.Canceled}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
+	return map[string]any{"killSwitch": map[string]any{"enabled": killEnabled(a.disk.Settings), "started": a.protectionStarted, "armed": a.killArmed, "error": a.killError, "guard": a.guardMode}, "favoriteKeys": favoriteKeys, "favoriteCount": len(favoriteKeys), "countries": countries, "desktop": desktopState(), "speedBatch": map[string]any{"running": a.speedBatchCancel != nil, "done": batch.Done, "total": batch.Total, "bytes": batch.Bytes, "failed": batch.Failed, "skipped": batch.Skipped, "current": batch.Current, "filter": batch.Filter, "canceled": batch.Canceled}, "version": version, "raw": len(a.disk.Raw), "healthy": len(a.disk.Results), "filtered": count, "rows": rows, "done": done, "total": total, "running": a.scanRunning, "fetching": a.fetching, "resume": cp != nil, "message": a.message, "error": a.err, "settings": a.disk.Settings, "filter": a.disk.Filter, "vpn": a.vpnState, "connected": a.connected, "selectedKey": key, "selectedResult": selected, "testing": testing, "tasks": tasks, "measurements": measurements, "traffic": a.disk.Traffic, "physical": a.physical, "networkReady": physicalReady(a.physical), "sources": a.sourceReport, "targets": ts}
 }
 
 type Action struct {
@@ -713,6 +722,12 @@ func (a *App) act(v Action) error {
 		}
 		a.mu.Unlock()
 		go a.disconnect()
+	case "killSwitch":
+		a.mu.Lock()
+		s := a.disk.Settings
+		s.KillSwitchOff = !s.KillSwitchOff
+		a.mu.Unlock()
+		return a.applySettings(s)
 	case "chatgptOnly":
 		a.mu.Lock()
 		s := a.disk.Settings
@@ -934,6 +949,11 @@ func main() {
 		base = custom
 	}
 	a := newApp(filepath.Join(base, "PersianSocks"))
+	if os.Getenv("PERSIANSOCKS_DESKTOP_SMOKE") == "1" {
+		a.disk.Settings.KillSwitchOff = true
+	} else {
+		a.startProtection()
+	}
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		alert(err.Error())
@@ -952,6 +972,9 @@ func main() {
 	var once sync.Once
 	a.shutdown = func() {
 		once.Do(func() {
+			a.mu.Lock()
+			a.closing = true
+			a.mu.Unlock()
 			stopPlatformCommands()
 			a.mu.Lock()
 			if a.speedBatchCancel != nil {
@@ -973,6 +996,11 @@ func main() {
 			}
 			a.mu.Unlock()
 			a.disconnect()
+			if err := a.stopProtection(); err != nil {
+				a.mu.Lock()
+				a.err = "حذف حفاظت ناموفق بود: " + err.Error()
+				a.mu.Unlock()
+			}
 			a.saveChecked()
 			os.Remove(filepath.Join(a.dir, "UI.url"))
 			server.Close()
@@ -1019,6 +1047,7 @@ func main() {
 			expired := false // tray and widget remain available after the UI is closed
 			a.mu.Unlock()
 			if !running {
+				go a.ensureProtection()
 				a.refreshPhysical()
 			}
 			if running {
