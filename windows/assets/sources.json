@@ -136,5 +136,35 @@
     "url": "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/https/data.txt",
     "fallback": "https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/protocols/https/data.txt",
     "type": "HTTPS"
+  },
+  {
+    "name": "Proxifly Iran",
+    "url": "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/countries/IR/data.txt",
+    "fallback": "https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/countries/IR/data.txt",
+    "type": "SOCKS5"
+  },
+  {
+    "name": "IPLocate SOCKS5",
+    "url": "https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/socks5.txt",
+    "fallback": "https://cdn.jsdelivr.net/gh/iplocate/free-proxy-list@main/protocols/socks5.txt",
+    "type": "SOCKS5"
+  },
+  {
+    "name": "IPLocate HTTP",
+    "url": "https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/http.txt",
+    "fallback": "https://cdn.jsdelivr.net/gh/iplocate/free-proxy-list@main/protocols/http.txt",
+    "type": "HTTP"
+  },
+  {
+    "name": "Vakhov SOCKS5",
+    "url": "https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks5.txt",
+    "fallback": "https://cdn.jsdelivr.net/gh/vakhov/fresh-proxy-list@master/socks5.txt",
+    "type": "SOCKS5"
+  },
+  {
+    "name": "mmpx12 SOCKS5",
+    "url": "https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks5.txt",
+    "fallback": "https://cdn.jsdelivr.net/gh/mmpx12/proxy-list@master/socks5.txt",
+    "type": "SOCKS5"
   }
 ]

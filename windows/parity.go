@@ -18,10 +18,12 @@ import (
 )
 
 type Filter struct {
-	Service string `json:"service"`
-	Type    string `json:"type"`
-	Ping    int    `json:"ping"`
-	Sort    string `json:"sort"`
+	Country   string `json:"country"`
+	Favorites bool   `json:"favorites"`
+	Service   string `json:"service"`
+	Type      string `json:"type"`
+	Ping      int    `json:"ping"`
+	Sort      string `json:"sort"`
 }
 type TestResult struct {
 	Kind       string  `json:"kind"`
@@ -63,6 +65,9 @@ func hasService(e Endpoint, id string) bool {
 	return false
 }
 func filterAccepts(e Endpoint, f Filter, tlsOnly bool) bool {
+	if !countryAccepts(e.Country, f.Country) {
+		return false
+	}
 	if tlsOnly && e.Type != "HTTPS" {
 		return false
 	}
@@ -128,6 +133,9 @@ func filteredRows(results map[string]Endpoint, f Filter, tlsOnly bool) []Endpoin
 	return rows
 }
 func validateFilter(f Filter, s Settings) error {
+	if err := validateCountry(f.Country); err != nil {
+		return err
+	}
 	switch f.Type {
 	case "", "ALL", "SOCKS5", "HTTP", "HTTPS", "HTTP_GROUP":
 	default:
@@ -155,6 +163,9 @@ func validateFilter(f Filter, s Settings) error {
 	return errors.New("دامنهٔ فیلتر موجود نیست")
 }
 func scanAccepts(e Endpoint, s Settings) bool {
+	if !countryAccepts(e.Country, s.ScanCountry) {
+		return false
+	}
 	if s.TLSOnly && e.Type != "HTTPS" {
 		return false
 	}
@@ -338,7 +349,7 @@ func (a *App) runSingle(key, kind string) error {
 }
 func (a *App) runSingleTask(key, kind string, parent context.Context, batch bool) (*TestTask, error) {
 	a.mu.Lock()
-	e, ok := a.disk.Results[key]
+	e, ok := a.endpointLocked(key)
 	if !ok {
 		a.mu.Unlock()
 		return nil, errMissingProxy
@@ -420,10 +431,14 @@ func (a *App) runSingleTask(key, kind string, parent context.Context, batch bool
 			res.SpeedError = res.Error
 			if err == nil && !canceled {
 				res.Speed = speed
-				if current, exists := a.disk.Results[key]; exists {
+				if current, exists := a.endpointLocked(key); exists {
 					current.Speed = speed
 					current.Note = ""
-					a.disk.Results[key] = current
+					if _, healthy := a.disk.Results[key]; healthy {
+						a.disk.Results[key] = current
+					} else {
+						a.disk.Favorites[key] = current
+					}
 				}
 			}
 		} else {
@@ -467,7 +482,7 @@ func (a *App) fastPing() error {
 	}
 	f := a.disk.Filter
 	f.Sort = "ping"
-	rows := filteredRows(a.disk.Results, f, a.disk.Settings.TLSOnly)
+	rows := a.rowsLocked(f)
 	if len(rows) == 0 {
 		a.mu.Unlock()
 		return errors.New("پروکسی سالمی با این فیلتر نیست")
@@ -564,7 +579,7 @@ func (a *App) loadApps() {
 }
 func (a *App) connectBest() error {
 	a.mu.Lock()
-	rows := filteredRows(a.disk.Results, a.disk.Filter, a.disk.Settings.TLSOnly)
+	rows := a.rowsLocked(a.disk.Filter)
 	a.mu.Unlock()
 	if len(rows) == 0 {
 		return errors.New("پروکسی سالمی با فیلتر فعلی نیست")
@@ -686,4 +701,14 @@ func (a *App) windowClosed() {
 	if exit && shutdown != nil {
 		go shutdown()
 	}
+}
+
+func countryAccepts(country, filter string) bool {
+	return filter == "" || (filter == "UNKNOWN" && country == "") || country == filter
+}
+func validateCountry(c string) error {
+	if c != "" && c != "UNKNOWN" && (len(c) != 2 || c[0] < 'A' || c[0] > 'Z' || c[1] < 'A' || c[1] > 'Z') {
+		return errors.New("کشور نامعتبر است")
+	}
+	return nil
 }
