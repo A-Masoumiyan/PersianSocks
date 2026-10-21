@@ -28,9 +28,11 @@ public final class OpenVpnSession implements AutoCloseable {
  private final Deque<FileDescriptor> receivedFds=new ConcurrentLinkedDeque<>();private final TunConfig tun=new TunConfig();
  private final StringBuilder logs=new StringBuilder();private final ScheduledExecutorService timers=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"openvpn-deadline");t.setDaemon(true);return t;});
  private volatile Process process;private volatile LocalServerSocket server;private volatile LocalSocket bound,management;
+ private final boolean fastScan;private volatile String scanState="";private ScheduledFuture<?> stageDeadline;
  private final int timeoutSeconds;private File configFile,socketFile;private ScheduledFuture<?> deadline;
  public OpenVpnSession(Context c,VpnGateProfile p,Listener listener){this(c,p,listener,150);}
- public OpenVpnSession(Context c,VpnGateProfile p,Listener listener,int timeoutSeconds){context=c.getApplicationContext();profile=p;this.listener=listener;this.timeoutSeconds=timeoutSeconds;}
+ public OpenVpnSession(Context c,VpnGateProfile p,Listener listener,int timeoutSeconds){this(c,p,listener,timeoutSeconds,false);}
+ public OpenVpnSession(Context c,VpnGateProfile p,Listener listener,int timeoutSeconds,boolean fastScan){this.fastScan=fastScan;context=c.getApplicationContext();profile=p;this.listener=listener;this.timeoutSeconds=timeoutSeconds;}
  public void start(){Thread t=new Thread(this::run,"openvpn-management");t.setDaemon(true);t.start();}
  public synchronized String report(){return logs.toString();}
  private synchronized void log(String text){if(text.length()>1800)text=text.substring(0,1800);logs.append(text).append('\n');if(logs.length()>9000)logs.delete(0,logs.length()-9000);}
@@ -42,7 +44,7 @@ public final class OpenVpnSession implements AutoCloseable {
    try(FileOutputStream out=new FileOutputStream(configFile)){out.write(profile.config.getBytes(StandardCharsets.UTF_8));}
    bound=new LocalSocket();bound.bind(new LocalSocketAddress(socketFile.getAbsolutePath(),LocalSocketAddress.Namespace.FILESYSTEM));server=new LocalServerSocket(bound.getFileDescriptor());
    if(closed.get())return;
-   ProcessBuilder pb=new ProcessBuilder(executable.getAbsolutePath(),"--config",configFile.getAbsolutePath(),"--management",socketFile.getAbsolutePath(),"unix","--management-client","--management-query-passwords","--management-hold","--management-signal");pb.redirectErrorStream(true);process=pb.start();
+   ProcessBuilder pb=new ProcessBuilder(executable.getAbsolutePath(),"--config",configFile.getAbsolutePath(),"--management",socketFile.getAbsolutePath(),"unix","--management-client","--management-query-passwords","--management-hold","--management-signal");if(fastScan)pb.command().addAll(Arrays.asList("--connect-retry-max","1","--connect-timeout","12","--server-poll-timeout","12","--hand-window","30"));pb.redirectErrorStream(true);process=pb.start();
    Process child=process;Thread watcher=new Thread(()->{try{int code=child.waitFor();if(!closed.get())fail("OpenVPN exited ("+code+"): "+tail());}catch(InterruptedException e){Thread.currentThread().interrupt();}},"openvpn-process");watcher.setDaemon(true);watcher.start();
    Thread output=new Thread(()->{try(BufferedReader in=new BufferedReader(new InputStreamReader(process.getInputStream(),StandardCharsets.UTF_8))){String line;while((line=in.readLine())!=null&&!closed.get())log(line);}catch(Exception ignored){}},"openvpn-output");output.setDaemon(true);output.start();
    deadline=timers.schedule(()->fail("OpenVPN connection timed out after "+timeoutSeconds+" seconds"),timeoutSeconds,TimeUnit.SECONDS);
@@ -73,10 +75,14 @@ public final class OpenVpnSession implements AutoCloseable {
     default:throw new IOException("Unsupported management request: "+name);
    }command("needok '"+name+"' "+response+"\n");return;
   }
-  if(line.startsWith(">STATE:")){String[] values=line.substring(7).split(",",4);if(values.length>1){if(values[1].equals("CONNECTED")){if(deadline!=null)deadline.cancel(false);listener.connected();}else if(values[1].equals("RECONNECTING"))listener.reconnecting();}log(line);return;}
+  if(line.startsWith(">STATE:")){String[] values=line.substring(7).split(",",4);if(values.length>1){if(values[1].equals("CONNECTED")){if(deadline!=null)deadline.cancel(false);scanState="CONNECTED";if(stageDeadline!=null)stageDeadline.cancel(false);listener.connected();}else if(values[1].equals("RECONNECTING")){if(fastScan)throw new IOException("Fast scan: OpenVPN attempt ended; deep scan can retry");listener.reconnecting();}else scanStage(values[1]);}log(line);return;}
   if(line.startsWith(">BYTECOUNT:")){String[] values=line.substring(11).split(",");if(values.length>=2)listener.bytes(Long.parseLong(values[0]),Long.parseLong(values[1]));return;}
   if(line.startsWith(">FATAL:")||line.startsWith(">PASSWORD:Verification Failed"))throw new IOException(line);
   if(line.startsWith("ERROR:"))throw new IOException(line);if(line.startsWith(">LOG:")||line.startsWith(">INFO:"))log(line);
+ }
+ private void scanStage(String state){
+  if(!fastScan||closed.get()||state.equals(scanState))return;scanState=state;if(stageDeadline!=null)stageDeadline.cancel(false);
+  stageDeadline=timers.schedule(()->{if(state.equals(scanState))fail("Fast scan: OpenVPN "+state+" made no progress; try deep scan");},VpnGateScanPlan.stageSeconds(state),TimeUnit.SECONDS);
  }
  @Override public void close(){closed.set(true);cleanup();}
  private synchronized void cleanup(){timers.shutdownNow();FileDescriptor fd;while((fd=receivedFds.poll())!=null)try{Os.close(fd);}catch(Exception ignored){}for(LocalSocket s:new LocalSocket[]{management,bound})if(s!=null)try{s.close();}catch(Exception ignored){}if(server!=null)try{server.close();}catch(Exception ignored){}Process p=process;if(p!=null){p.destroy();Thread reaper=new Thread(()->{try{if(!p.waitFor(2,TimeUnit.SECONDS))p.destroyForcibly();}catch(Exception ignored){p.destroyForcibly();}},"openvpn-reaper");reaper.setDaemon(true);reaper.start();}if(configFile!=null)configFile.delete();if(socketFile!=null)socketFile.delete();}

@@ -31,6 +31,29 @@ public final class TunnelVerifier {
             return ProxyResults.accepts(profile(new ProxyEndpoint("",0,0,false).withType(ProxyEndpoint.Type.HTTPS)),filter);
         }
     }
+    /** Race up to three real HTTPS checks through the same established VPN; never race VPN routes. */
+    private static Result parallelFirst(Transport transport,AtomicBoolean cancelled,Set<Socket> active,ServiceTargets.Target[] targets){
+        AtomicBoolean stop=new AtomicBoolean();Set<Socket> owned=ConcurrentHashMap.newKeySet();
+        ExecutorService pool=Executors.newFixedThreadPool(Math.min(3,targets.length),r->{Thread t=new Thread(r,"vpn-https-race");t.setDaemon(true);return t;});
+        CompletionService<Result> completed=new ExecutorCompletionService<>(pool);
+        Transport guarded=new Transport(){
+            public Socket create()throws Exception{if(stop.get()||cancelled.get())throw new SocketException("Cancelled");Socket socket=transport.create();owned.add(socket);active.add(socket);if(stop.get()||cancelled.get()){socket.close();throw new SocketException("Cancelled");}return socket;}
+            public InetAddress[] resolve(String host)throws Exception{return transport.resolve(host);}
+        };
+        int passed=0,checked=0;Set<String> good=new HashSet<>(),tried=new HashSet<>();Map<String,Long> timings=new HashMap<>();StringBuilder report=new StringBuilder();
+        try{
+            for(ServiceTargets.Target target:targets)completed.submit(()->check(guarded,stop,active,new ServiceTargets.Target[]{target},true,false));
+            long deadline=System.nanoTime()+8_000_000_000L;
+            for(int remaining=targets.length;remaining>0&&!cancelled.get()&&System.nanoTime()<deadline;){
+                Future<Result> future=completed.poll(100,TimeUnit.MILLISECONDS);if(future==null)continue;remaining--;
+                Result r;try{r=future.get();}catch(ExecutionException failed){continue;}
+                passed|=r.passed;checked|=r.checked;good.addAll(r.extraPassed);tried.addAll(r.extraChecked);timings.putAll(r.timings);report.append(r.report);
+                if(passed!=0||!good.isEmpty())break;
+            }
+        }catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+        finally{stop.set(true);for(Socket socket:owned){try{socket.close();}catch(Exception ignored){}active.remove(socket);}pool.shutdownNow();}
+        return new Result(cancelled.get()?0:passed,checked,report.toString(),cancelled.get()?java.util.Collections.emptySet():good,tried,timings);
+    }
     private TunnelVerifier(){}
     public static Result check(Transport transport,AtomicBoolean cancelled,Set<Socket> active) {
         return check(transport,cancelled,active,ServiceTargets.current(),false);
@@ -41,6 +64,7 @@ public final class TunnelVerifier {
     }
     public static Result check(Transport transport,AtomicBoolean cancelled,Set<Socket> active,
             ServiceTargets.Target[] targets,boolean quick,boolean firstSuccess) {
+        if(quick&&firstSuccess&&targets.length>1)return parallelFirst(transport,cancelled,active,targets);
         ScheduledThreadPoolExecutor deadlines=new ScheduledThreadPoolExecutor(1);
         deadlines.setRemoveOnCancelPolicy(true);
         int passed=0,checked=0;

@@ -17,6 +17,14 @@ public final class VpnGateHarness {
   check(VpnGateProfile.parse(csv).size()==1,"CSV parse");
   for(String invalid:new String[]{"<html>Unavailable</html>","*vpn_servers\n*\n"}){try{VpnGateProfile.parse(invalid);throw new AssertionError("Accepted invalid directory");}catch(java.io.IOException expected){}}
   Path cache=Files.createTempDirectory("gate-fixture");try{VpnGateStore store=new VpnGateStore(cache.toFile());store.replace(Collections.singletonList(p));store.tested(p.key(),23,"");store.save();VpnGateStore restored=new VpnGateStore(cache.toFile());restored.load();check(restored.get(p.key()).portLatency==23,"Port result persists");check(!restored.get(p.key()).endpoint().hasAnyService(),"Port check is not VPN evidence");}finally{try(var files=Files.walk(cache)){files.sorted(Comparator.reverseOrder()).forEach(f->{try{Files.delete(f);}catch(Exception ignored){}});}}
+  List<VpnGateProfile> candidates=new ArrayList<>();for(int i=1;i<=20;i++)candidates.add(VpnGateProfile.sanitize("8.8.4."+i,"JP",1,config));
+  VpnGateScanPlan plan=new VpnGateScanPlan(candidates);List<VpnGateScanPlan.Item> window=plan.reserve(x->true);
+  check(window.size()==8&&plan.reserve(x->true).isEmpty(),"Download preparation is bounded even for thousands of candidates");
+  plan.prepared(window.get(1),window.get(1).candidate,"");check(plan.takeReady()==window.get(1),"Ready second server overtakes blocked first download");
+  check(plan.reserve(x->true).size()==1,"Consuming a ready server replenishes only one slot");
+  check(plan.takeReady()==null&&!plan.finished(),"Blocked preparation cannot be mistaken for completed scan");
+  plan.prepared(window.get(0),null,"download timeout");check(plan.takeReady().error.equals("download timeout"),"Preparation errors reach progress/results without dialing a tunnel");
+  check(VpnGateScanPlan.stageSeconds("AUTH")>VpnGateScanPlan.stageSeconds("WAIT"),"An active TLS handshake gets more time than a silent endpoint");
   byte[] raw=config.getBytes(java.nio.charset.StandardCharsets.UTF_8);String hash=VpnGateProfile.sha256(raw);
   org.json.JSONObject document=new org.json.JSONObject().put("kind","vpngate-pool-config").put("schema_version",1).put("openvpn_config_sha256",hash).put("openvpn_config_bytes",raw.length).put("openvpn_config_base64",Base64.getEncoder().encodeToString(raw));
   byte[] bytes=document.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);

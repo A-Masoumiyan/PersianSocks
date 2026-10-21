@@ -34,8 +34,9 @@ public final class ProxyVpnService extends VpnService {
     private static volatile boolean gateScanning;private static volatile int gateDone,gateTotal,gatePassed;
     public static boolean gateScanning(){return gateScanning;}
     public static int gateDone(){return gateDone;}public static int gateTotal(){return gateTotal;}
+    private java.util.concurrent.ExecutorService gatePreparePool;private VpnGateScanPlan gatePlan;private VpnGateDirectory gateResolver;private boolean gateAttemptRunning;
     private java.util.concurrent.ExecutorService gatePortPool;private final Set<Socket> gatePortSockets=ConcurrentHashMap.newKeySet();private long gateScanStarted;
-    private java.util.List<VpnGateProfile> gateQueue=java.util.Collections.emptyList();private int gatePosition,gateRun;private boolean gateDeep;private String gateRestore="",gateFirstSuccess="";private VpnGateStore scanGateStore;
+    private java.util.List<VpnGateProfile> gateQueue=java.util.Collections.emptyList();private volatile int gateRun;private boolean gateDeep;private String gateRestore="",gateFirstSuccess="";private VpnGateStore scanGateStore;
     public static final String CONNECT_CACHED="ir.persiansocks.app.CONNECT_CACHED";
     public static final String CONNECT = "ir.persiansocks.app.CONNECT";
     public static final String RECONFIGURE="ir.persiansocks.app.RECONFIGURE";
@@ -380,40 +381,52 @@ public final class ProxyVpnService extends VpnService {
     }
     private void stopGateSession(){if(gateSession!=null){OpenVpnSession session=gateSession;gateSession=null;session.close();}gateVerifying=false;}
     private String gateProgress(){return AppLanguage.t(R.string.ui_gate_scan_progress)+" "+gateDone+"/"+gateTotal+" • "+AppLanguage.t(R.string.ui_gate_scan_passed)+" "+gatePassed;}
-    private void cancelGateScan(){gateRun++;gateScanning=false;if(gatePortPool!=null){gatePortPool.shutdownNow();gatePortPool=null;}for(Socket socket:gatePortSockets)try{socket.close();}catch(Exception ignored){}gatePortSockets.clear();gateQueue=java.util.Collections.emptyList();scanGateStore=null;}
+    private void cancelGateScan(){gateRun++;gateScanning=false;gateAttemptRunning=false;if(gatePreparePool!=null){gatePreparePool.shutdownNow();gatePreparePool=null;}if(gateResolver!=null){gateResolver.close();gateResolver=null;}gatePlan=null;if(gatePortPool!=null){gatePortPool.shutdownNow();gatePortPool=null;}for(Socket socket:gatePortSockets)try{socket.close();}catch(Exception ignored){}gatePortSockets.clear();gateQueue=java.util.Collections.emptyList();scanGateStore=null;}
     private void startGateScan(boolean deep,String onlyKey){
-        gateRestore=phase==CONNECTED?current:"";closeTunnel();gateDeep=deep;gateFirstSuccess="";gateDone=gatePassed=gateTotal=gatePosition=0;gateScanning=true;gateScanStarted=System.currentTimeMillis();userRequested=true;requiredFilter="ALL";final int run=++gateRun;
+        gateRestore=phase==CONNECTED?current:"";closeTunnel();gateDeep=deep;gateFirstSuccess="";gateDone=gatePassed=gateTotal=0;gateScanning=true;gateScanStarted=System.currentTimeMillis();userRequested=true;requiredFilter="ALL";final int run=++gateRun;
         try{ensureChannel();Notification n=notification(AppLanguage.t(R.string.ui_gate_scan_progress));if(Build.VERSION.SDK_INT>=34)startForeground(ID,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);else startForeground(ID,n);armGuard();}
         catch(Exception e){cancelGateScan();finishConnection(e.getMessage());return;}
         String country=getSharedPreferences("persiansocks",0).getString("display-country","");
         new Thread(()->{try{VpnGateStore store=new VpnGateStore(getFilesDir());store.load();java.util.List<VpnGateProfile> profiles=store.snapshot();profiles.removeIf(p->onlyKey!=null?!onlyKey.equals(p.key()):!country.isEmpty()&&!country.equals(p.country));
             // Round-robin countries within untested/oldest-first order. An interrupted scan resumes with the remaining candidates first.
-            profiles.sort(java.util.Comparator.comparingLong((VpnGateProfile p)->p.vpnTestedAt).thenComparingLong(p->p.portLatency<0?Long.MAX_VALUE:p.portLatency));
+            profiles.sort(java.util.Comparator.comparingInt((VpnGateProfile p)->p.vpnSuccess?0:1).thenComparingLong(p->p.vpnTestedAt).thenComparingLong(p->p.portLatency<0?Long.MAX_VALUE:p.portLatency));
             java.util.Map<String,java.util.ArrayDeque<VpnGateProfile>> countries=new java.util.LinkedHashMap<>();for(VpnGateProfile p:profiles)countries.computeIfAbsent(p.country,k->new java.util.ArrayDeque<>()).add(p);
             java.util.List<VpnGateProfile> balanced=new java.util.ArrayList<>();while(balanced.size()<profiles.size())for(java.util.ArrayDeque<VpnGateProfile> bucket:countries.values())if(!bucket.isEmpty())balanced.add(bucket.remove());
-            handler.post(()->{if(!gateScanning||run!=gateRun)return;scanGateStore=store;gateQueue=balanced;gateTotal=balanced.size();startGatePortChecks(run);nextGateScan(run);});
+            handler.post(()->{if(!gateScanning||run!=gateRun)return;scanGateStore=store;gateQueue=balanced;gateTotal=balanced.size();gatePlan=new VpnGateScanPlan(balanced);gateResolver=new VpnGateDirectory(this,message->{});gateResolver.scanDownloads(!deep);gatePreparePool=java.util.concurrent.Executors.newFixedThreadPool(VpnGateScanPlan.DOWNLOADS);startGatePortChecks(run);nextGateScan(run);});
         }catch(Exception e){handler.post(()->{if(run==gateRun){cancelGateScan();finishConnection(e.getMessage());}});}},"gate-scan-plan").start();
     }
     private void startGatePortChecks(int run){
-        gatePortPool=java.util.concurrent.Executors.newFixedThreadPool(8);final VpnGateStore store=scanGateStore;final long started=gateScanStarted;final boolean deep=gateDeep;
+        gatePortPool=java.util.concurrent.Executors.newFixedThreadPool(16);final VpnGateStore store=scanGateStore;final long started=gateScanStarted;final boolean deep=gateDeep;
         for(VpnGateProfile candidate:gateQueue)if(candidate.tcp)gatePortPool.execute(()->{
             if(!gateScanning||run!=gateRun)return;long latency=-1;String error="";
             try{PhysicalTestNetwork path=PhysicalTestNetwork.capture(this);long begin=System.nanoTime();try(Socket socket=path.socket()){gatePortSockets.add(socket);try{socket.connect(new java.net.InetSocketAddress(candidate.ip,candidate.port),deep?4000:1500);if(!path.valid())throw new java.io.IOException("Network changed");}finally{gatePortSockets.remove(socket);}}latency=Math.max(1,(System.nanoTime()-begin)/1000000);}
             catch(Exception e){error=String.valueOf(e.getMessage());}
-            if(gateScanning&&run==gateRun){store.tested(candidate.key(),latency,error);candidate.portTestedAt=Math.max(started,candidate.portTestedAt);}
+            if(gateScanning&&run==gateRun){store.tested(candidate.key(),latency,error);candidate.portTestedAt=Math.max(started,candidate.portTestedAt);handler.post(()->nextGateScan(run));}
         });
+    }
+    private void prepareGateProfiles(int run){
+        final VpnGateScanPlan plan=gatePlan;final VpnGateDirectory resolver=gateResolver;final VpnGateStore store=scanGateStore;final boolean deep=gateDeep;
+        for(VpnGateScanPlan.Item item:plan.reserve(p->{VpnGateProfile measured=store.get(p.key());return !p.tcp||(measured!=null&&measured.portTestedAt>=gateScanStarted);})){gatePreparePool.execute(()->{
+            VpnGateProfile profile=null;String error="";
+            try{if(run!=gateRun||!gateScanning)return;VpnGateProfile measured=store.get(item.candidate.key());if(!deep&&item.candidate.tcp&&measured.portLatency<0)throw new java.io.IOException("TCP: "+measured.lastError);
+                profile=resolver.resolve(item.candidate);if(run!=gateRun||!gateScanning)return;if(item.candidate.lazy())store.resolved(profile);
+            }catch(Exception e){error=String.valueOf(e.getMessage());}
+            plan.prepared(item,profile,error);handler.post(()->nextGateScan(run));
+        });}
     }
     private void nextGateScan(int run){
         if(!gateScanning||run!=gateRun)return;
-        if(gatePosition>=gateQueue.size()){
+        prepareGateProfiles(run);if(gateAttemptRunning)return;
+        VpnGateScanPlan.Item next=gatePlan.takeReady();
+        if(next==null&&!gatePlan.finished())return; // Preparation/port callbacks wake the scheduler; no polling or head-of-line wait.
+        if(next==null){
             String restore=gateRestore.isEmpty()?gateFirstSuccess:gateRestore;String summary=gateProgress();cancelGateScan();closeTunnel();announce(summary);ProxyEndpoint endpoint=ProxyEndpoint.parse(restore);if(endpoint!=null){userRequested=true;beginConnect(endpoint);}else{userRequested=false;scheduleIdleStop();}return;
         }
         if(!physicalNetworkAvailable()){cancelGateScan();finishConnection(AppLanguage.t(R.string.ui_extra_070));return;}
-        VpnGateProfile candidate=gateQueue.get(gatePosition);VpnGateProfile measured=scanGateStore.get(candidate.key());
-        if(candidate.tcp&&(measured==null||measured.portTestedAt<gateScanStarted)){announce(gateProgress());handler.postDelayed(()->nextGateScan(run),250);return;}
-        gatePosition++;current=candidate.key();lastProfile=candidate.endpoint();announce(gateProgress()+" • "+candidate.country+" • "+candidate.ip);
-        if(candidate.tcp&&measured.portLatency<0&&!gateDeep){gateScanResult(false,"TCP: "+measured.lastError);return;}
-        userRequested=true;beginGateConnection(candidate.endpoint());
+        gateAttemptRunning=true;VpnGateProfile candidate=next.profile==null?next.candidate:next.profile;current=candidate.key();lastProfile=candidate.endpoint();announce(gateProgress()+" • "+candidate.country+" • "+candidate.ip);
+        prepareGateProfiles(run);
+        if(next.profile==null){gateScanResult(false,next.error);return;}
+        userRequested=true;beginGateConnection(candidate.endpoint(),candidate);
     }
     private void gateScanResult(boolean success,String error){
         if(!gateScanning)return;final int run=gateRun;final String key=current;gateDone++;if(success){gatePassed++;if(gateFirstSuccess.isEmpty())gateFirstSuccess=key;}
@@ -421,17 +434,18 @@ public final class ProxyVpnService extends VpnService {
         closeTunnel();final String summary=gateProgress();
         final VpnGateStore results=scanGateStore;
         new Thread(()->{try{results.vpnResult(key,success,error);}catch(Exception e){Log.w("PersianSocks","Gate scan result save failed",e);}
-            handler.post(()->{if(!gateScanning||run!=gateRun)return;announce(summary);VpnGateProfile p=results.get(key);Intent result=new Intent(STATE).setPackage(getPackageName()).putExtra("gate-result",true).putExtra("gate-key",key).putExtra("gate-ok",success).putExtra("gate-error",p==null?error:p.vpnError).putExtra("gate-at",p==null?System.currentTimeMillis():p.vpnTestedAt).putExtra("gate-latency",p==null?-1:p.portLatency);sendBroadcast(result,INTERNAL_PERMISSION);nextGateScan(run);});
+            handler.post(()->{if(!gateScanning||run!=gateRun)return;announce(summary);VpnGateProfile p=results.get(key);Intent result=new Intent(STATE).setPackage(getPackageName()).putExtra("gate-result",true).putExtra("gate-key",key).putExtra("gate-ok",success).putExtra("gate-error",p==null?error:p.vpnError).putExtra("gate-at",p==null?System.currentTimeMillis():p.vpnTestedAt).putExtra("gate-latency",p==null?-1:p.portLatency);sendBroadcast(result,INTERNAL_PERMISSION);gateAttemptRunning=false;nextGateScan(run);});
         },"gate-scan-result").start();
     }
-    private void beginGateConnection(ProxyEndpoint proxy){
+    private void beginGateConnection(ProxyEndpoint proxy){beginGateConnection(proxy,null);}
+    private void beginGateConnection(ProxyEndpoint proxy,VpnGateProfile prepared){
         if(AndroidRoutes.mode(this).equals("domains")){finishConnection(AppLanguage.t(R.string.ui_032_gate_scope));return;}
         closeTunnel();resetTrafficSession();final int token=++generation;cancelled=new AtomicBoolean(false);current=proxy.key();lastProfile=proxy;gateVerifying=false;gateReceived=gateSent=0;updatePhase(CONNECTING);
         try{ensureChannel();Notification n=notification("VPN Gate • OpenVPN");if(Build.VERSION.SDK_INT>=34)startForeground(ID,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);else startForeground(ID,n);armGuard();}
         catch(Exception error){finishConnection(error.getMessage());return;}
         announce(AppLanguage.t(R.string.ui_032_gate_connecting));
         new Thread(()->{
-            try{if(token!=generation)return;VpnGateStore store=gateScanning?scanGateStore:new VpnGateStore(getFilesDir());if(!gateScanning)store.load();VpnGateProfile candidate=store.get(proxy.key());if(candidate==null)throw new java.io.IOException(AppLanguage.t(R.string.ui_032_gate_refresh));VpnGateProfile profile=VpnGateDirectory.resolve(this,candidate);if(candidate.lazy()&&token==generation){store.resolved(profile);if(!gateScanning)store.save();}PhysicalTestNetwork path=PhysicalTestNetwork.capture(this);
+            try{if(token!=generation)return;VpnGateStore store=gateScanning?scanGateStore:new VpnGateStore(getFilesDir());if(!gateScanning)store.load();VpnGateProfile candidate=prepared==null?store.get(proxy.key()):prepared;if(candidate==null)throw new java.io.IOException(AppLanguage.t(R.string.ui_032_gate_refresh));VpnGateProfile profile=VpnGateDirectory.resolve(this,candidate);if(candidate.lazy()&&token==generation){store.resolved(profile);if(!gateScanning)store.save();}PhysicalTestNetwork path=PhysicalTestNetwork.capture(this);
                 handler.post(()->{if(token!=generation||cancelled.get())return;current=profile.key();lastProfile=profile.endpoint();tunnelPhysical=path;if(networkMonitor!=null)networkMonitor.activate(path.network());trafficMeter.beginEngine(System.nanoTime());
                     NativeSocketProtector upstream=new NativeSocketProtector(this,path);
                     gateSession=new OpenVpnSession(this,profile,new OpenVpnSession.Listener(){
@@ -441,7 +455,7 @@ public final class ProxyVpnService extends VpnService {
                         public void reconnecting(){handler.post(()->{if(token!=generation||cancelled.get())return;gateVerifying=false;updatePhase(CONNECTING);announce(AppLanguage.t(R.string.ui_032_gate_reconnecting));});}
                         public void failed(String message){handler.post(()->{if(token!=generation||cancelled.get())return;saveVpnReport(message);failConnection(message);});}
                         public void bytes(long received,long sent){handler.post(()->{if(token!=generation||cancelled.get())return;gateReceived=received;gateSent=sent;sampleTraffic(true);});}
-                    },gateScanning&&!gateDeep?85:150);gateSession.start();
+                    },gateScanning&&!gateDeep?40:150,gateScanning&&!gateDeep);gateSession.start();
                 });
             }catch(Exception error){handler.post(()->{if(token==generation)finishConnection(error.getMessage());});}
         },"vpngate-prepare").start();

@@ -17,7 +17,7 @@ public final class GateFixtureService extends VpnService {
     public boolean protect(FileDescriptor fd)throws Exception{boolean ok=upstream.protect(fd);if(ok)protectedSockets++;return ok;}
     public ParcelFileDescriptor openTun(OpenVpnSession.TunConfig config)throws Exception{Builder b=new Builder().setSession("OpenVPN fixture").setBlocking(false).setMtu(config.mtu).addAddress(config.ipv4,32).addAddress("fd00:1::2",64).addRoute("0.0.0.0",0).addRoute("::",0).addDnsServer("10.77.0.1").setUnderlyingNetworks(new Network[]{path.network()});tun=b.establish();if(tun==null)throw new IOException("TUN unavailable");new Handler(Looper.getMainLooper()).post(()->retireGuard(0));return ParcelFileDescriptor.dup(tun.getFileDescriptor());}
     public void connected(){state="CONNECTED";}public void reconnecting(){state="RECONNECTING";}public void failed(String error){failure=error;state="FAILED";}public void bytes(long in,long out){}
-   });session.start();
+   },40,true);session.start();
   }catch(Exception e){failure=e.toString();state="FAILED";}},"gate-fixture").start();return START_NOT_STICKY;
  }
  private String readFixture(PhysicalTestNetwork path,String name)throws Exception{
