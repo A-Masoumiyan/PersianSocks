@@ -12,6 +12,7 @@ import static org.junit.Assert.*;
 public class AndroidParityTest {
  @Test public void previewIsBoundedAndDoesNotPopulateAuthoritativeHealth(){
   Context c=RuntimeEnvironment.getApplication();c.getSharedPreferences("persiansocks",0).edit().clear().commit();
+  org.robolectric.util.ReflectionHelpers.setStaticField(QuickStartCache.class,"savedAt",0L);
   List<ProxyEndpoint> rows=new ArrayList<>();for(int i=1;i<=20;i++)rows.add(new ProxyEndpoint("8.8.8.8",1000+i,20,false,1,1,System.currentTimeMillis()));
   QuickStartCache.save(c,rows);assertEquals(12,QuickStartCache.load(c).size());
   c.getSharedPreferences("persiansocks",0).edit().putString("startup-preview","x".repeat(48001)).commit();assertTrue(QuickStartCache.load(c).isEmpty());

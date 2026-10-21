@@ -37,7 +37,8 @@ android {
             }
         }
     }
-    buildTypes.release.signingConfig signingConfigs.originalRelease
+    // Explicit unsigned CI output; normal release builds still require the pinned key.
+    buildTypes.release.signingConfig (project.findProperty('offlineUnsigned') == 'true' ? null : signingConfigs.originalRelease)
     packaging {
         jniLibs { useLegacyPackaging = false }
     }

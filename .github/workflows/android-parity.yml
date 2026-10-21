@@ -33,7 +33,7 @@ jobs:
           curl -fL https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o /tmp/json.jar
           python3 scripts/run-tests.py --jdk "$JAVA_HOME" --json /tmp/json.jar
       - name: Android unit tests and unsigned release
-        run: gradle --no-daemon :app:testPersonalDebugUnitTest :app:assemblePersonalDebug :app:assemblePersonalRelease -x :app:verifyReleaseInputs
+        run: gradle --no-daemon :app:testPersonalDebugUnitTest :app:assemblePersonalDebug :app:assemblePersonalRelease -PofflineUnsigned=true -x :app:verifyReleaseInputs
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
