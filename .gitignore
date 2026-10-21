@@ -19,3 +19,6 @@ signing/*
 # Native dependency fetched with a pinned SHA-256 by prepareOpenVpn.
 app/src/main/jniLibs/**/libopenvpnexec.so
 app/src/main/jniLibs/**/openvpn.download
+
+/release-source/
+/PersianSocks-OpenVPN-corresponding-source.tar.gz

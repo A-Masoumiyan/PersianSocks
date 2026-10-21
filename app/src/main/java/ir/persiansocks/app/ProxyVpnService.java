@@ -348,6 +348,7 @@ public final class ProxyVpnService extends VpnService {
         }, "vpn-service-preflight").start();
     }
     private void replaceTun(PhysicalTestNetwork path)throws Exception {
+        if(retiredTuns.size()>=8)throw new java.io.IOException("VPN routing is still settling");
         Builder b=new Builder().setSession("PersianSocks • protected").setBlocking(false).setMtu(1400)
             .addAddress("198.18.0.1",15).addRoute("0.0.0.0",0)
             .addAddress("fd00:1:fd00:1::2",64).addRoute("::",0).addDnsServer("198.18.0.2");
