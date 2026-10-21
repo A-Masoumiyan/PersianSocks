@@ -139,7 +139,7 @@ public class StartupRegressionTest {
             ScanCheckpoint paused=new ScanCheckpoint(Arrays.asList(ProxyEndpoint.parse("8.8.8.8:1080"),ProxyEndpoint.parse("9.9.9.9:1080")),new ProxyScanner.Options(100,true),"CATALOG");paused.record(0,new Socks5Probe.Result(good("8.8.8.8",1080,System.currentTimeMillis()),Socks5Probe.Failure.NONE,true,true));
             ReflectionHelpers.setField(activity,"checkpoint",paused);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(UiIconButton.Kind.PLAY,ReflectionHelpers.getField(play,"kind"));assertEquals(AppLanguage.t(R.string.ui_scan_resume),play.getContentDescription().toString());
             play.performClick();assertSame(gate,org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog());assertSame(paused,ReflectionHelpers.getField(activity,"checkpoint"));assertTrue(paused.slow);
-            restart.performClick();android.app.AlertDialog again=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertNotSame(first,again);assertEquals(2,again.getListView().getAdapter().getCount());again.dismiss();
+            restart.performClick();android.app.AlertDialog again=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertNotSame(gate,again);assertEquals(2,again.getListView().getAdapter().getCount());again.dismiss();
             ReflectionHelpers.setField(activity,"scanning",true);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(UiIconButton.Kind.STOP,ReflectionHelpers.getField(play,"kind"));assertFalse(restart.isEnabled());ReflectionHelpers.setField(activity,"scanning",false);
         }finally{owner.destroy();}
     }

@@ -783,7 +783,7 @@ public final class ProxyVpnService extends VpnService {
         if (!keep && tun != null) { try { tun.close(); } catch (Exception ignored) {} tun = null; }
         if(!keep){for(ParcelFileDescriptor old:retiredTuns)try{old.close();}catch(Exception ignored){}retiredTuns.clear();gateTunConfig=null;tunKind="socks";}else retireOldTuns(0);
         current = "";
-        if(tun==null)try { stopForeground(STOP_FOREGROUND_REMOVE); } catch (Exception ignored) {}
+        if(tun==null&&!gateScanning&&!userRequested)try { stopForeground(STOP_FOREGROUND_REMOVE); } catch (Exception ignored) {}
         else try{getSystemService(NotificationManager.class).notify(ID,notification("کیل‌سوییچ فعال؛ مسیرهای VPN تا اتصال مسدودند"));}catch(Exception ignored){}
         updatePhase(DISCONNECTED);
     }
