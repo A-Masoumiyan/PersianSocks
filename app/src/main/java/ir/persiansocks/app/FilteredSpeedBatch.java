@@ -9,14 +9,14 @@ public final class FilteredSpeedBatch {
     private boolean cancelled;
     public FilteredSpeedBatch(List<ProxyEndpoint> source, String service, ProxyResults.Sort sort,
             ProxyResults.Protocol protocol, ProxyResults.PingLimit ping) {
-        input = ProxyResults.visible(source, service, sort, protocol, ping);
+        input = ProxyResults.visible(source, service, sort, protocol, ping);input.removeIf(p->p.type==ProxyEndpoint.Type.OPENVPN);
     }
     public FilteredSpeedBatch(List<ProxyEndpoint> source, String service, ProxyResults.Sort sort,
             ProxyResults.Protocol protocol, ProxyResults.PingLimit ping,
             java.util.Map<String, Double> speeds, boolean smooth) {
-        input = ProxyResults.visible(source, service, sort, protocol, ping, speeds, smooth);
+        input = ProxyResults.visible(source, service, sort, protocol, ping, speeds, smooth);input.removeIf(p->p.type==ProxyEndpoint.Type.OPENVPN);
     }
-    public FilteredSpeedBatch(List<ProxyEndpoint> saved) { input=new java.util.ArrayList<>(saved); }
+    public FilteredSpeedBatch(List<ProxyEndpoint> saved) { input=new java.util.ArrayList<>(saved);input.removeIf(p->p.type==ProxyEndpoint.Type.OPENVPN); }
     public ProxyEndpoint next() { return cancelled || done >= input.size() ? null : input.get(done); }
     public void completed() { if (!cancelled && done < input.size()) done++; }
     public void cancel() { cancelled = true; }

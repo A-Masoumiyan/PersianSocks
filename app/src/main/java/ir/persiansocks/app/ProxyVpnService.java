@@ -612,6 +612,11 @@ public final class ProxyVpnService extends VpnService {
         announce(AppLanguage.t(R.string.ui_extra_063));
         ProxyStore.IO.execute(()->{
             java.util.List<ProxyEndpoint> ranked=ProxyResults.visible(ProxyStore.index().snapshot(),service,order,kind,limit);
+            if(failed.startsWith("openvpn://")&&service.equals("ALL")&&(kind==ProxyResults.Protocol.ALL||kind==ProxyResults.Protocol.VPN_GATE))try{
+                VpnGateStore directory=new VpnGateStore(getFilesDir());directory.load();java.util.List<VpnGateProfile> candidates=directory.snapshot();String country=getSharedPreferences("persiansocks",0).getString("display-country","");
+                candidates.removeIf(p->!country.isEmpty()&&!country.equals(p.country));candidates.sort(java.util.Comparator.comparingLong((VpnGateProfile p)->p.portLatency<0?Long.MAX_VALUE:p.portLatency).thenComparing(java.util.Comparator.comparingLong((VpnGateProfile p)->p.score).reversed()));
+                int added=0;for(VpnGateProfile p:candidates){if(added++>=3)break;ranked.add(p.endpoint());}
+            }catch(Exception ignored){}
             handler.post(()->{
                 if(token!=generation||!userRequested)return;
                 ProxyEndpoint next=failover.nextRanked(ranked,failed,System.currentTimeMillis());

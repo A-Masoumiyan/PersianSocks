@@ -39,9 +39,10 @@ public final class VpnGateDirectory implements AutoCloseable {
    if(!closed&&token==generation.get()){store.replace(profiles);changed(AppLanguage.t(R.string.ui_032_gate_count)+profiles.size());}
   }catch(Exception e){if(token==generation.get())changed(AppLanguage.t(R.string.ui_032_gate_error)+e.getMessage());}finally{if(token==generation.get()){busy=false;changed("");}}
  });}
- public void scan(){if(busy||closed)return;busy=true;int token=generation.incrementAndGet();List<VpnGateProfile> profiles=store.snapshot();changed(AppLanguage.t(R.string.ui_032_gate_scanning));worker.execute(()->{
+ public void scan(){scan(null);}
+ public void scan(String key){if(busy||closed)return;busy=true;int token=generation.incrementAndGet();List<VpnGateProfile> profiles=store.snapshot();changed(AppLanguage.t(R.string.ui_032_gate_scanning));worker.execute(()->{
   ExecutorService pool=Executors.newFixedThreadPool(8);AtomicInteger checked=new AtomicInteger();
-  try{PhysicalTestNetwork path=PhysicalTestNetwork.capture(context);List<Future<?>> jobs=new ArrayList<>();for(VpnGateProfile p:profiles){if(!p.tcp)continue;jobs.add(pool.submit(()->{if(closed||token!=generation.get())return;long started=System.nanoTime(),latency=-1;String error="";
+  try{PhysicalTestNetwork path=PhysicalTestNetwork.capture(context);List<Future<?>> jobs=new ArrayList<>();for(VpnGateProfile p:profiles){if(!p.tcp||key!=null&&!key.equals(p.key()))continue;jobs.add(pool.submit(()->{if(closed||token!=generation.get())return;long started=System.nanoTime(),latency=-1;String error="";
     try(Socket socket=path.socket()){sockets.add(socket);try{socket.connect(new InetSocketAddress(p.ip,p.port),1500);if(!path.valid())throw new IOException("Network changed");latency=Math.max(1,(System.nanoTime()-started)/1_000_000);}finally{sockets.remove(socket);}}catch(Exception e){error=String.valueOf(e.getMessage());}if(!closed&&token==generation.get()){store.tested(p.key(),latency,error);int count=checked.incrementAndGet();if(count%8==0)changed(AppLanguage.t(R.string.ui_032_gate_ports)+count);}
    }));}for(Future<?> job:jobs){if(token!=generation.get()||closed)break;job.get();}if(!closed&&token==generation.get()){store.save();changed(AppLanguage.t(R.string.ui_032_gate_scan_done));}
   }catch(Exception e){if(token==generation.get())changed(AppLanguage.t(R.string.ui_032_gate_error)+e.getMessage());}finally{pool.shutdownNow();if(token==generation.get()){busy=false;changed("");}}

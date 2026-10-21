@@ -473,7 +473,7 @@ public final class MainActivity extends ComponentActivity {
         filterSummary.setTextSize(10);header.addView(detach(filterSummary),margin(dp(2),0));header.addView(detach(emptyState),margin(dp(4),0));
         results.setAdapter(new ConcatAdapter(new HeaderAdapter(header),resultAdapter));
         LinearLayout footer=new LinearLayout(this);footer.setOrientation(LinearLayout.VERTICAL);footer.setPadding(dp(14),dp(10),dp(14),dp(2));footer.setBackgroundColor(BG);LinearLayout actions=horizontal();actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        scanToggle=new DesignOneWidgets.Scan(this);scanToggle.setOnClickListener(v->{if(protocol==ProxyResults.Protocol.VPN_GATE){if(gateDirectory.busy())gateDirectory.stop();else if(gateDirectory.store.snapshot().isEmpty())gateDirectory.refresh();else gateDirectory.scan();}else if(scanning||ProxyVpnService.autoScanning())stopScan();else {if(protocol==ProxyResults.Protocol.ALL&&!gateDirectory.busy())gateDirectory.scan();continueOrStartScan();}});scanToggle.setOnLongClickListener(v->{chooseScanMode(false);return true;});actions.addView(scanToggle,new LinearLayout.LayoutParams(0,dp(54),1));
+        scanToggle=new DesignOneWidgets.Scan(this);scanToggle.setOnClickListener(v->{if(gateDirectory.busy()){gateDirectory.stop();if(scanning||ProxyVpnService.autoScanning())stopScan();return;}if(protocol==ProxyResults.Protocol.VPN_GATE){if(gateDirectory.busy())gateDirectory.stop();else if(gateDirectory.store.snapshot().isEmpty())gateDirectory.refresh();else gateDirectory.scan();}else if(scanning||ProxyVpnService.autoScanning())stopScan();else {if(protocol==ProxyResults.Protocol.ALL&&!gateDirectory.busy())gateDirectory.scan();if(catalogCount==0){Toast.makeText(this,AppLanguage.t(R.string.ui_119),Toast.LENGTH_SHORT).show();return;}if(resumableScan())runPrepared(checkpoint);else doScan(false,false);}});scanToggle.setOnLongClickListener(v->{chooseScanMode(false);return true;});actions.addView(scanToggle,new LinearLayout.LayoutParams(0,dp(54),1));
         detach(collectButton);((UiIconButton)collectButton).kind(UiIconButton.Kind.SYNC);((UiIconButton)collectButton).caption("");collectButton.setBackground(background(SURFACE,dp(13),DesignOneWidgets.STROKE));LinearLayout.LayoutParams refresh=new LinearLayout.LayoutParams(dp(54),dp(54));refresh.setMarginStart(dp(8));actions.addView(collectButton,refresh);footer.addView(actions);
         LinearLayout reports=horizontal();reports.setGravity(Gravity.CENTER);status.setGravity(Gravity.CENTER);status.setTextSize(10);reports.addView(detach(status),new LinearLayout.LayoutParams(0,dp(22),1));listStatus.setTextSize(10);reports.addView(detach(listStatus),new LinearLayout.LayoutParams(0,dp(22),1));footer.addView(reports);footer.addView(detach(scanProgress),new LinearLayout.LayoutParams(-1,dp(2)));
         View rule=new View(this);rule.setBackgroundColor(DesignOneWidgets.STROKE);footer.addView(rule,sized(dp(1),dp(4)));LinearLayout navigation=horizontal();navigation.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
@@ -1448,7 +1448,7 @@ public final class MainActivity extends ComponentActivity {
         if(savedPingQueue==null)return;
         while(savedPingPosition<savedPingQueue.size()){
             ProxyEndpoint proxy=savedPingQueue.get(savedPingPosition++);
-            if((filteredPingMode||favorites.containsKey(proxy.key()))&&DistributionPolicy.allows(proxy)){startProxyProbe(proxy,true);return;}
+            if(proxy.type!=ProxyEndpoint.Type.OPENVPN&&(filteredPingMode||favorites.containsKey(proxy.key()))&&DistributionPolicy.allows(proxy)){startProxyProbe(proxy,true);return;}
         }
         savedPingQueue=null;updateActions();
     }
@@ -1582,7 +1582,7 @@ public final class MainActivity extends ComponentActivity {
         }
     }
     private void startProxyProbe(ProxyEndpoint proxy, boolean latencyOnly) {
-        if(proxy!=null&&proxy.type==ProxyEndpoint.Type.OPENVPN){if(latencyOnly){gateDirectory.scan();}else{chooseProxy(proxy);connect();}return;}
+        if(proxy!=null&&proxy.type==ProxyEndpoint.Type.OPENVPN){if(latencyOnly){gateDirectory.scan(proxy.key());}else{chooseProxy(proxy);connect();}return;}
         if (!prepareSingleTest(proxy)) return;
         final SingleProxyTest test = new SingleProxyTest(); singleTest = test; testingProxy = proxy; testingLatency = latencyOnly;
         final ServiceTargets.Target target = SingleProxyTest.latencyTarget(proxy, filter);
