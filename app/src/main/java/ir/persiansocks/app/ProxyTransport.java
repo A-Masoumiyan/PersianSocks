@@ -14,6 +14,7 @@ public final class ProxyTransport {
     }
     public static Socket connect(Socket raw, ProxyEndpoint proxy, String host, int port, int timeout) throws IOException {
         DistributionPolicy.require(proxy);
+        if(proxy.type==ProxyEndpoint.Type.OPENVPN)throw new IOException("OpenVPN requires its native VPN session");
         if(port<1||port>65535||host.isEmpty()||host.length()>255||!host.matches("[a-zA-Z0-9._:-]+"))
             throw new IOException("Invalid tunnel destination");
         raw.setSoTimeout(timeout);

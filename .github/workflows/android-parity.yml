@@ -41,18 +41,18 @@ jobs:
       - name: Verify native input
         run: echo '15ec8ed121663b562c99caa5bb602d1009f24e5b09e733438b81988f12feaaab  app/libs/hev-socks5-tunnel.aar' | sha256sum -c -
       - name: Android unit tests and unsigned release
-        run: gradle --no-daemon :app:testPersonalDebugUnitTest :app:assemblePersonalDebug :app:assemblePersonalRelease -PofflineUnsigned=true -x :app:verifyReleaseInputs
+        run: gradle --no-daemon :app:testPersonalDebugUnitTest :app:assemblePersonalDebug :app:assemblePersonalRelease -PofflineUnsigned=true -PpreviewDir=/tmp/ui-preview -x :app:verifyReleaseInputs
       - name: Prepare unsigned artifact and signing tools
         run: |
           mkdir -p /tmp/android-build/sdk/build-tools/35.0.0/lib /tmp/android-build/sdk/build-tools/35.0.0/lib64
-          cp app/build/outputs/apk/personal/release/*unsigned.apk /tmp/android-build/PersianSocks-0.30.0-unsigned.apk
+          cp app/build/outputs/apk/personal/release/*unsigned.apk /tmp/android-build/PersianSocks-0.31.0-unsigned.apk
           cp app/build/outputs/apk/personal/debug/app-personal-debug.apk /tmp/android-build/native-fixture-debug.apk
           for name in apksigner aapt zipalign; do cp "$ANDROID_HOME/build-tools/35.0.0/$name" /tmp/android-build/sdk/build-tools/35.0.0/; done
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" /tmp/android-build/sdk/build-tools/35.0.0/lib/
           cp "$ANDROID_HOME/build-tools/35.0.0/lib64/"* /tmp/android-build/sdk/build-tools/35.0.0/lib64/
       - uses: actions/upload-artifact@v4
         with:
-          name: PersianSocks-Android-0.30.0-unsigned
+          name: PersianSocks-Android-0.31.0-unsigned
           path: /tmp/android-build/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
@@ -60,6 +60,7 @@ jobs:
         with:
           name: Android-unit-evidence
           path: |
+            /tmp/ui-preview/
             app/build/test-results/
             app/build/reports/tests/
   native:
@@ -68,7 +69,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: PersianSocks-Android-0.30.0-unsigned
+          name: PersianSocks-Android-0.31.0-unsigned
           path: /tmp/android-build
       - uses: android-actions/setup-android@v3
         with:

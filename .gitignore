@@ -16,3 +16,6 @@ __pycache__/
 signing/*
 !signing/PersianSocks-public.pem
 *.log
+# Native dependency fetched with a pinned SHA-256 by prepareOpenVpn.
+app/src/main/jniLibs/**/libopenvpnexec.so
+app/src/main/jniLibs/**/openvpn.download

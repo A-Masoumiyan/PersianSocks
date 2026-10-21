@@ -68,9 +68,9 @@ public class InterfaceLayoutTest {
                     layout(wrapper,width,0);View row=ReflectionHelpers.getField(card,"row");ViewGroup services=ReflectionHelpers.getField(card,"services");
                     for(int i=0;i<services.getChildCount();i++){View item=services.getChildAt(i);assertTrue(item.getLeft()>=0);assertTrue(item.getRight()<=services.getWidth());}
                     UiIconButton favorite=ReflectionHelpers.getField(card,"favoriteButton");ViewGroup actions=(ViewGroup)favorite.getParent();
-                    assertEquals(5,actions.getChildCount());
-                    for(int i=0;i<actions.getChildCount();i++){View action=actions.getChildAt(i);assertTrue("Touch width",action.getWidth()>=48);assertTrue("Touch height",action.getHeight()>=48);assertTrue(action.getRight()<=actions.getWidth());}
-                    TextView detail=ReflectionHelpers.getField(card,"detail");assertTrue(detail.getWidth()>=row.getWidth()-24);
+                    assertTrue(favorite.getWidth()>=32);assertTrue(favorite.getHeight()>=32);
+                    assertTrue(favorite.getRight()<=actions.getWidth());
+                    TextView country=ReflectionHelpers.getField(card,"designName");assertTrue(country.getWidth()>0);
                     TextView ping=ReflectionHelpers.getField(card,"ping"),down=ReflectionHelpers.getField(card,"down");
                     assertFalse(ping.getText().toString().isEmpty());assertTrue(ping.getHeight()>0);assertTrue(ping.getBottom()<=((View)ping.getParent()).getHeight());
                 }

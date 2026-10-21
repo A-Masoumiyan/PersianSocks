@@ -7,7 +7,7 @@ import org.json.JSONArray;
 
 /** Published IPv4 endpoints; manually supplied TLS proxy hostnames are also supported. */
 public final class ProxyEndpoint {
-    public enum Type { SOCKS5(1), HTTP(2), HTTPS(4); public final int bit; Type(int bit){this.bit=bit;} }
+    public enum Type { SOCKS5(1), HTTP(2), HTTPS(4), OPENVPN(8); public final int bit; Type(int bit){this.bit=bit;} }
     public final Type type;
     public final String host;
     public final int port;
@@ -136,6 +136,7 @@ public final class ProxyEndpoint {
         if (s.startsWith("socks5://")) s = s.substring(9);
         else if(s.startsWith("http://")){type=Type.HTTP;s=s.substring(7);}
         else if(s.startsWith("https://")){type=Type.HTTPS;s=s.substring(8);}
+        else if(s.startsWith("openvpn://")){type=Type.OPENVPN;s=s.substring(10);}
         String[] pair = s.split(":", -1);
         if (pair.length != 2) return null;
         String[] pieces = pair[0].split("\\.", -1);

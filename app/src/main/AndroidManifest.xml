@@ -10,7 +10,7 @@
     <!-- Per-app VPN routing includes installed apps without launcher activities. Play release retains its explicit approval gate. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <application android:name=".PersianSocksApp" android:label="PersianSocks" android:icon="@drawable/ic_launcher" android:roundIcon="@drawable/ic_launcher" android:allowBackup="false"
+    <application android:name=".PersianSocksApp" android:label="PersianSocks" android:icon="@drawable/ic_launcher" android:roundIcon="@drawable/ic_launcher" android:allowBackup="false" android:extractNativeLibs="true"
         android:supportsRtl="true" android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme" >
         <meta-data android:name="ir.persiansocks.app.ENCRYPTED_ONLY" android:value="${playDistribution}" />

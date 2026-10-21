@@ -1,0 +1,27 @@
+{
+  "release": "v2.7.8-1",
+  "source": "https://github.com/gxosty/openvpn-android-prebuilt/tree/v2.7.8-1",
+  "upstream": "https://github.com/OpenVPN/openvpn/tree/v2.7.8",
+  "files": [
+    {
+      "abi": "arm64-v8a",
+      "url": "https://github.com/gxosty/openvpn-android-prebuilt/releases/download/v2.7.8-1/libopenvpnexec-arm64-v8a-static-deps.so",
+      "sha256": "92bc477542500199158c3762b38947a8d3e9bb3e27a0ee222d8f86b4b28cf1d7"
+    },
+    {
+      "abi": "armeabi-v7a",
+      "url": "https://github.com/gxosty/openvpn-android-prebuilt/releases/download/v2.7.8-1/libopenvpnexec-armeabi-v7a-static-deps.so",
+      "sha256": "dd45c5f9119f9d6a4f5422f6008bbb0bcd959bd922b4255213bdbd177248edcf"
+    },
+    {
+      "abi": "x86",
+      "url": "https://github.com/gxosty/openvpn-android-prebuilt/releases/download/v2.7.8-1/libopenvpnexec-x86-static-deps.so",
+      "sha256": "dd296c2983b014e4caa68d234af169c330d3e594a74e1ed3d07a1fa3ab538390"
+    },
+    {
+      "abi": "x86_64",
+      "url": "https://github.com/gxosty/openvpn-android-prebuilt/releases/download/v2.7.8-1/libopenvpnexec-x86_64-static-deps.so",
+      "sha256": "3c9db580357f5b6e37bd63451d5e6084510ccbb3f77e6765c7e4d048ca49b508"
+    }
+  ]
+}

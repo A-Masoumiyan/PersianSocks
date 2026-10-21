@@ -86,6 +86,10 @@ public final class ProxyVpnService extends VpnService {
     private int commandStartId;private boolean destroying;
     private String current = "";
     private ProtectedSocksGateway gateway;
+    private OpenVpnSession gateSession;
+    private OpenVpnSession.TunConfig gateTunConfig;
+    private final java.util.List<ParcelFileDescriptor> retiredTuns=new java.util.ArrayList<>();
+    private String tunKind="socks";private long gateReceived,gateSent;private boolean gateVerifying;
     private AtomicBoolean cancelled = new AtomicBoolean(true);
     private final Set<Socket> probeSockets = ConcurrentHashMap.newKeySet();
     private String verifiedServices = "";
@@ -293,6 +297,7 @@ public final class ProxyVpnService extends VpnService {
     private long qualityStarted;private String qualityScope="other",qualityKey="";
     private void finishQuality(boolean failure){if(qualityStarted!=0){QualityHistory.session(qualityScope,qualityKey,Math.max(0,android.os.SystemClock.elapsedRealtime()-qualityStarted),failure);qualityStarted=0;qualityKey="";}}
     private void beginConnect(ProxyEndpoint proxy) {
+        if(proxy.type==ProxyEndpoint.Type.OPENVPN){beginGateConnection(proxy);return;}
         if(!DistributionPolicy.allows(proxy)){finishConnection(AppLanguage.t(R.string.ui_extra_032));return;}
         // Automatic retries keep the last error visible until success or a new user request.
         closeTunnel();
@@ -349,7 +354,47 @@ public final class ProxyVpnService extends VpnService {
         if(path!=null)b.setUnderlyingNetworks(new Network[]{path.network()});
         SplitTunnelSettings.apply(this,b);
         ParcelFileDescriptor next=b.establish();if(next==null)throw new java.io.IOException("VPN permission not available");
-        ParcelFileDescriptor old=tun;tun=next;if(old!=null)old.close();
+        ParcelFileDescriptor old=tun;tun=next;tunKind="socks";if(old!=null)retiredTuns.add(old);retireOldTuns(0);
+    }
+    private void retireOldTuns(int attempt){
+        if(tun==null||retiredTuns.isEmpty())return;final ParcelFileDescriptor currentTun=tun;
+        String name=TunLinkInfo.name(currentTun);boolean ready=false;ConnectivityManager manager=getSystemService(ConnectivityManager.class);
+        if(!name.isEmpty())for(Network network:manager.getAllNetworks()){NetworkCapabilities caps=manager.getNetworkCapabilities(network);android.net.LinkProperties links=manager.getLinkProperties(network);if(caps!=null&&caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)&&links!=null&&name.equals(links.getInterfaceName()))ready=true;}
+        if(ready){for(ParcelFileDescriptor old:retiredTuns)try{old.close();}catch(Exception ignored){}retiredTuns.clear();}
+        else if(attempt<30)handler.postDelayed(()->{if(tun==currentTun)retireOldTuns(attempt+1);},200);
+    }
+    private void stopGateSession(){if(gateSession!=null){OpenVpnSession session=gateSession;gateSession=null;session.close();}gateVerifying=false;}
+    private void beginGateConnection(ProxyEndpoint proxy){
+        if(AndroidRoutes.mode(this).equals("domains")){finishConnection(AppLanguage.t(R.string.ui_032_gate_scope));return;}
+        closeTunnel();resetTrafficSession();final int token=++generation;cancelled=new AtomicBoolean(false);current=proxy.key();lastProfile=proxy;gateVerifying=false;gateReceived=gateSent=0;updatePhase(CONNECTING);
+        try{ensureChannel();Notification n=notification("VPN Gate • OpenVPN");if(Build.VERSION.SDK_INT>=34)startForeground(ID,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);else startForeground(ID,n);armGuard();}
+        catch(Exception error){finishConnection(error.getMessage());return;}
+        announce(AppLanguage.t(R.string.ui_032_gate_connecting));
+        new Thread(()->{
+            try{VpnGateStore store=new VpnGateStore(getFilesDir());store.load();VpnGateProfile profile=store.get(proxy.key());if(profile==null)throw new java.io.IOException(AppLanguage.t(R.string.ui_032_gate_refresh));PhysicalTestNetwork path=PhysicalTestNetwork.capture(this);
+                handler.post(()->{if(token!=generation||cancelled.get())return;tunnelPhysical=path;if(networkMonitor!=null)networkMonitor.activate(path.network());trafficMeter.beginEngine(System.nanoTime());
+                    gateSession=new OpenVpnSession(this,profile,new OpenVpnSession.Listener(){
+                        public boolean protect(java.io.FileDescriptor fd)throws Exception{if(token!=generation||cancelled.get()||!path.valid())return false;try(ParcelFileDescriptor copy=ParcelFileDescriptor.dup(fd)){if(!ProxyVpnService.this.protect(copy.getFd()))return false;}path.network().bindSocket(fd);return true;}
+                        public ParcelFileDescriptor openTun(OpenVpnSession.TunConfig config)throws Exception{java.util.concurrent.FutureTask<ParcelFileDescriptor> task=new java.util.concurrent.FutureTask<>(()->{if(token!=generation||cancelled.get())throw new java.io.IOException("Cancelled");return openGateTun(path,config);});handler.post(task);return task.get(8,java.util.concurrent.TimeUnit.SECONDS);}
+                        public void connected(){handler.post(()->{if(token!=generation||cancelled.get()||gateVerifying)return;gateVerifying=true;verifyNetwork(token,0);});}
+                        public void reconnecting(){handler.post(()->{if(token!=generation||cancelled.get())return;gateVerifying=false;updatePhase(CONNECTING);announce(AppLanguage.t(R.string.ui_032_gate_reconnecting));});}
+                        public void failed(String message){handler.post(()->{if(token!=generation||cancelled.get())return;saveVpnReport(message);failConnection(message);});}
+                        public void bytes(long received,long sent){handler.post(()->{if(token!=generation||cancelled.get())return;gateReceived=received;gateSent=sent;sampleTraffic(true);});}
+                    });gateSession.start();
+                });
+            }catch(Exception error){handler.post(()->{if(token==generation)finishConnection(error.getMessage());});}
+        },"vpngate-prepare").start();
+    }
+    private ParcelFileDescriptor openGateTun(PhysicalTestNetwork path,OpenVpnSession.TunConfig config)throws Exception{
+        if(config.ipv4.isEmpty())throw new java.io.IOException("VPN Gate did not assign an IPv4 address");
+        String signature=config.ipv4+"|"+config.ipv6+"|"+config.mtu+"|"+config.dns;
+        String previous=gateTunConfig==null?"":gateTunConfig.ipv4+"|"+gateTunConfig.ipv6+"|"+gateTunConfig.mtu+"|"+gateTunConfig.dns;
+        if(tun!=null&&tunKind.equals("openvpn")&&signature.equals(previous)){setUnderlyingNetworks(new Network[]{path.network()});return ParcelFileDescriptor.dup(tun.getFileDescriptor());}
+        if(retiredTuns.size()>=8)throw new java.io.IOException("VPN routing is still settling; try again shortly");
+        Builder builder=new Builder().setSession("PersianSocks • VPN Gate").setBlocking(false).setMtu(config.mtu).addAddress(config.ipv4,32).addRoute("0.0.0.0",0).addRoute("::",0).setUnderlyingNetworks(new Network[]{path.network()});
+        if(config.ipv6.isEmpty())builder.addAddress("fd00:1:fd00:1::2",64);else{String[] address=config.ipv6.split("/");builder.addAddress(address[0],address.length>1?Integer.parseInt(address[1]):128);}
+        if(config.dns.isEmpty()){builder.addDnsServer("9.9.9.9");builder.addDnsServer("1.1.1.1");}else for(String dns:config.dns)builder.addDnsServer(dns);
+        SplitTunnelSettings.apply(this,builder);ParcelFileDescriptor next=builder.establish();if(next==null)throw new java.io.IOException("VPN permission unavailable");ParcelFileDescriptor previousTun=tun;tun=next;tunKind="openvpn";gateTunConfig=config;if(previousTun!=null)retiredTuns.add(previousTun);retireOldTuns(0);return ParcelFileDescriptor.dup(tun.getFileDescriptor());
     }
     private void armGuard()throws Exception {if(AndroidRoutes.kill(this)&&tun==null)replaceTun(null);}
     private void openTunnel(ProxyEndpoint proxy, int thisGeneration) {
@@ -368,7 +413,7 @@ public final class ProxyVpnService extends VpnService {
             // The guard already owns the routes for this scope. Replacing its
             // interface here creates an unnecessary Android network handover.
             // Scope changes explicitly rebuild it in RECONFIGURE instead.
-            if(tun==null)replaceTun(path);
+            if(tun==null||!tunKind.equals("socks"))replaceTun(path);
             else if(!setUnderlyingNetworks(new Network[]{path.network()}))
                 throw new java.io.IOException("Unable to update VPN underlying network");
             String yaml = "tunnel:\n" +
@@ -434,7 +479,8 @@ public final class ProxyVpnService extends VpnService {
         ConnectivityManager manager = getSystemService(ConnectivityManager.class);
         Network network = manager.getActiveNetwork();
         NetworkCapabilities caps = network == null ? null : manager.getNetworkCapabilities(network);
-        if (caps == null || !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+        String expectedInterface=tun==null?"":TunLinkInfo.name(tun);android.net.LinkProperties links=network==null?null:manager.getLinkProperties(network);
+        if (caps == null || !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)||(gateSession!=null&&!expectedInterface.isEmpty()&&(links==null||!expectedInterface.equals(links.getInterfaceName())))) {
             if (attempt < 24) handler.postDelayed(() -> verifyNetwork(token, attempt + 1), 250);
             else {
                 saveVpnReport(AppLanguage.t(R.string.ui_extra_052));
@@ -448,7 +494,7 @@ public final class ProxyVpnService extends VpnService {
         new Thread(() -> {
             TunnelVerifier.Result result = TunnelVerifier.check(new TunnelVerifier.Transport() {
                 public Socket create() throws Exception { return network.getSocketFactory().createSocket(); }
-                public InetAddress[] resolve(String host) throws Exception { return VpnMappedDns.resolve(network,host); }
+                public InetAddress[] resolve(String host) throws Exception { return gateSession!=null?network.getAllByName(host):VpnMappedDns.resolve(network,host); }
             }, stop, probeSockets,verificationTargets,false,"ALL".equals(verificationFilter));
             handler.post(() -> {
                 if (token != generation || stop.get()) return;
@@ -479,6 +525,7 @@ public final class ProxyVpnService extends VpnService {
     }
     private void sampleTraffic(boolean notify){
         if(tun==null)return;
+        if(gateSession!=null){trafficSnapshot=trafficMeter.sample(gateReceived,gateSent,System.nanoTime());publishTraffic();long now=android.os.SystemClock.elapsedRealtime();if(now-lastTrafficSave>=10000){persistTraffic();lastTrafficSave=now;}if(notify&&phase==CONNECTED)getSystemService(NotificationManager.class).notify(ID,notification("VPN Gate • "+current));return;}
         try{
             long[] s=TProxyService.TProxyGetStats();
             // JNI indexes: tx bytes at 1 (read from TUN), rx bytes at 3 (written to TUN).
@@ -495,6 +542,7 @@ public final class ProxyVpnService extends VpnService {
     }
     private void publishTraffic(){sendBroadcast(new Intent(STATE).setPackage(getPackageName()).putExtra("traffic-only",true),INTERNAL_PERMISSION);}
     private void saveVpnReport(String report) {
+        if(gateSession!=null)report+="\n"+gateSession.report();
         if(gateway!=null)report+="\nRelay sessions: "+gateway.activeConnections()+"/"+ProtectedSocksGateway.MAX_CONNECTIONS+
             "; local capacity rejections: "+gateway.capacityRejections()+"; last relay error: "+gateway.lastError()+"\n";
         if (recoveryLog.length() > 0) report += AppLanguage.t(R.string.ui_extra_060) + recoveryLog;
@@ -577,7 +625,7 @@ public final class ProxyVpnService extends VpnService {
         if(!userRequested)return;
         if(!autoSwitch()){finishConnection(AppLanguage.t(R.string.ui_extra_070));return;}
         waitingForPhysical=true;
-        cancelled.set(true);
+        cancelled.set(true);stopGateSession();
         for (Socket socket : probeSockets) try { socket.close(); } catch (Exception ignored) {}
         handler.removeCallbacksAndMessages(null);
         if(gateway!=null){gateway.close();gateway=null;}
@@ -626,7 +674,7 @@ public final class ProxyVpnService extends VpnService {
             new Thread(() -> {
                 TunnelVerifier.Result result = TunnelVerifier.check(new TunnelVerifier.Transport() {
                     public Socket create() throws Exception { return network.getSocketFactory().createSocket(); }
-                    public InetAddress[] resolve(String host) throws Exception { return VpnMappedDns.resolve(network,host); }
+                    public InetAddress[] resolve(String host) throws Exception { return gateSession!=null?network.getAllByName(host):VpnMappedDns.resolve(network,host); }
                 }, stop, probeSockets, targets, true, healthFilter.equals("ALL"));
                 handler.post(() -> {
                     if (token != generation || stop.get() || !userRequested) return;
@@ -653,7 +701,7 @@ public final class ProxyVpnService extends VpnService {
         }
         autoScanning=false;
         autoCheckpoint=null;
-        cancelled.set(true);
+        cancelled.set(true);stopGateSession();
         Socks5Probe.setSocketMaker(null);Socks5Probe.setResolver(null);
         verifiedServices = "";
         for (Socket s : probeSockets) { try { s.close(); } catch (Exception ignored) {} }probeSockets.clear();
@@ -663,6 +711,7 @@ public final class ProxyVpnService extends VpnService {
         new File(getFilesDir(), "active-tunnel.yml").delete();
         boolean keep=AndroidRoutes.kill(this)&&!destroying&&VpnService.prepare(this)==null;
         if (!keep && tun != null) { try { tun.close(); } catch (Exception ignored) {} tun = null; }
+        if(!keep){for(ParcelFileDescriptor old:retiredTuns)try{old.close();}catch(Exception ignored){}retiredTuns.clear();gateTunConfig=null;tunKind="socks";}else retireOldTuns(0);
         current = "";
         if(tun==null)try { stopForeground(STOP_FOREGROUND_REMOVE); } catch (Exception ignored) {}
         else try{getSystemService(NotificationManager.class).notify(ID,notification("کیل‌سوییچ فعال؛ مسیرهای VPN تا اتصال مسدودند"));}catch(Exception ignored){}
