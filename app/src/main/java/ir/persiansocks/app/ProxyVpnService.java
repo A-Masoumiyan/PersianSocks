@@ -374,8 +374,9 @@ public final class ProxyVpnService extends VpnService {
         new Thread(()->{
             try{VpnGateStore store=new VpnGateStore(getFilesDir());store.load();VpnGateProfile profile=store.get(proxy.key());if(profile==null)throw new java.io.IOException(AppLanguage.t(R.string.ui_032_gate_refresh));PhysicalTestNetwork path=PhysicalTestNetwork.capture(this);
                 handler.post(()->{if(token!=generation||cancelled.get())return;tunnelPhysical=path;if(networkMonitor!=null)networkMonitor.activate(path.network());trafficMeter.beginEngine(System.nanoTime());
+                    NativeSocketProtector upstream=new NativeSocketProtector(this,path);
                     gateSession=new OpenVpnSession(this,profile,new OpenVpnSession.Listener(){
-                        public boolean protect(java.io.FileDescriptor fd)throws Exception{if(token!=generation||cancelled.get()||!path.valid())return false;try(ParcelFileDescriptor copy=ParcelFileDescriptor.dup(fd)){if(!ProxyVpnService.this.protect(copy.getFd()))return false;}path.network().bindSocket(fd);return true;}
+                        public boolean protect(java.io.FileDescriptor fd)throws Exception{if(token!=generation||cancelled.get()||!path.valid())return false;return upstream.protect(fd);}
                         public ParcelFileDescriptor openTun(OpenVpnSession.TunConfig config)throws Exception{java.util.concurrent.FutureTask<ParcelFileDescriptor> task=new java.util.concurrent.FutureTask<>(()->{if(token!=generation||cancelled.get())throw new java.io.IOException("Cancelled");return openGateTun(path,config);});handler.post(task);return task.get(8,java.util.concurrent.TimeUnit.SECONDS);}
                         public void connected(){handler.post(()->{if(token!=generation||cancelled.get()||gateVerifying)return;gateVerifying=true;verifyNetwork(token,0);});}
                         public void reconnecting(){handler.post(()->{if(token!=generation||cancelled.get())return;gateVerifying=false;updatePhase(CONNECTING);announce(AppLanguage.t(R.string.ui_032_gate_reconnecting));});}
