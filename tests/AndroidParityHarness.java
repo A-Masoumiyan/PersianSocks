@@ -22,6 +22,16 @@ public final class AndroidParityHarness {
     try(Socket s=client(g)){s.getOutputStream().write(new byte[]{5,1,0,1,127,0,0,1,(byte)(origin.getLocalPort()>>8),(byte)origin.getLocalPort()});check(s.getInputStream().read()==-1,"unknown IP does not bypass domain rule");}
    }
   }
+  try(DatagramSocket origin=new DatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(),0))){
+   origin.setSoTimeout(1500);AtomicInteger packets=new AtomicInteger();
+   Thread echo=new Thread(()->{byte[] b=new byte[512];while(!origin.isClosed())try{DatagramPacket p=new DatagramPacket(b,b.length);origin.receive(p);packets.incrementAndGet();origin.send(p);}catch(SocketTimeoutException ignored){}catch(Exception e){break;}});echo.setDaemon(true);echo.start();
+   ProtectedSocksGateway.Protector protector=new ProtectedSocksGateway.Protector(){public boolean tcp(Socket s){return true;}public boolean udp(DatagramSocket s){return true;}public InetAddress resolve(String h)throws Exception{return InetAddress.getLoopbackAddress();}};
+   try(ProtectedSocksGateway g=new ProtectedSocksGateway(ProxyEndpoint.parse("127.0.0.1:1"),protector,10000,route);Socket control=client(g);DatagramSocket udp=new DatagramSocket()){
+    control.getOutputStream().write(request(3,"direct.test",1));byte[] reply=control.getInputStream().readNBytes(10);check(reply.length==10&&reply[1]==0,"restricted UDP association");int port=((reply[8]&255)<<8)|(reply[9]&255);udp.setSoTimeout(1000);
+    byte[] frame=request(1,"direct.test",origin.getLocalPort());frame[0]=frame[1]=0;byte[] send=Arrays.copyOf(frame,frame.length+4);System.arraycopy(new byte[]{1,2,3,4},0,send,frame.length,4);udp.send(new DatagramPacket(send,send.length,InetAddress.getLoopbackAddress(),port));DatagramPacket back=new DatagramPacket(new byte[512],512);udp.receive(back);check(back.getLength()==send.length&&back.getData()[back.getLength()-1]==4&&packets.get()==1,"named unrelated UDP direct round trip");
+    frame=request(1,"selected.test",origin.getLocalPort());frame[0]=frame[1]=0;udp.send(new DatagramPacket(frame,frame.length,InetAddress.getLoopbackAddress(),port));try{udp.receive(back);throw new AssertionError("selected UDP escaped");}catch(SocketTimeoutException expected){}check(packets.get()==1,"selected UDP never reaches direct origin");
+   }
+  }
   CountryLookup.initialize(new FileInputStream(args[0]));
   ProxyScanner.Source json=new ProxyScanner.Source("IR","https://example.org/list.json","",ProxyEndpoint.Type.HTTP,ProxyScanner.Source.Format.JSON,"IR");
   List<ProxyEndpoint> rows=SourceDocuments.readJson(new ByteArrayInputStream("[{\"host\":\"212.33.201.143\",\"port\":80,\"protocol\":\"http\"},{\"proxy\":\"8.8.8.8:1080\",\"protocol\":\"socks5\",\"country\":\"IR\"}]".getBytes(StandardCharsets.UTF_8)),json);
