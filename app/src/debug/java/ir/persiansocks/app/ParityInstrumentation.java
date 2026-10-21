@@ -43,6 +43,7 @@ public final class ParityInstrumentation extends Instrumentation {
   c.getSharedPreferences("persiansocks",0).edit().putBoolean("kill-switch-off",true).commit();runOnMainSync(()->c.startService(new Intent(c,ProxyVpnService.class).setAction(ProxyVpnService.RELEASE_GUARD)));
   stage="release guard";waitFor(()->!ProxyVpnService.guardActive());waitFor(this::physical);
   stage="OpenVPN local TLS/management";runOnMainSync(()->c.startForegroundService(new Intent(c,GateFixtureService.class).setAction("START")));waitFor(()->{lastSocketError=GateFixtureService.failure;return GateFixtureService.state.equals("CONNECTED")||GateFixtureService.state.equals("FAILED");});check(GateFixtureService.state.equals("CONNECTED"),"OpenVPN handshake failed: "+GateFixtureService.failure);check(GateFixtureService.protectedSockets>0,"OpenVPN upstream FD was not protected");
+  stage="OpenVPN default route";waitFor(()->{Network n=manager.getActiveNetwork();NetworkCapabilities caps=n==null?null:manager.getNetworkCapabilities(n);return caps!=null&&caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);});
   stage="OpenVPN HTTP roundtrip";waitFor(()->gatePeer());
   runOnMainSync(()->c.startService(new Intent(c,GateFixtureService.class).setAction("STOP")));stage="OpenVPN retained guard";waitFor(()->GateFixtureService.state.equals("GUARD"));Thread.sleep(400);check(!gatePeer()&&!physical(),"OpenVPN stop leaked physical traffic");
   runOnMainSync(()->c.startService(new Intent(c,GateFixtureService.class).setAction("OFF")));stage="OpenVPN OFF";waitFor(this::physical);
