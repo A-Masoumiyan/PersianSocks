@@ -8,7 +8,7 @@ import java.io.*;
 public final class PersianSocksApp extends Application implements androidx.work.Configuration.Provider {
     @androidx.annotation.NonNull @Override public androidx.work.Configuration getWorkManagerConfiguration(){return new androidx.work.Configuration.Builder().build();}
     @Override public void onCreate(){
-        super.onCreate();PreparedScanner.resources(new DeviceScanResources(this));AppLanguage.initialize(this);AppHttp.initialize(this);QualityHistory.initialize(this);SourceQuality.initialize(this);ProxyResults.quality(QualityHistory::score);
+        super.onCreate();PreparedScanner.resources(new DeviceScanResources(this));AppLanguage.initialize(this);AppHttp.initialize(this);new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->QualityHistory.initialize(this),750);SourceQuality.initialize(this);ProxyResults.quality(QualityHistory::score);
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->ProxyStore.IO.execute(()->{try{ProxyMaintenance.schedule(this);}catch(Exception ex){android.util.Log.e("PersianSocks","Maintenance scheduling deferred",ex);}}),1000);
         Thread.UncaughtExceptionHandler original=Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread,error)->{

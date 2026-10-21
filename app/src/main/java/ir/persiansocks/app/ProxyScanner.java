@@ -15,15 +15,18 @@ public final class ProxyScanner {
     private static volatile HttpFactory http=url->(HttpURLConnection)url.openConnection();
     public static void httpFactory(HttpFactory factory){http=factory;}
     public static final class Source {
-        public enum Format { TEXT, HPROXY_QUALITY }
-        public final String name, url, mirror;
+        public enum Format { TEXT, HPROXY_QUALITY, JSON }
+        public final String name, url, mirror, country;
         public final ProxyEndpoint.Type type;
         public final Format format;
         public Source(String name, String url, String mirror) { this(name,url,mirror,ProxyEndpoint.Type.SOCKS5); }
         public Source(String name,String url,String mirror,ProxyEndpoint.Type type){this(name,url,mirror,type,Format.TEXT);}
         public Source(String name,String url,String mirror,ProxyEndpoint.Type type,Format format){
+            this(name,url,mirror,type,format,"");
+        }
+        public Source(String name,String url,String mirror,ProxyEndpoint.Type type,Format format,String country){
             if(format==Format.HPROXY_QUALITY&&type!=ProxyEndpoint.Type.SOCKS5)throw new IllegalArgumentException("HProxy quality source requires SOCKS5");
-            this.name=name;this.url=url;this.mirror=mirror;this.type=type;this.format=format;
+            this.name=name;this.url=url;this.mirror=mirror;this.type=type;this.format=format;this.country=country;
         }
     }
     public static final class Options {
@@ -91,7 +94,7 @@ public final class ProxyScanner {
                     DownloadResult result = future.get(); if(!session.cancelled.get())sourceObserver.fetched(urls.get(result.index),result.endpoints,duplicateCount(result.endpoints)); i++; lists.set(result.index, result.endpoints); reports.set(result.index, result.report);preferred.set(result.index,result.preferred);
                     listener.onProgress("دریافت منابع: " + i + " از " + urls.size());
                 }
-                if (!session.cancelled.get()) listener.onFinished(mergeCandidates(own,lists,seeds,Integer.MAX_VALUE), String.join("\n", reports));
+                if (!session.cancelled.get()) listener.onFinished(SourceDocuments.iranFirst(mergeCandidates(own,lists,seeds,Integer.MAX_VALUE)), String.join("\n", reports));
             } catch (InterruptedException ex) { Thread.currentThread().interrupt(); }
             catch (Exception ex) { if (!session.cancelled.get()) listener.onFailed("دریافت لیست ناموفق: " + ex.getMessage()); }
             finally {
@@ -140,7 +143,7 @@ public final class ProxyScanner {
         Matcher matcher=ENDPOINT.matcher(text);
         while(unique.size()<cap && matcher.find()) {
             ProxyEndpoint e=ProxyEndpoint.parse(matcher.group(1)+":"+matcher.group(2));
-            if(e!=null)e=e.withType(type);
+            if(e!=null){ProxyEndpoint.Type explicit=SourceDocuments.scheme(text,matcher.start(1),type);if(explicit==null)continue;e=e.withType(explicit);}
             if(e!=null && (!publicOnly || e.isPublicIpv4())&&unique.putIfAbsent(e.key(),e)!=null)duplicates++;
         }
         return new ParsedList(unique.values(),duplicates);
@@ -281,13 +284,13 @@ public final class ProxyScanner {
                 HProxySource.Result result=HProxySource.fetch(s.url,System.currentTimeMillis(),session.cancelled,()->downloadMetadata(s.url,session));
                 return new DownloadResult(index,result.endpoints,s.name+": "+result.endpoints.size()+" نامزد؛ آخرین تست منبع حداکثر "+result.windowMinutes+" دقیقه؛ ردشده: "+result.rejected+(result.cached?" (حافظهٔ موقت، تازگی دوباره بررسی شد)":"")+"؛ تأیید اتصال پس از اسکن",true);
             }
-            List<ProxyEndpoint> list=download(s.url,session,s.type);
+            List<ProxyEndpoint> list=download(s.url,session,s);
             if(!list.isEmpty()) return new DownloadResult(index,list,s.name+": "+list.size()+" آدرس");
             primary="بدون آدرس معتبر";
         } catch(Exception ex) { primary=ex.getMessage()==null?ex.getClass().getSimpleName():ex.getMessage(); }
         if(!session.cancelled.get() && s.mirror!=null && !s.mirror.isEmpty()) {
             try {
-                List<ProxyEndpoint> list=download(s.mirror,session,s.type);
+                List<ProxyEndpoint> list=download(s.mirror,session,s);
                 if(!list.isEmpty()) return new DownloadResult(index,list,s.name+": "+list.size()+" آدرس (مسیر جایگزین)");
                 primary+="؛ مسیر جایگزین: بدون آدرس";
             } catch(Exception ex) { primary+="؛ مسیر جایگزین: "+ex.getClass().getSimpleName(); }
@@ -319,7 +322,8 @@ public final class ProxyScanner {
             return new String(body.toByteArray(),StandardCharsets.UTF_8);
         }finally{deadline.cancel(false);c.disconnect();session.downloads.remove(c);}
     }
-    private static List<ProxyEndpoint> download(String url,ScanSession session,ProxyEndpoint.Type type) throws Exception {
+    private static List<ProxyEndpoint> download(String url,ScanSession session,Source source) throws Exception {
+        ProxyEndpoint.Type type=source.type;
         if(session.cancelled.get()) return Collections.emptyList();
         HttpURLConnection c=http.open(new URL(url));
         session.downloads.add(c);
@@ -329,9 +333,12 @@ public final class ProxyScanner {
         c.setInstanceFollowRedirects(true);
         try {
             int code=c.getResponseCode(); if(code!=200) throw new IOException("HTTP "+code);
+            if(source.format==Source.Format.JSON){
+                try(InputStream input=c.getInputStream()){return SourceDocuments.readJson(input,source);}
+            }
             if(session.options.scanAll){
                 try(Reader reader=new InputStreamReader(c.getInputStream(),StandardCharsets.UTF_8)){
-                    return parseStream(reader,true,Integer.MAX_VALUE,session.cancelled,type);
+                    return SourceDocuments.country(parseStream(reader,true,MAX_TESTS,session.cancelled,type),source.country);
                 }
             }
             ByteArrayOutputStream buffer=new ByteArrayOutputStream();
@@ -340,7 +347,7 @@ public final class ProxyScanner {
                 while(!session.cancelled.get() && buffer.size()<1500000 && (count=in.read(chunk))!=-1)
                     buffer.write(chunk,0,Math.min(count,1500000-buffer.size()));
             }
-            return parseList(new String(buffer.toByteArray(),StandardCharsets.UTF_8),true,MAX_TESTS,type);
+            return SourceDocuments.country(parseList(new String(buffer.toByteArray(),StandardCharsets.UTF_8),true,MAX_TESTS,type),source.country);
         } finally { deadline.cancel(false); c.disconnect(); session.downloads.remove(c); }
     }
     private static String report(List<String> rows,int done,int total,int tcp,int socks,int healthy,

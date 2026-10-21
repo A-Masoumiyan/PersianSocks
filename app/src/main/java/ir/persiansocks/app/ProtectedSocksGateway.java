@@ -16,6 +16,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         InetAddress resolve(String host) throws Exception;
     }
     private final ProxyEndpoint proxy;
+    private final DomainRoutes routes;
     private final Protector protector;
     private final ServerSocket listener;
     private final String username = token(), password = token();
@@ -43,11 +44,15 @@ public final class ProtectedSocksGateway implements AutoCloseable {
     private final Thread acceptThread;
 
     public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector)throws IOException {
-        this(proxy,protector,TCP_IDLE_MILLIS);
+        this(proxy,protector,TCP_IDLE_MILLIS,new DomainRoutes(Collections.emptyList()));
     }
     /** Alternate idle budget supports real socket fixtures without changing production timers. */
     public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector,int idleMillis)throws IOException {
+        this(proxy,protector,idleMillis,new DomainRoutes(Collections.emptyList()));
+    }
+    public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector,int idleMillis,DomainRoutes routes)throws IOException {
         DistributionPolicy.require(proxy);
+        this.routes=routes;
         if(idleMillis<100)throw new IllegalArgumentException("Idle budget too short");
         idleNanos=TimeUnit.MILLISECONDS.toNanos(idleMillis);
         this.proxy=proxy;this.protector=protector;
@@ -103,13 +108,17 @@ public final class ProtectedSocksGateway implements AutoCloseable {
             co.write(new byte[]{1,(byte)(valid?0:1)});co.flush();
             if(!valid)return;
             Packet request=packet(ci);
-            if(request.code!=1&&request.code!=3 || request.code==3&&proxy.type!=ProxyEndpoint.Type.SOCKS5){
+            if(request.code!=1&&request.code!=3 || request.code==3&&proxy.type!=ProxyEndpoint.Type.SOCKS5&&!routes.restricted){
                 co.write(new byte[]{5,7,0,1,0,0,0,0,0,0});co.flush();return;
             }
+            if(request.code==3&&routes.restricted){relayDirectUdp(c,co);return;}
+            String target=request.type==3?request.domain:request.address().getHostAddress();
+            if(routes.unknownAddress(target))throw new IOException("Unclassified IP blocked by domain routing");
+            boolean proxied=routes.proxy(target);
             Socket raw=new Socket();c.add(raw);
             raw.bind(new InetSocketAddress(0));
             if(c.ended.get()||stopped.get()||!protector.tcp(raw))throw new IOException("Physical TCP protection failed");
-            raw.connect(new InetSocketAddress(protector.resolve(proxy.host),proxy.port),10000);
+            raw.connect(new InetSocketAddress(protector.resolve(proxied?proxy.host:target),proxied?proxy.port:request.port),10000);
             raw.setSoTimeout(10000);raw.setTcpNoDelay(true);
             final Socket remote;
             if(request.code==3){
@@ -122,7 +131,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
                 relayUdp(c,raw,reply,co);return;
             }
             String destination=request.type==3?request.domain:request.address().getHostAddress();
-            remote=ProxyTransport.connect(raw,proxy,destination,request.port,10000);c.add(remote);
+            remote=proxied?ProxyTransport.connect(raw,proxy,destination,request.port,10000):raw;c.add(remote);
             co.write(new byte[]{5,0,0,1,0,0,0,0,0,0});co.flush();
             // A silent upload direction must not kill an active download (or vice versa).
             // The shared watchdog also closes stuck writes; EOF still half-closes the peer.
@@ -180,6 +189,26 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         c.client.setSoTimeout(0);
         // The SOCKS association exists only while the native client's control connection exists.
         while(c.client.getInputStream().read()!=-1){}
+    }
+    // Restricted profiles reject selected UDP (QUIC retries TCP) and unknown-IP
+    // UDP. Named unrelated UDP uses protected direct sockets, never the upstream.
+    private void relayDirectUdp(Connection c,OutputStream response)throws Exception {
+        DatagramSocket local=new DatagramSocket(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),0));c.add(local);
+        local.setSoTimeout(1500);int port=local.getLocalPort();response.write(new byte[]{5,0,0,1,127,0,0,1,(byte)(port>>8),(byte)port});response.flush();
+        Map<String,DatagramSocket> flows=new ConcurrentHashMap<>();AtomicReference<SocketAddress> peer=new AtomicReference<>();
+        pool.execute(()->{byte[] bytes=new byte[65535];while(!c.ended.get())try{
+            DatagramPacket in=new DatagramPacket(bytes,bytes.length);local.receive(in);
+            if(!in.getAddress().isLoopbackAddress())continue;peer.compareAndSet(null,in.getSocketAddress());if(!in.getSocketAddress().equals(peer.get())||in.getLength()<8||bytes[0]!=0||bytes[1]!=0||bytes[2]!=0)continue;
+            byte[] framed=Arrays.copyOf(bytes,in.getLength());framed[0]=5;framed[1]=1;Packet dst=packet(new ByteArrayInputStream(framed));String host=dst.type==3?dst.domain:dst.address().getHostAddress();
+            if(routes.unknownAddress(host)||routes.proxy(host)||dst.port<1)continue;
+            String key=host+":"+dst.port;DatagramSocket physical=flows.get(key);
+            if(physical==null){if(flows.size()>=8)continue;physical=new DatagramSocket(null);c.add(physical);physical.bind(new InetSocketAddress(0));if(!protector.udp(physical))throw new IOException("UDP protection failed");physical.connect(protector.resolve(host),dst.port);physical.setSoTimeout(1500);flows.put(key,physical);
+                final DatagramSocket socket=physical;final byte[] header=Arrays.copyOf(dst.raw,dst.raw.length);header[0]=header[1]=0;
+                pool.execute(()->{byte[] body=new byte[65535];while(!c.ended.get())try{DatagramPacket reply=new DatagramPacket(body,body.length-header.length);socket.receive(reply);ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(header);out.write(body,0,reply.getLength());byte[] data=out.toByteArray();local.send(new DatagramPacket(data,data.length,peer.get()));}catch(SocketTimeoutException ignored){}catch(Exception e){c.close();}});
+            }
+            int skip=dst.raw.length;physical.send(new DatagramPacket(bytes,skip,in.getLength()-skip));
+        }catch(SocketTimeoutException ignored){}catch(Exception e){c.close();}});
+        c.client.setSoTimeout(0);while(c.client.getInputStream().read()!=-1){}
     }
     private static final class Packet {
         final byte[]raw,host;

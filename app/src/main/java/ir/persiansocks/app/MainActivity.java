@@ -79,7 +79,7 @@ public final class MainActivity extends ComponentActivity {
     private PublicIpCheck ipCheck;
     private String ipRoute="";
     private long ipCheckedAt;
-    private final Runnable ipTicker=new Runnable(){public void run(){if(isDestroyed())return;String previousScope=QualityHistory.scope();QualityHistory.select(MainActivity.this);if(!previousScope.equals(QualityHistory.scope()))scheduleRender();refreshPublicIp(false);if(siteIcons!=null)siteIcons.sync();ui.postDelayed(this,15000);}};
+    private final Runnable ipTicker=new Runnable(){public void run(){if(isDestroyed())return;String previousScope=QualityHistory.scope();QualityHistory.select(MainActivity.this);if(!previousScope.equals(QualityHistory.scope()))scheduleRender();refreshPublicIp(false);if(siteIcons!=null)ui.postDelayed(()->{if(!isDestroyed())siteIcons.sync();},600);ui.postDelayed(this,15000);}};
     private UiIconButton filterButton;
     private ProxyEndpoint selected;
     private RecyclerView results;
@@ -121,7 +121,10 @@ public final class MainActivity extends ComponentActivity {
     private long measurementRevision;
     private PowerToggle vpnToggle;
     private String connectionError="";
-    private CheckBox sidebarTls,sidebarAuto;
+    private CheckBox sidebarTls,sidebarAuto,sidebarKill;
+    private CheckBox quickKill;
+    private boolean initialFetchAttempted;
+    private List<ProxyEndpoint> startupPreview=java.util.Collections.emptyList();
     private Button sidebarToggle, sidebarClose;
     private volatile boolean foregroundVisible=true;
     private AppUpdater appUpdater;
@@ -198,6 +201,7 @@ public final class MainActivity extends ComponentActivity {
         if (filter.startsWith("https://") && customTargets.stream().noneMatch(t -> t.id.equals(filter))) filter = "ALL";
         try { sort = ProxyResults.Sort.valueOf(getSharedPreferences("persiansocks", MODE_PRIVATE).getString("sort", "FASTEST")); }
         catch (IllegalArgumentException ignored) {}
+        startupPreview=QuickStartCache.load(this);if(!startupPreview.isEmpty())selected=startupPreview.get(0);
         buildUi();
         render();
         if (state != null && state.getBoolean("sidebar-open", false)) setSidebarVisible(true);
@@ -212,7 +216,7 @@ public final class MainActivity extends ComponentActivity {
         registerReceiver(vpnState, f, ProxyVpnService.INTERNAL_PERMISSION, null, Context.RECEIVER_NOT_EXPORTED);
         vpnRequestPending = false;
         observedAutoScan=ProxyVpnService.autoScanning();
-        if(!scanning)reloadSaved();
+        if(!scanning&&!localDataLoaded)reloadSaved();
         connectionError=getSharedPreferences("persiansocks",MODE_PRIVATE).getString("connection-error","");
         updateActions();
         updateTraffic();
@@ -315,6 +319,7 @@ public final class MainActivity extends ComponentActivity {
         selectionProtocol.setTextDirection(View.TEXT_DIRECTION_LTR);
         connectionHeading.addView(selectionProtocol);
         hero.addView(connectionHeading);
+        Button chatOnly=button(AppLanguage.t(R.string.ui_030_chatgpt),false);chatOnly.setOnClickListener(v->chatgptOnly());hero.addView(chatOnly,new LinearLayout.LayoutParams(-1,dp(36)));
         selection = text(AppLanguage.t(R.string.ui_004), 20, Color.WHITE, true);
         selection.setTextDirection(View.TEXT_DIRECTION_LTR);
         selection.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
@@ -345,6 +350,7 @@ public final class MainActivity extends ComponentActivity {
         powerColumn.addView(vpnToggle,new LinearLayout.LayoutParams(dp(64),dp(64)));
         connectionAction=text(AppLanguage.t(R.string.ui_design_connect),11,Color.WHITE,true);connectionAction.setGravity(Gravity.CENTER);connectionAction.setMaxLines(2);
         powerColumn.addView(connectionAction,new LinearLayout.LayoutParams(-1,-2));
+        quickKill=sidebarCheck(AppLanguage.t(R.string.ui_030_kill),AndroidRoutes.kill(this));quickKill.setTextSize(10);quickKill.setOnCheckedChangeListener((v,on)->setKill(on));powerColumn.addView(quickKill,new LinearLayout.LayoutParams(-2,-2));
         LinearLayout.LayoutParams powerCell=new LinearLayout.LayoutParams(dp(76),-2);powerCell.setMarginEnd(dp(8));actions.addView(powerColumn,powerCell);
 
         LinearLayout traffic = horizontal();
@@ -490,6 +496,10 @@ public final class MainActivity extends ComponentActivity {
         LinearLayout.LayoutParams languageCell=new LinearLayout.LayoutParams(dp(48),dp(48));languageCell.setMarginEnd(dp(12));heading.addView(language,languageCell);
         sidebarClose=new UiIconButton(this,UiIconButton.Kind.CLOSE,AppLanguage.t(R.string.ui_036));sidebarClose.setContentDescription(AppLanguage.t(R.string.ui_036));sidebarClose.setOnClickListener(v->setSidebarVisible(false));heading.addView(sidebarClose,new LinearLayout.LayoutParams(dp(48),dp(48)));sidebar.addView(heading);
         ScrollView scroll=new ScrollView(this);LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(0,dp(12),0,dp(8));scroll.addView(content);sidebar.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        sidebarKill=sidebarCheck(AppLanguage.t(R.string.ui_030_kill),AndroidRoutes.kill(this));sidebarKill.setOnCheckedChangeListener((v,on)->setKill(on));content.addView(sidebarKill,sized(dp(48),0));
+        sidebarTool(content,UiIconButton.Kind.PRIVACY,AppLanguage.t(R.string.ui_030_guard_help),this::guardHelp);
+        sidebarTool(content,UiIconButton.Kind.TARGET,AppLanguage.t(R.string.ui_030_routes),this::routesDialog);
+        sidebarTool(content,UiIconButton.Kind.TARGET,AppLanguage.t(R.string.ui_030_country),this::countryDialog);
         content.addView(text(AppLanguage.t(R.string.ui_design_network),12,PRIMARY,true),margin(0,dp(8)));
         sidebarTls=sidebarCheck(AppLanguage.t(R.string.ui_038),DistributionPolicy.encryptedOnly());sidebarTls.setEnabled(!DistributionPolicy.play());sidebarTls.setOnCheckedChangeListener((b,on)->{if(on!=DistributionPolicy.encryptedOnly())changeTlsMode(on);});content.addView(sidebarTls,sized(dp(48),0));
         sidebarAuto=sidebarCheck(AppLanguage.t(R.string.ui_039),getSharedPreferences("persiansocks",MODE_PRIVATE).getBoolean("auto-switch",true));sidebarAuto.setOnCheckedChangeListener((b,on)->getSharedPreferences("persiansocks",MODE_PRIVATE).edit().putBoolean("auto-switch",on).apply());content.addView(sidebarAuto,sized(dp(48),0));
@@ -755,6 +765,7 @@ public final class MainActivity extends ComponentActivity {
     private void updateActions() {
         if(!foregroundVisible)return;
         if (scanToggle == null) return;
+        if(quickKill!=null&&AndroidRoutes.kill(this))quickKill.setText(AppLanguage.t(AndroidRoutes.kill(this)&&(ProxyVpnService.guardActive()||ProxyVpnService.phase()!=ProxyVpnService.DISCONNECTED)?R.string.ui_030_guard_ready:R.string.ui_030_guard_wait));
         boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto;
         boolean resumable=resumableScan();
         iconState(scanToggle,anyScan?UiIconButton.Kind.PAUSE:UiIconButton.Kind.PLAY,AppLanguage.t(anyScan?R.string.ui_scan_pause:resumable?R.string.ui_scan_resume:R.string.ui_home_scan),anyScan||resumable);
@@ -847,6 +858,7 @@ public final class MainActivity extends ComponentActivity {
             public void onProgress(String message) { ui.post(() -> { if (collecting && token == collectGeneration) listStatus.setText(AppLanguage.display(message)); }); }
             public void onFailed(String message) { ui.post(() -> { if (token == collectGeneration) { collecting = false; updateActions(); status.setText(AppLanguage.display(message)); } }); }
             public void onFinished(List<ProxyEndpoint> received, String report) {
+                if(!received.isEmpty())getSharedPreferences("persiansocks",0).edit().putBoolean("initial-discovery-030",true).apply();
                 try{scanFiles.mergeCatalog(received);}catch(Exception ex){onFailed(AppLanguage.t(R.string.ui_113)+ex.getMessage());return;}
                 final int count;try{count=scanFiles.catalogCount();}catch(Exception ex){onFailed(AppLanguage.t(R.string.ui_114));return;}
                 ui.post(()->{if(!collecting||token!=collectGeneration||isDestroyed())return;
@@ -871,7 +883,8 @@ public final class MainActivity extends ComponentActivity {
         final ProxyScanner.Options options=savedOnly?new ProxyScanner.Options(maxTests,deep,true,7):new ProxyScanner.Options(maxTests,deep,scanAll,scanTypes);
         ProxyStore.IO.execute(()->{
             ScanCheckpoint work=null;String error="";
-            try{List<ProxyEndpoint> input=savedOnly?healthy.snapshot():scanFiles.catalog();
+            try{List<ProxyEndpoint> input=savedOnly?healthy.snapshot():SourceDocuments.iranFirst(scanFiles.catalog());
+                input=SourceDocuments.country(input,getSharedPreferences("persiansocks",0).getString("scan-country",""));
                 if(input.isEmpty())error=savedOnly?AppLanguage.t(R.string.ui_118):AppLanguage.t(R.string.ui_119);
                 else work=new ScanCheckpoint(input,options,savedOnly?"HEALTHY":"CATALOG");}
             catch(Exception ex){error=ex.getMessage();}
@@ -922,6 +935,43 @@ public final class MainActivity extends ComponentActivity {
             else preparedScanner.start(work,state->{if(!state.failedBatchKeys().isEmpty())ProxyStore.flush(MainActivity.this);scanFiles.save(state);final int count=scanFiles.catalogCount();ui.post(()->{if(token==scanGeneration&&!isDestroyed()){catalogCount=count;updateActions();}});},network,network,listener);
         }catch(Exception ex){scanning=false;status.setText(AppLanguage.t(R.string.ui_129)+ex.getMessage());render();}
     }
+    private void initialFetch(){
+        if(isDestroyed()||!foregroundVisible||initialFetchAttempted||!localDataLoaded||collecting||scanning||catalogCount>0||getSharedPreferences("persiansocks",0).getBoolean("initial-discovery-030",false))return;
+        try{PhysicalTestNetwork.capture(this);}catch(Exception offline){ui.postDelayed(this::initialFetch,5000);return;}
+        initialFetchAttempted=true;collectList();
+    }
+    private void setKill(boolean enabled){
+        getSharedPreferences("persiansocks",0).edit().putBoolean("kill-switch-off",!enabled).apply();
+        if(quickKill!=null&&quickKill.isChecked()!=enabled)quickKill.setChecked(enabled);
+        if(sidebarKill!=null&&sidebarKill.isChecked()!=enabled)sidebarKill.setChecked(enabled);
+        if(!enabled&&ProxyVpnService.guardActive())try{startService(new Intent(this,ProxyVpnService.class).setAction(ProxyVpnService.RELEASE_GUARD));}catch(Exception ignored){}
+        if(!enabled&&quickKill!=null)quickKill.setText(AppLanguage.t(R.string.ui_030_kill));
+        updateActions();
+    }
+    private void guardHelp(){
+        new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_030_kill)).setMessage(AppLanguage.t(R.string.ui_030_guard_text)).setPositiveButton(AppLanguage.t(R.string.ui_007),null).setNeutralButton(AppLanguage.t(R.string.ui_030_vpn_settings),(d,w)->startActivity(new Intent(android.provider.Settings.ACTION_VPN_SETTINGS))).show();
+    }
+    private void applyRoutes(){
+        if(ProxyVpnService.phase()!=ProxyVpnService.DISCONNECTED||ProxyVpnService.guardActive())try{startForegroundService(new Intent(this,ProxyVpnService.class).setAction(ProxyVpnService.RECONFIGURE));}catch(Exception error){connectionError=error.getMessage();}
+        updateActions();
+    }
+    private void chatgptOnly(){
+        if(!SplitTunnelSettings.installed(getPackageManager(),"com.openai.chatgpt")){Toast.makeText(this,AppLanguage.t(R.string.ui_030_install_chatgpt),Toast.LENGTH_LONG).show();return;}
+        getSharedPreferences("persiansocks",0).edit().putString("routing-mode","chatgpt").apply();applyRoutes();Toast.makeText(this,AppLanguage.t(R.string.ui_030_chatgpt),Toast.LENGTH_LONG).show();
+    }
+    private void routesDialog(){
+        LinearLayout box=dialogContent();box.addView(text(AppLanguage.t(R.string.ui_030_routes_help),12,SECONDARY,false));
+        CheckBox[] presets=new CheckBox[3];String[] ids={"telegram","youtube","openai"};String[] names={"Telegram","YouTube","OpenAI / ChatGPT"};
+        for(int i=0;i<3;i++){presets[i]=sidebarCheck(names[i],false);box.addView(presets[i]);}
+        EditText input=new EditText(this);input.setText(getSharedPreferences("persiansocks",0).getString("route-domains",""));input.setTextColor(Color.WHITE);input.setMinLines(3);box.addView(input);
+        AlertDialog dialog=new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_030_routes)).setView(box).setPositiveButton(AppLanguage.t(R.string.ui_065),null).setNegativeButton(AppLanguage.t(R.string.ui_007),null).setNeutralButton(AppLanguage.t(R.string.ui_030_apps),(d,w)->{getSharedPreferences("persiansocks",0).edit().putString("routing-mode","apps").apply();applyRoutes();}).create();
+        dialog.setOnShowListener(v->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(w->{try{List<String> domains=new ArrayList<>();domains.add(input.getText().toString());for(int i=0;i<3;i++)if(presets[i].isChecked())domains.addAll(DomainRoutes.preset(ids[i]));DomainRoutes clean=new DomainRoutes(domains);if(!clean.restricted)throw new IllegalArgumentException(AppLanguage.t(R.string.ui_030_choose_domain));getSharedPreferences("persiansocks",0).edit().putString("routing-mode","domains").putString("route-domains",String.join("\n",clean.domains)).apply();applyRoutes();dialog.dismiss();}catch(Exception e){input.setError(e.getMessage());}}));dialog.show();
+    }
+    private void countryDialog(){
+        java.util.TreeSet<String> keys=new java.util.TreeSet<>();keys.add("IR");for(ProxyEndpoint p:healthy){String key=p.countryCode.isEmpty()?CountryLookup.lookup(p.host):p.countryCode;if(!key.isEmpty())keys.add(key);}
+        List<String> countries=new ArrayList<>();countries.add("");countries.addAll(keys);String[] labels=new String[countries.size()];for(int i=0;i<labels.length;i++)labels[i]=i==0?AppLanguage.t(R.string.ui_030_all_countries):CountryLookup.display(countries.get(i),AppLanguage.locale());
+        new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_030_country)).setItems(labels,(d,i)->{getSharedPreferences("persiansocks",0).edit().putString("display-country",countries.get(i)).apply();renderedRevision=-1;render();new AlertDialog.Builder(this,R.style.AppDialogTheme).setMessage(AppLanguage.t(R.string.ui_030_scan_country)).setPositiveButton(AppLanguage.t(R.string.ui_065),(a,b)->getSharedPreferences("persiansocks",0).edit().putString("scan-country",countries.get(i)).apply()).setNegativeButton(AppLanguage.t(R.string.ui_030_all_countries),(a,b)->getSharedPreferences("persiansocks",0).edit().putString("scan-country","").apply()).show();}).show();
+    }
     private void reloadSaved() {
         if(loading||scanning||preparing||stopping)return;loading=true;updateActions();
         final boolean initial=!localDataLoaded;
@@ -938,12 +988,12 @@ public final class MainActivity extends ComponentActivity {
                 scanReport=getSharedPreferences("persiansocks",MODE_PRIVATE).getString("scan-report",scanReport);
                 if(!failure.isEmpty())status.setText(AppLanguage.t(R.string.ui_130)+failure);
                 else status.setText(AppLanguage.display(restored!=null&&!restored.complete()?AppLanguage.t(R.string.ui_131)+restored.done()+AppLanguage.t(R.string.ui_017)+restored.total():storedCount+AppLanguage.t(R.string.ui_019)));
-                ProxyEndpoint active=healthy.find(ProxyVpnService.activeEndpoint());if(active!=null){selected=active;userSelected=true;}render();});
+                ProxyEndpoint active=healthy.find(ProxyVpnService.activeEndpoint());if(active!=null){selected=active;userSelected=true;}render();ui.postDelayed(MainActivity.this::initialFetch,250);});
             if(!CountryLookup.initialized())try{CountryLookup.initialize(getAssets().open("ip-country.bin"));}catch(Exception ignored){}
         });
     }
     private boolean hasSelected(){return selected!=null&&(healthy.find(selected.key())!=null||favorites.containsKey(selected.key()));}
-    private String criteria(){return filter+"|"+protocol+"|"+sort+"|"+pingLimit+"|"+smoothResults+"|"+measurementRevision+"|"+QualityHistory.revision()+"|"+QualityHistory.scope()+"|"+showFavorites+"|"+favoritesRevision+"|"+(ProxyVpnService.phase()==ProxyVpnService.CONNECTED?ProxyVpnService.activeEndpoint():"");}
+    private String criteria(){return getSharedPreferences("persiansocks",0).getString("display-country","")+"|"+filter+"|"+protocol+"|"+sort+"|"+pingLimit+"|"+smoothResults+"|"+measurementRevision+"|"+QualityHistory.revision()+"|"+QualityHistory.scope()+"|"+showFavorites+"|"+favoritesRevision+"|"+(ProxyVpnService.phase()==ProxyVpnService.CONNECTED?ProxyVpnService.activeEndpoint():"");}
     private List<ProxyEndpoint> favoriteSnapshots(){
         List<ProxyEndpoint> items=new ArrayList<>();
         for(ProxyEndpoint saved:favorites.values()){
@@ -1018,7 +1068,7 @@ public final class MainActivity extends ComponentActivity {
         filteredPingButton.setEnabled(pingBatch||(singleTest==null&&speedTest==null&&speedBatch==null&&!preparingSpeedBatch&&savedPingQueue==null&&!healthy.isEmpty()));
         updateActions();
         // Startup data must finish before an old in-memory snapshot can be published.
-        if(!localDataLoaded){emptyState.setVisibility(View.GONE);return;}
+        if(!localDataLoaded){emptyState.setVisibility(View.GONE);if(!startupPreview.isEmpty()&&pageGeneration==0)publishPages(++pageGeneration,new ArrayList<>(startupPreview));return;}
         if(renderedRevision==healthy.revision()&&renderedCriteria.equals(criteria())){refreshVisibleCards();return;}
         if(ranking)return;
         ranking=true;final String requested=criteria();final String service=filter;
@@ -1032,13 +1082,14 @@ public final class MainActivity extends ComponentActivity {
             List<ProxyEndpoint> visible=favoritesMode?snapshot:ProxyResults.visible(snapshot,service,order,kind,limit,speeds,smooth);
             ProxyEndpoint connected=ProxyVpnService.phase()==ProxyVpnService.CONNECTED?healthy.find(ProxyVpnService.activeEndpoint()):null;
             if(connected==null&&ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&selected!=null&&selected.key().equals(ProxyVpnService.activeEndpoint()))connected=selected;
+            String selectedCountry=getSharedPreferences("persiansocks",0).getString("display-country","");if(!selectedCountry.isEmpty())visible.removeIf(p->!selectedCountry.equals(p.countryCode.isEmpty()?CountryLookup.lookup(p.host):p.countryCode));
             List<ProxyEndpoint> pinned=ProxyResults.pinActive(visible,connected,!favoritesMode);
             final long generation=System.currentTimeMillis()*1000+pageSequence.incrementAndGet()%1000;final int count=pinned.size();final ProxyEndpoint best=visible.isEmpty()?null:visible.get(0);
             // Ranking is a view of references, not a durable write for each UI refresh.
             ui.post(()->{
                 if(isDestroyed())return;ranking=false;
                 if(!requested.equals(criteria())||revision!=healthy.revision()){render();return;}
-                resultCount=count;publishPages(generation,pinned);renderedRevision=revision;renderedCriteria=requested;
+                resultCount=count;QuickStartCache.save(this,pinned);publishPages(generation,pinned);renderedRevision=revision;renderedCriteria=requested;
                 if(!userSelected&&!favoritesMode&&ProxyVpnService.phase()==ProxyVpnService.DISCONNECTED&&!vpnRequestPending)
                     selected=best;
                 counter.setText(AppLanguage.display(resultCount+AppLanguage.t(R.string.ui_152)));
@@ -1368,7 +1419,7 @@ public final class MainActivity extends ComponentActivity {
         if(!VpnDisclosure.accepted(this)){connect();return;}
         if(!DistributionPolicy.allows(selected)){vpnRequestPending=false;connectionError=AppLanguage.t(R.string.ui_231);updateActions();return;}
         Intent i = new Intent(this, ProxyVpnService.class).setAction(ProxyVpnService.CONNECT)
-            .putExtra(ProxyVpnService.EXTRA_ENDPOINT, selected.key()).putExtra("filter", filter).putExtra("sort", sort.name());
+            .putExtra(ProxyVpnService.EXTRA_ENDPOINT, selected.key()).putExtra("filter", filter).putExtra("sort", sort.name()).putExtra("evidence",selected.json().toString());
         try {
             vpnRequestPending = true; startForegroundService(i);
             connectionError="";updateActions();
