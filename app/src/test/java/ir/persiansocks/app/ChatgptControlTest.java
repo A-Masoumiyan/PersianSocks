@@ -3,6 +3,7 @@ package ir.persiansocks.app;
 import android.app.Application;
 import android.content.Context;
 import android.widget.CheckBox;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.*;
@@ -14,6 +15,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=29,application=Application.class)
 public class ChatgptControlTest {
+ @Before public void initializeLanguage(){AppLanguage.initialize(RuntimeEnvironment.getApplication());}
  @Test public void persistedChatgptModeHasVisibleStateAndCanBeTurnedOffWithoutInstalledApp(){
   Context c=RuntimeEnvironment.getApplication();
   c.getSharedPreferences("persiansocks",0).edit().clear().putString("routing-mode","chatgpt").commit();
