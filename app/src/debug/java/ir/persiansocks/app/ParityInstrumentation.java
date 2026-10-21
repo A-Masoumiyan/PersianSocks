@@ -27,7 +27,7 @@ public final class ParityInstrumentation extends Instrumentation {
   long start=SystemClock.elapsedRealtime();Activity screen=startActivitySync(new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
   java.lang.reflect.Field chosen=MainActivity.class.getDeclaredField("selected");chosen.setAccessible(true);check(chosen.get(screen)!=null,"Preview/selection waits for full storage");
   report.putLong("startup_preview_ms",SystemClock.elapsedRealtime()-start);
-  stage="initial guard";runOnMainSync(()->c.startForegroundService(new Intent(c,ProxyVpnService.class).setAction(ProxyVpnService.RECONFIGURE)));waitFor(ProxyVpnService::guardActive);Object initialDescriptor=descriptor();
+  stage="initial guard";runOnMainSync(()->c.startForegroundService(new Intent(c,ProxyVpnService.class).setAction(ProxyVpnService.RECONFIGURE)));waitFor(ProxyVpnService::guardActive);stage="initial guard route installed";waitFor(()->!physical());check(!physical(),"Initial guard is not stable");Object initialDescriptor=descriptor();
   stage="native engine";runOnMainSync(()->c.startForegroundService(new Intent(c,ProxyVpnService.class).setAction(ProxyVpnService.CONNECT).putExtra(ProxyVpnService.EXTRA_ENDPOINT,snapshot.key()).putExtra("filter","ALL").putExtra("sort","FASTEST").putExtra("evidence",snapshot.json().toString())));
   waitFor(()->{try{return TProxyService.TProxyIsRunning();}catch(Throwable e){return false;}});release.countDown();
   check(initialDescriptor==descriptor(),"Connecting replaced the existing guard interface");
