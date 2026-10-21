@@ -14,7 +14,7 @@ public final class ReconnectPriorityHarness {
             check(!IdleStopPolicy.allowed(cycle,cycle+1,cycle,cycle+1,true),"old disconnect cannot stop immediate reconnect");
             check(!IdleStopPolicy.allowed(cycle,cycle,cycle,cycle+1,false),"unseen replacement start ID prevents old stop");
         }
-        for(ProxyEndpoint.Type type:ProxyEndpoint.Type.values())try(SingleProxyHarness.Proxy proxy=new SingleProxyHarness.Proxy(type,"valid",300000)){
+        for(ProxyEndpoint.Type type:new ProxyEndpoint.Type[]{ProxyEndpoint.Type.SOCKS5,ProxyEndpoint.Type.HTTP,ProxyEndpoint.Type.HTTPS})try(SingleProxyHarness.Proxy proxy=new SingleProxyHarness.Proxy(type,"valid",300000)){
             int refusedPort;try(ServerSocket reserve=new ServerSocket(0)){refusedPort=reserve.getLocalPort();}
             AtomicInteger captures=new AtomicInteger();List<Long> delays=new ArrayList<>();
             Socks5Probe.Result result=ConnectionPreflight.run(()->{

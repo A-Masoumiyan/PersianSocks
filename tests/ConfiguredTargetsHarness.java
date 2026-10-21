@@ -13,7 +13,7 @@ public final class ConfiguredTargetsHarness {
         for(String bad:new String[]{"http://www.youtube.com/file","https://user:pass@www.youtube.com/file","https://www.youtube.com.evil.test/file","https://127.0.0.1/file","https://www.youtube.com:8443/file",file+"#fragment"}){
             try{TestDownloadPolicy.validate(bad);throw new AssertionError("unsafe URL accepted");}catch(IllegalArgumentException expected){checks++;}
         }
-        for(ProxyEndpoint.Type type:ProxyEndpoint.Type.values())try(SingleProxyHarness.Proxy proxy=new SingleProxyHarness.Proxy(type,"valid",300_000)){
+        for(ProxyEndpoint.Type type:new ProxyEndpoint.Type[]{ProxyEndpoint.Type.SOCKS5,ProxyEndpoint.Type.HTTP,ProxyEndpoint.Type.HTTPS})try(SingleProxyHarness.Proxy proxy=new SingleProxyHarness.Proxy(type,"valid",300_000)){
             ScanProbePolicy.configure(true,ping);ScanProbePolicy.Profile frozen=ScanProbePolicy.profile();
             Socks5Probe.Result result=frozen.inspect(proxy.endpoint(),false,new AtomicBoolean(),null,Socket::new,InetAddress::getByName);
             check(result.endpoint!=null&&result.endpoint.serviceMask==ProxyEndpoint.YOUTUBE&&result.endpoint.checkedMask==ProxyEndpoint.YOUTUBE&&!result.endpoint.udpAdvertised,"one target cannot claim other services or UDP: "+type);

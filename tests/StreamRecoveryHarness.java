@@ -106,7 +106,7 @@ public final class StreamRecoveryHarness {
         ScanHarness.init(args[0]);
         if(args.length>1&&args[1].equals("--long")){streams(ProxyEndpoint.Type.HTTP,310_000,ProtectedSocksGateway.TCP_IDLE_MILLIS);}
         else{
-            routes();for(ProxyEndpoint.Type type:ProxyEndpoint.Type.values())streams(type,1600,300);
+            routes();for(ProxyEndpoint.Type type:new ProxyEndpoint.Type[]{ProxyEndpoint.Type.SOCKS5,ProxyEndpoint.Type.HTTP,ProxyEndpoint.Type.HTTPS})streams(type,1600,300);
             try(Upstream upstream=new Upstream(ProxyEndpoint.Type.HTTP,1000);ProtectedSocksGateway gate=new ProtectedSocksGateway(upstream.endpoint(),PROTECTOR,250);Socket s=connect(gate,"idle.local")){
                 long begin=System.nanoTime();check(s.getInputStream().read()==-1,"both-idle flow closed by shared watchdog");long elapsed=TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-begin);check(elapsed>=180&&elapsed<2000,"idle cleanup bounded: "+elapsed);waitFree(gate,0);
             }

@@ -19,9 +19,9 @@ public final class ProxyResults {
         public boolean accepts(ProxyEndpoint p) { if(!DistributionPolicy.allows(p))return false;return this == FULL ? p.full() : p.hasAnyService() && (bit == 0 || p.passed(bit)); }
     }
     public enum Protocol {
-        ALL("همهٔ انواع"), SOCKS("SOCKS5"), HTTP("HTTP / HTTPS");
+        ALL("همهٔ انواع"), SOCKS("SOCKS5"), HTTP("HTTP / HTTPS"), VPN_GATE("VPN Gate");
         public final String label;Protocol(String label){this.label=label;}
-        public boolean accepts(ProxyEndpoint p){if(!DistributionPolicy.allows(p))return false;return this==ALL||(this==SOCKS)==(p.type==ProxyEndpoint.Type.SOCKS5);}
+        public boolean accepts(ProxyEndpoint p){if(!DistributionPolicy.allows(p))return false;return this==ALL||this==SOCKS&&p.type==ProxyEndpoint.Type.SOCKS5||this==VPN_GATE&&p.type==ProxyEndpoint.Type.OPENVPN||this==HTTP&&(p.type==ProxyEndpoint.Type.HTTP||p.type==ProxyEndpoint.Type.HTTPS);}
     }
     public static List<ProxyEndpoint> byProtocol(List<ProxyEndpoint> source,Protocol protocol){
         List<ProxyEndpoint> out=new ArrayList<>();for(ProxyEndpoint p:source)if(protocol.accepts(p))out.add(p);return out;

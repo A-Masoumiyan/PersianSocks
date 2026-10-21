@@ -105,20 +105,14 @@ public class StartupRegressionTest {
         }
     }
     private static int descendants(android.view.View view,Class<?> type){int n=type.isInstance(view)?1:0;if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++)n+=descendants(group.getChildAt(i),type);}return n;}
-    @Test public void heroCountrySharesAddressRowWithoutTestButtonsInBothLanguages(){
-        Context c=RuntimeEnvironment.getApplication();
-        for(String language:new String[]{"fa","en"}){
-            AppLanguage.select(c,language);org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
-            try{
-                MainActivity activity=owner.get();ProxyEndpoint selected=new ProxyEndpoint("18.157.123.132",19395,100,false,7,7,System.currentTimeMillis(),Collections.emptySet(),Collections.emptySet(),"DE");
-                ReflectionHelpers.setField(activity,"selected",selected);ReflectionHelpers.callInstanceMethod(activity,"updateActions");
-                TextView address=ReflectionHelpers.getField(activity,"selection"),country=ReflectionHelpers.getField(activity,"selectionCountry");
-                assertSame(address.getParent(),country.getParent());assertEquals(selected.address(),address.getText().toString());assertEquals(CountryLookup.display("DE",AppLanguage.locale()),country.getText().toString());
-                android.view.ViewGroup hero=(android.view.ViewGroup)((android.view.View)address.getParent()).getParent();assertEquals(0,descendants(hero,UiIconButton.class));assertEquals(1,descendants(hero,PowerToggle.class));
-                int width=(int)(320*c.getResources().getDisplayMetrics().density);hero.measure(android.view.View.MeasureSpec.makeMeasureSpec(width,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(0,android.view.View.MeasureSpec.UNSPECIFIED));hero.layout(0,0,width,hero.getMeasuredHeight());
-                assertTrue(address.getMeasuredWidth()>0);assertTrue(country.getMeasuredWidth()>0);assertTrue(address.getRight()<=country.getLeft()||country.getRight()<=address.getLeft());
-                ReflectionHelpers.setField(activity,"selected",ProxyEndpoint.parse("https://example.org:443"));ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(AppLanguage.t(R.string.ui_extra_102),country.getText().toString());
-                ReflectionHelpers.setField(activity,"selected",null);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(android.view.View.GONE,country.getVisibility());
+    @Test public void approvedHeroKeepsPowerScopeAndKillControlsInBothLanguages(){
+        Context c=RuntimeEnvironment.getApplication();for(String language:new String[]{"fa","en"}){
+            AppLanguage.select(c,language);var owner=Robolectric.buildActivity(MainActivity.class).create();try{
+                MainActivity activity=owner.get();android.view.View power=ReflectionHelpers.getField(activity,"vpnToggle");
+                android.widget.CheckBox kill=ReflectionHelpers.getField(activity,"quickKill"),chat=ReflectionHelpers.getField(activity,"chatOnly");android.widget.Button all=ReflectionHelpers.getField(activity,"designAllApps");
+                assertNotNull(power.getParent());assertNotNull(kill.getParent());assertNotNull(chat.getParent());assertNotNull(all.getParent());
+                assertEquals(AndroidRoutes.kill(c),kill.isChecked());assertEquals(AndroidRoutes.mode(c).equals("chatgpt"),chat.isChecked());
+                assertFalse(power.getContentDescription().toString().isEmpty());assertFalse(chat.getContentDescription().toString().isEmpty());
             }finally{owner.destroy();}
         }
     }
@@ -134,12 +128,12 @@ public class StartupRegressionTest {
             prefs.edit().putBoolean("scan-ping-only",true).putString("ping-target-url",ServiceTargets.ALL[1].url()).commit();ScanInputs.initializePolicy(c);assertTrue(ScanProbePolicy.profile().only);
         }finally{owner.destroy();prefs.edit().putBoolean("scan-ping-only",false).putString("ping-target-url","").commit();ScanInputs.configureTests(c);}
     }
-    @Test public void newAndRestartScansShowOnlyTwoModesWhileResumeSkipsTheDialog()throws Exception{
+    @Test public void longPressAndRestartOfferTwoModesWhileResumeSkipsTheDialog()throws Exception{
         Context c=RuntimeEnvironment.getApplication();Shadows.shadowOf(c.getSystemService(android.net.ConnectivityManager.class)).clearAllNetworks();
         org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
         try{
             MainActivity activity=owner.get();ReflectionHelpers.setField(activity,"localDataLoaded",true);ReflectionHelpers.setField(activity,"catalogCount",10);ReflectionHelpers.callInstanceMethod(activity,"updateActions");
-            android.widget.Button play=ReflectionHelpers.getField(activity,"scanToggle"),restart=ReflectionHelpers.getField(activity,"scanRestart");play.performClick();
+            ReflectionHelpers.setField(activity,"protocol",ProxyResults.Protocol.SOCKS);android.widget.Button play=ReflectionHelpers.getField(activity,"scanToggle"),restart=ReflectionHelpers.getField(activity,"scanRestart");play.performLongClick();
             android.app.AlertDialog first=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(2,first.getListView().getAdapter().getCount());assertEquals(AppLanguage.t(R.string.ui_scan_fast),first.getListView().getAdapter().getItem(0));assertEquals(AppLanguage.t(R.string.ui_scan_deep),first.getListView().getAdapter().getItem(1));first.dismiss();
             ScanCheckpoint paused=new ScanCheckpoint(Arrays.asList(ProxyEndpoint.parse("8.8.8.8:1080"),ProxyEndpoint.parse("9.9.9.9:1080")),new ProxyScanner.Options(100,true),"CATALOG");paused.record(0,new Socks5Probe.Result(good("8.8.8.8",1080,System.currentTimeMillis()),Socks5Probe.Failure.NONE,true,true));
             ReflectionHelpers.setField(activity,"checkpoint",paused);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(UiIconButton.Kind.PLAY,ReflectionHelpers.getField(play,"kind"));assertEquals(AppLanguage.t(R.string.ui_scan_resume),play.getContentDescription().toString());

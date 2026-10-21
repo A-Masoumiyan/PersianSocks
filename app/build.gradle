@@ -11,8 +11,8 @@ android {
         buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(project.findProperty('privacyPolicyUrl') ?: '')
         minSdk 29
         targetSdk 36
-        versionCode 48
-        versionName '0.30.0'
+        versionCode 49
+        versionName '0.31.0'
     }
     buildFeatures { buildConfig true }
     testOptions { unitTests.includeAndroidResources = true }
@@ -40,11 +40,34 @@ android {
     // Explicit unsigned CI output; normal release builds still require the pinned key.
     buildTypes.release.signingConfig (project.findProperty('offlineUnsigned') == 'true' ? null : signingConfigs.originalRelease)
     packaging {
-        jniLibs { useLegacyPackaging = false }
+        jniLibs { useLegacyPackaging = true; keepDebugSymbols += ['**/libopenvpnexec.so'] }
     }
 }
 
+def prepareOpenVpn = tasks.register('prepareOpenVpn') {
+    doLast {
+        def inputs = new groovy.json.JsonSlurper().parse(rootProject.file('scripts/openvpn-inputs.json'))
+        inputs.files.each { entry ->
+            def output = file("src/main/jniLibs/${entry.abi}/libopenvpnexec.so")
+            if (!output.isFile()) {
+                output.parentFile.mkdirs()
+                def temporary = new File(output.parentFile, 'openvpn.download')
+                def connection = new URL(entry.url).openConnection()
+                connection.connectTimeout = 20000; connection.readTimeout = 60000
+                connection.setRequestProperty('User-Agent', 'PersianSocks-build')
+                connection.inputStream.withCloseable { source -> temporary.withOutputStream { target -> target << source } }
+                if (java.security.MessageDigest.getInstance('SHA-256').digest(temporary.bytes).encodeHex().toString() != entry.sha256) {
+                    temporary.delete(); throw new GradleException('OpenVPN download checksum mismatch')
+                }
+                java.nio.file.Files.move(temporary.toPath(), output.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            }
+            if (java.security.MessageDigest.getInstance('SHA-256').digest(output.bytes).encodeHex().toString() != entry.sha256)
+                throw new GradleException("Modified pinned OpenVPN executable: ${entry.abi}")
+        }
+    }
+}
 def verifyNative = tasks.register('verifyNativeInput') {
+    dependsOn prepareOpenVpn
     doLast {
         def aar = file('libs/hev-socks5-tunnel.aar')
         if (!aar.isFile() || java.security.MessageDigest.getInstance('SHA-256').digest(aar.bytes).encodeHex().toString() !=

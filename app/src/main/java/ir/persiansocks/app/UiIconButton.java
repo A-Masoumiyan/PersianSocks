@@ -5,8 +5,8 @@ import android.graphics.drawable.*;
 import android.content.res.ColorStateList;
 import android.widget.Button;
 /** Small vector actions with a generous touch target and an accessible description. */
-public final class UiIconButton extends Button {
-    public enum Kind {STAR,INFO,SYNC,CONNECT,DOWNLOAD,SPLIT,SOURCE,TARGET,PRIVACY,TELEGRAM,UPDATE,FILTER,SORT,PING,PROTOCOL,COLLECT,SCAN,PLAY,PAUSE,RESTART,STOP,BACK,MENU,CLOSE}
+public class UiIconButton extends Button {
+    public enum Kind {STAR,INFO,SYNC,CONNECT,DOWNLOAD,SPLIT,SOURCE,TARGET,PRIVACY,TELEGRAM,UPDATE,FILTER,SORT,PING,PROTOCOL,COLLECT,SCAN,PLAY,PAUSE,RESTART,STOP,BACK,MENU,CLOSE,SERVERS,SETTINGS,SHIELD}
     private Kind kind;private boolean active;
     private final Paint ink=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path=new Path();
@@ -26,6 +26,9 @@ public final class UiIconButton extends Button {
         float d=getResources().getDisplayMetrics().density,s=Math.min(24*d,Math.min(getWidth(),getHeight())*.62f);float labelHeight=caption.isEmpty()?0:labelPaint.getFontSpacing()+5*d;canvas.save();canvas.translate((getWidth()-s)/2,Math.max(3*d,(getHeight()-labelHeight-s)/2));canvas.scale(s/24,s/24);
         Paint p=ink;p.setColor((kind==Kind.STOP||kind==Kind.PAUSE)?Color.rgb(255,89,107):active?Color.rgb(70,226,184):getCurrentTextColor());p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.8f);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);
         switch(kind){
+            case SERVERS:canvas.drawRoundRect(3,3,21,9,2,2,p);canvas.drawRoundRect(3,14,21,20,2,2,p);canvas.drawCircle(7,6,.7f,p);canvas.drawCircle(7,17,.7f,p);break;
+            case SETTINGS:canvas.drawCircle(12,12,7,p);canvas.drawCircle(12,12,3,p);for(int a=0;a<8;a++){double t=a*Math.PI/4;canvas.drawLine(12+(float)Math.cos(t)*8,12+(float)Math.sin(t)*8,12+(float)Math.cos(t)*11,12+(float)Math.sin(t)*11,p);}break;
+            case SHIELD:path.reset();path.moveTo(12,2);path.lineTo(21,5);path.lineTo(20,14);path.quadTo(18,20,12,23);path.quadTo(6,20,4,14);path.lineTo(3,5);path.close();canvas.drawPath(path,p);break;
             case MENU:canvas.drawLine(4,6,20,6,p);canvas.drawLine(4,12,20,12,p);canvas.drawLine(4,18,20,18,p);break;
             case CLOSE:canvas.drawLine(6,6,18,18,p);canvas.drawLine(18,6,6,18,p);break;
             case FILTER:{path.reset();path.moveTo(3,4);path.lineTo(21,4);path.lineTo(14,12);path.lineTo(14,20);path.lineTo(10,18);path.lineTo(10,12);path.close();canvas.drawPath(path,p);break;}

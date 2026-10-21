@@ -100,7 +100,7 @@ public final class SingleProxyHarness {
     }
     public static void main(String[] args) throws Exception {
         ScanHarness.init(args[0]); ServiceTargets.configure(Collections.emptyList());
-        for (ProxyEndpoint.Type type : ProxyEndpoint.Type.values()) try (Proxy selected = new Proxy(type, "valid", 256000);
+        for (ProxyEndpoint.Type type : new ProxyEndpoint.Type[]{ProxyEndpoint.Type.SOCKS5,ProxyEndpoint.Type.HTTP,ProxyEndpoint.Type.HTTPS}) try (Proxy selected = new Proxy(type, "valid", 256000);
                 Proxy unused = new Proxy(type, "valid", 999)) {
             Outcome result = download(selected.endpoint(), InetAddress::getByName);
             check(result.error.isEmpty() && result.bytes == 256000 && result.mbps > 0, "Real download succeeds over selected " + type + " with no VPN");

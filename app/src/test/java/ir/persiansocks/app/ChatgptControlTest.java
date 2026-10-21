@@ -22,9 +22,9 @@ public class ChatgptControlTest {
   var owner=Robolectric.buildActivity(MainActivity.class).create();
   try{
    MainActivity activity=owner.get();CheckBox toggle=ReflectionHelpers.getField(activity,"chatOnly");
-   assertTrue(toggle.isChecked());assertEquals(AppLanguage.t(R.string.ui_031_chatgpt_on),toggle.getText().toString());
+   assertTrue(toggle.isChecked());assertEquals(AppLanguage.t(R.string.ui_031_chatgpt_on),toggle.getContentDescription().toString());
    toggle.performClick();assertEquals("apps",AndroidRoutes.mode(activity));assertFalse(toggle.isChecked());
-   assertEquals(AppLanguage.t(R.string.ui_031_chatgpt_off),toggle.getText().toString());
+   assertEquals(AppLanguage.t(R.string.ui_031_chatgpt_off),toggle.getContentDescription().toString());
   }finally{owner.destroy();}
  }
  @Test public void missingChatgptAppLeavesToggleOffAndShowsReadablePersistentError(){

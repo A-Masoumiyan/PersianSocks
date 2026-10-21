@@ -43,6 +43,8 @@ def check_archive(apk):
             expected = {'lib/'+n[4:]: native.read(n) for n in native.namelist() if n.startswith('jni/') and n.endswith('.so')}
         import json
         platform=json.loads((ROOT/'scripts/platform-native-sha256.json').read_text())['native']
+        for entry in json.loads((ROOT/'scripts/openvpn-inputs.json').read_text())['files']:
+            platform['lib/'+entry['abi']+'/libopenvpnexec.so']=entry['sha256']
         actual = {n for n in names if n.startswith('lib/')}
         if actual != set(expected) | set(platform):
             raise ValueError('Unexpected or missing native libraries')

@@ -12,7 +12,7 @@ public final class DistributionPolicy {
     public static boolean encryptedOnly(){return play()||userTlsOnly;}
     public static boolean play(){return BuildConfig.PLAY_DISTRIBUTION;}
     public static boolean allows(ProxyEndpoint proxy){return proxy!=null&&allows(proxy.type);}
-    public static boolean allows(ProxyEndpoint.Type type){return !encryptedOnly()||type==ProxyEndpoint.Type.HTTPS;}
+    public static boolean allows(ProxyEndpoint.Type type){return !encryptedOnly()||type==ProxyEndpoint.Type.HTTPS||type==ProxyEndpoint.Type.OPENVPN;}
     public static int scanTypes(int requested){return encryptedOnly()?ProxyEndpoint.Type.HTTPS.bit:(requested&7)==0?7:requested&7;}
     public static void require(ProxyEndpoint proxy)throws IOException {
         if(!allows(proxy))throw new IOException("این نسخه فقط اتصال TLS به خود پروکسی را می‌پذیرد");

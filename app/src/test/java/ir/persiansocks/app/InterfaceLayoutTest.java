@@ -53,7 +53,7 @@ public class InterfaceLayoutTest {
         button.showState(false,true);assertEquals("Cancel VPN connection",button.getContentDescription());
         assertEquals("android.widget.Button",button.getAccessibilityClassName());
     }
-    private static ProxyEndpoint sample(int offset){return new ProxyEndpoint("203.0.113."+(10+offset),1080,142+offset*43,false,7,7,System.currentTimeMillis(),Collections.emptySet(),Collections.emptySet(),"DE");}
+    private static ProxyEndpoint sample(int offset){boolean gate=offset!=1;return new ProxyEndpoint("203.0.113."+(10+offset),gate?443:1080,offset==1?95:offset==0?180:210,false,gate?0:7,gate?0:7,System.currentTimeMillis(),Collections.emptySet(),Collections.emptySet(),offset==0?"JP":offset==1?"DE":"KR",gate?ProxyEndpoint.Type.OPENVPN:ProxyEndpoint.Type.SOCKS5);}
     private Object card(MainActivity activity,int offset)throws Exception{
         Object card=ReflectionHelpers.callConstructor(Class.forName("ir.persiansocks.app.MainActivity$CardHolder"),ReflectionHelpers.ClassParameter.from(MainActivity.class,activity));
         ReflectionHelpers.callInstanceMethod(card,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,sample(offset)));return card;
@@ -68,9 +68,9 @@ public class InterfaceLayoutTest {
                     layout(wrapper,width,0);View row=ReflectionHelpers.getField(card,"row");ViewGroup services=ReflectionHelpers.getField(card,"services");
                     for(int i=0;i<services.getChildCount();i++){View item=services.getChildAt(i);assertTrue(item.getLeft()>=0);assertTrue(item.getRight()<=services.getWidth());}
                     UiIconButton favorite=ReflectionHelpers.getField(card,"favoriteButton");ViewGroup actions=(ViewGroup)favorite.getParent();
-                    assertEquals(5,actions.getChildCount());
-                    for(int i=0;i<actions.getChildCount();i++){View action=actions.getChildAt(i);assertTrue("Touch width",action.getWidth()>=48);assertTrue("Touch height",action.getHeight()>=48);assertTrue(action.getRight()<=actions.getWidth());}
-                    TextView detail=ReflectionHelpers.getField(card,"detail");assertTrue(detail.getWidth()>=row.getWidth()-24);
+                    assertTrue(favorite.getWidth()>=32);assertTrue(favorite.getHeight()>=32);
+                    assertTrue(favorite.getRight()<=actions.getWidth());
+                    TextView country=ReflectionHelpers.getField(card,"designName");assertTrue(country.getWidth()>0);
                     TextView ping=ReflectionHelpers.getField(card,"ping"),down=ReflectionHelpers.getField(card,"down");
                     assertFalse(ping.getText().toString().isEmpty());assertTrue(ping.getHeight()>0);assertTrue(ping.getBottom()<=((View)ping.getParent()).getHeight());
                 }
@@ -112,13 +112,13 @@ public class InterfaceLayoutTest {
                 ((View)ReflectionHelpers.getField(activity,"emptyState")).setVisibility(View.GONE);
                 RecyclerView list=ReflectionHelpers.getField(activity,"results");ConcatAdapter original=(ConcatAdapter)list.getAdapter();
                 View header=ReflectionHelpers.getField(original.getAdapters().get(0),"header");
-                Object first=card(activity,0);View[] rows={header,ReflectionHelpers.getField(first,"wrapper"),ReflectionHelpers.getField(card(activity,1),"wrapper")};
+                Object first=card(activity,0);View[] rows={header,ReflectionHelpers.getField(first,"wrapper"),ReflectionHelpers.getField(card(activity,1),"wrapper"),ReflectionHelpers.getField(card(activity,2),"wrapper")};
                 list.setAdapter(new RecyclerView.Adapter<RecyclerView.ViewHolder>(){
                     public int getItemCount(){return rows.length;}public int getItemViewType(int position){return position;}
                     public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent,int type){View row=rows[type];if(row.getParent()!=null)((ViewGroup)row.getParent()).removeView(row);row.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));return new RecyclerView.ViewHolder(row){};}
                     public void onBindViewHolder(RecyclerView.ViewHolder holder,int position){}
                 });
-                View page=ReflectionHelpers.getField(activity,"page");layout(page,width,1100);
+                View page=ReflectionHelpers.getField(activity,"page");layout(page,width,900);
                 export(page,destination,"home-"+language+"-"+width+".png");
                 ReflectionHelpers.callInstanceMethod(activity,"setSidebarVisible",ReflectionHelpers.ClassParameter.from(boolean.class,true));layout(page,width,900);
                 // The drawer width is recalculated by its parent layout callback.

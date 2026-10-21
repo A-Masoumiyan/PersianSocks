@@ -13,7 +13,7 @@ public final class AppHttp {
     private static volatile Context app;
     private static final Map<Long,OkHttpClient> clients=new LinkedHashMap<>();
     static void initialize(Context context){app=context.getApplicationContext();ProxyScanner.httpFactory(url->{return sourceConnection(url);});}
-    private static HttpURLConnection sourceConnection(URL url)throws IOException {
+    public static HttpURLConnection sourceConnection(URL url)throws IOException {
         try{
             PhysicalTestNetwork path=PhysicalTestNetwork.capture(app);
             javax.net.SocketFactory sockets=new javax.net.SocketFactory(){
