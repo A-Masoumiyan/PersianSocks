@@ -141,7 +141,13 @@ public final class ProxyVpnService extends VpnService {
         if (intent == null) return START_NOT_STICKY;
         ScanInputs.initializePolicy(this);
         if(RECONFIGURE.equals(intent.getAction())){
-            userRequested=false;closeTunnel();try{if(AndroidRoutes.kill(this)&&VpnService.prepare(this)==null){ensureChannel();Notification n=notification("کیل‌سوییچ فعال");if(Build.VERSION.SDK_INT>=34)startForeground(ID,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);else startForeground(ID,n);replaceTun(null);}}catch(Exception e){announceError(e.getMessage());}scheduleIdleStop();return START_NOT_STICKY;
+            ProxyEndpoint resume=userRequested&&!autoScanning?lastProfile:null;
+            userRequested=false;closeTunnel();
+            try{
+                if(AndroidRoutes.kill(this)&&VpnService.prepare(this)==null){ensureChannel();Notification n=notification("کیل‌سوییچ فعال");if(Build.VERSION.SDK_INT>=34)startForeground(ID,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);else startForeground(ID,n);replaceTun(null);}
+                if(resume!=null){userRequested=true;beginConnect(resume);}
+            }catch(Exception e){finishConnection("مسیر معتبر نیست: "+e.getMessage());}
+            scheduleIdleStop();return START_NOT_STICKY;
         }
         if(RELEASE_GUARD.equals(intent.getAction())){if(phase==DISCONNECTED){closeTunnel();scheduleIdleStop();}return START_NOT_STICKY;}
         if (DISCONNECT.equals(intent.getAction())) {
@@ -288,7 +294,8 @@ public final class ProxyVpnService extends VpnService {
     private void finishQuality(boolean failure){if(qualityStarted!=0){QualityHistory.session(qualityScope,qualityKey,Math.max(0,android.os.SystemClock.elapsedRealtime()-qualityStarted),failure);qualityStarted=0;qualityKey="";}}
     private void beginConnect(ProxyEndpoint proxy) {
         if(!DistributionPolicy.allows(proxy)){finishConnection(AppLanguage.t(R.string.ui_extra_032));return;}
-        clearConnectionError();closeTunnel();
+        // Automatic retries keep the last error visible until success or a new user request.
+        closeTunnel();
         resetTrafficSession();
         int token = ++generation;
         cancelled = new AtomicBoolean(false);
@@ -358,9 +365,12 @@ public final class ProxyVpnService extends VpnService {
                 public InetAddress resolve(String host)throws Exception {return path.resolve(host);}
             },ProtectedSocksGateway.TCP_IDLE_MILLIS,AndroidRoutes.load(this));
             Socks5Probe.setResolver(path::resolve);Socks5Probe.setSocketMaker(path::socket);
-            // Keep the old TUN until its replacement is established. An engine
-            // stop cannot restore a physical route while the guard descriptor lives.
-            replaceTun(path);
+            // The guard already owns the routes for this scope. Replacing its
+            // interface here creates an unnecessary Android network handover.
+            // Scope changes explicitly rebuild it in RECONFIGURE instead.
+            if(tun==null)replaceTun(path);
+            else if(!setUnderlyingNetworks(new Network[]{path.network()}))
+                throw new java.io.IOException("Unable to update VPN underlying network");
             String yaml = "tunnel:\n" +
                 "  mtu: 1400\n" +
                 "  ipv4: 198.18.0.1\n" +

@@ -123,6 +123,7 @@ public final class MainActivity extends ComponentActivity {
     private String connectionError="";
     private CheckBox sidebarTls,sidebarAuto,sidebarKill;
     private CheckBox quickKill;
+    private CheckBox chatOnly;
     private boolean initialFetchAttempted;
     private List<ProxyEndpoint> startupPreview=java.util.Collections.emptyList();
     private Button sidebarToggle, sidebarClose;
@@ -319,7 +320,9 @@ public final class MainActivity extends ComponentActivity {
         selectionProtocol.setTextDirection(View.TEXT_DIRECTION_LTR);
         connectionHeading.addView(selectionProtocol);
         hero.addView(connectionHeading);
-        Button chatOnly=button(AppLanguage.t(R.string.ui_030_chatgpt),false);chatOnly.setOnClickListener(v->chatgptOnly());hero.addView(chatOnly,new LinearLayout.LayoutParams(-1,dp(36)));
+        chatOnly=sidebarCheck(AppLanguage.t(R.string.ui_031_chatgpt_off),AndroidRoutes.mode(this).equals("chatgpt"));
+        chatOnly.setOnClickListener(v->setChatgptOnly(chatOnly.isChecked()));
+        hero.addView(chatOnly,new LinearLayout.LayoutParams(-1,dp(48)));
         selection = text(AppLanguage.t(R.string.ui_004), 20, Color.WHITE, true);
         selection.setTextDirection(View.TEXT_DIRECTION_LTR);
         selection.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
@@ -332,9 +335,8 @@ public final class MainActivity extends ComponentActivity {
         LinearLayout.LayoutParams countryCell=new LinearLayout.LayoutParams(-2,-2);countryCell.setMarginStart(dp(8));selectedIdentity.addView(selectionCountry,countryCell);
         hero.addView(selectedIdentity, margin(dp(5), 0));
         vpnStatus = text(AppLanguage.t(R.string.ui_005), 12, SECONDARY, false);
-        vpnStatus.setMaxLines(2); vpnStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        vpnStatus.setOnClickListener(v -> new AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_006))
-            .setMessage(vpnStatus.getText()).setPositiveButton(AppLanguage.t(R.string.ui_007), null).show());
+        vpnStatus.setMaxLines(4); vpnStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        vpnStatus.setOnClickListener(v -> connectionErrorDialog());
         vpnStatus.setTooltipText(AppLanguage.t(R.string.ui_008));
         hero.addView(vpnStatus, margin(dp(4), 0));
         activeProfile = text("", 12, SECONDARY, false); activeProfile.setVisibility(View.VISIBLE);activeProfile.setOnClickListener(v->refreshPublicIp(true));
@@ -765,6 +767,7 @@ public final class MainActivity extends ComponentActivity {
     private void updateActions() {
         if(!foregroundVisible)return;
         if (scanToggle == null) return;
+        if(chatOnly!=null){boolean enabled=AndroidRoutes.mode(this).equals("chatgpt");chatOnly.setChecked(enabled);chatOnly.setText(AppLanguage.t(enabled?R.string.ui_031_chatgpt_on:R.string.ui_031_chatgpt_off));}
         if(quickKill!=null&&AndroidRoutes.kill(this))quickKill.setText(AppLanguage.t(AndroidRoutes.kill(this)&&ProxyVpnService.guardArmed()?R.string.ui_030_guard_ready:R.string.ui_030_guard_wait));
         boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto;
         boolean resumable=resumableScan();
@@ -955,9 +958,22 @@ public final class MainActivity extends ComponentActivity {
         if(ProxyVpnService.phase()!=ProxyVpnService.DISCONNECTED||ProxyVpnService.guardActive())try{startForegroundService(new Intent(this,ProxyVpnService.class).setAction(ProxyVpnService.RECONFIGURE));}catch(Exception error){connectionError=error.getMessage();}
         updateActions();
     }
-    private void chatgptOnly(){
-        if(!SplitTunnelSettings.installed(getPackageManager(),"com.openai.chatgpt")){Toast.makeText(this,AppLanguage.t(R.string.ui_030_install_chatgpt),Toast.LENGTH_LONG).show();return;}
-        getSharedPreferences("persiansocks",0).edit().putString("routing-mode","chatgpt").apply();applyRoutes();Toast.makeText(this,AppLanguage.t(R.string.ui_030_chatgpt),Toast.LENGTH_LONG).show();
+    private void setChatgptOnly(boolean enabled){
+        if(enabled&&!SplitTunnelSettings.installed(getPackageManager(),"com.openai.chatgpt")){
+            connectionError=AppLanguage.t(R.string.ui_030_install_chatgpt);
+            getSharedPreferences("persiansocks",0).edit().putString("connection-error",connectionError).apply();
+            updateActions();connectionErrorDialog();return;
+        }
+        AndroidRoutes.chatgpt(this,enabled);applyRoutes();
+    }
+    private void connectionErrorDialog(){
+        String report=connectionError+"\n\n"+getSharedPreferences("persiansocks",0).getString("vpn-report","");
+        TextView detail=text(AppLanguage.display(report),13,Color.WHITE,false);detail.setTextIsSelectable(true);detail.setPadding(dp(20),dp(16),dp(20),dp(16));
+        ScrollView scroll=new ScrollView(this);scroll.addView(detail);
+        new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_006)).setView(scroll)
+            .setPositiveButton(AppLanguage.t(R.string.ui_007),null)
+            .setNeutralButton(AppLanguage.t(R.string.ui_031_copy_error),(d,w)->{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);clipboard.setPrimaryClip(android.content.ClipData.newPlainText("VPN error",report));})
+            .setNegativeButton(AppLanguage.t(R.string.ui_031_clear_error),(d,w)->{connectionError="";getSharedPreferences("persiansocks",0).edit().remove("connection-error").remove("connection-error-endpoint").apply();updateActions();}).show();
     }
     private void routesDialog(){
         LinearLayout box=dialogContent();box.addView(text(AppLanguage.t(R.string.ui_030_routes_help),12,SECONDARY,false));

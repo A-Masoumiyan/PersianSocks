@@ -19,7 +19,15 @@ public class AndroidParityTest {
  }
  @Test public void killSwitchIsOnByDefaultAndChatgptModeDoesNotRestrictToDomains(){
   Context c=RuntimeEnvironment.getApplication();c.getSharedPreferences("persiansocks",0).edit().clear().commit();assertTrue(AndroidRoutes.kill(c));
-  c.getSharedPreferences("persiansocks",0).edit().putBoolean("kill-switch-off",true).putString("routing-mode","chatgpt").commit();assertFalse(AndroidRoutes.kill(c));assertFalse(AndroidRoutes.load(c).restricted);assertTrue(AndroidRoutes.scopedVerification(c));assertEquals("chatgpt.com",AndroidRoutes.verification(c,ServiceTargets.ALL)[0].host);
+  c.getSharedPreferences("persiansocks",0).edit().putBoolean("kill-switch-off",true).putString("routing-mode","chatgpt").commit();assertFalse(AndroidRoutes.kill(c));assertFalse(AndroidRoutes.load(c).restricted);assertFalse(AndroidRoutes.scopedVerification(c));
+  ServiceTargets.Target[] fallback={ServiceTargets.ALL[1]};assertSame(fallback,AndroidRoutes.verification(c,fallback));
+ }
+ @Test public void chatgptCanBeDisabledAfterTheAppIsRemovedAndRestoresPreviousScope(){
+  Context c=RuntimeEnvironment.getApplication();c.getSharedPreferences("persiansocks",0).edit().clear().putString("routing-mode","domains").putString("route-domains","youtube.com").commit();
+  AndroidRoutes.chatgpt(c,true);AndroidRoutes.chatgpt(c,true);assertEquals("chatgpt",AndroidRoutes.mode(c));
+  AndroidRoutes.chatgpt(c,false);assertEquals("domains",AndroidRoutes.mode(c));assertTrue(AndroidRoutes.load(c).proxy("youtube.com"));
+  c.getSharedPreferences("persiansocks",0).edit().putString("routing-mode","chatgpt").remove("routing-before-chatgpt").commit();
+  AndroidRoutes.chatgpt(c,false);assertEquals("apps",AndroidRoutes.mode(c));
  }
  @Test public void domainProfileVerifiesAnIncludedDestinationAndRejectsEmptyRules(){
   Context c=RuntimeEnvironment.getApplication();c.getSharedPreferences("persiansocks",0).edit().clear().putString("routing-mode","domains").putString("route-domains","chatgpt.com").commit();
