@@ -24,7 +24,7 @@ jobs:
           python3 - <<'PY'
           import json,hashlib,pathlib,subprocess
           m=json.loads(pathlib.Path('release-input/android.json').read_text())
-          assert m['file']=='PersianSocks-0.31.0.apk'
+          assert m['file']=='PersianSocks-0.31.1.apk'
           assert 1<=len(m['parts'])<=16
           assert m['parts']==[m['file']+'.part'+str(i) for i in range(1,len(m['parts'])+1)]
           p=pathlib.Path('release-input')/m['file']
@@ -32,7 +32,7 @@ jobs:
           assert hashlib.sha256(p.read_bytes()).hexdigest()==m['sha256']
           subprocess.run(['python3','scripts/audit-release-apk.py',str(p),'--sdk',__import__('os').environ['ANDROID_HOME'],'--profile','personal'],check=True)
           out=subprocess.check_output([__import__('os').environ['ANDROID_HOME']+'/build-tools/35.0.0/aapt','dump','badging',str(p)],text=True)
-          assert "versionCode='49'" in out and "versionName='0.31.0'" in out
+          assert "versionCode='50'" in out and "versionName='0.31.1'" in out
           PY
       - name: Package corresponding native source
         run: python3 scripts/package-openvpn-source.py
@@ -40,4 +40,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v0.31.0 release-input/PersianSocks-0.31.0.apk PersianSocks-OpenVPN-corresponding-source.tar.gz --title 'PersianSocks Android 0.31.0' --notes-file .github/android-0.31.0-notes.md --target "$GITHUB_SHA"
+          gh release create v0.31.1 release-input/PersianSocks-0.31.1.apk PersianSocks-OpenVPN-corresponding-source.tar.gz --title 'PersianSocks Android 0.31.1' --notes-file .github/android-0.31.1-notes.md --target "$GITHUB_SHA"
