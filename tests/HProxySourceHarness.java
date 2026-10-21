@@ -29,7 +29,7 @@ public final class HProxySourceHarness {
         void await()throws Exception{check(done.await(8,TimeUnit.SECONDS)&&candidates!=null,"Collection completes without a proxy probe");}
     }
     public static void main(String[] args)throws Exception {
-        check(SourceCatalog.DEFAULT.length==17&&SourceCatalog.DEFAULT[0].name.equals("Roosterkid")&&Arrays.stream(SourceCatalog.DEFAULT).allMatch(s->s.format==ProxyScanner.Source.Format.TEXT),"Version 18 raw source catalog restored without quality API preference");
+        check(SourceCatalog.DEFAULT.length>=41&&Arrays.stream(SourceCatalog.DEFAULT).anyMatch(s->s.name.equals("Roosterkid"))&&Arrays.stream(SourceCatalog.DEFAULT).noneMatch(s->s.format==ProxyScanner.Source.Format.HPROXY_QUALITY)&&Arrays.stream(SourceCatalog.DEFAULT).anyMatch(s->s.format==ProxyScanner.Source.Format.JSON&&s.country.equals("IR")),"Original public sources retained with reviewed Iranian JSON feeds");
         ProxyEndpoint p=parse(new JSONArray().put(row(1,10))).endpoints.get(0);
         check(p.type==ProxyEndpoint.Type.SOCKS5&&p.latencyMs==-1&&p.latencyAt==0&&p.testedAt==0&&p.serviceMask==0&&p.checkedMask==0&&!p.udpAdvertised,
             "Provider ping and alive status never become local connection evidence");

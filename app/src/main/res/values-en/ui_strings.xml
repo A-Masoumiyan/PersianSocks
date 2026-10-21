@@ -596,4 +596,19 @@
     <string name="ui_scan_capacity" formatted="false">"Concurrency"</string>
     <string name="ui_scan_rate" formatted="false">"tests/sec"</string>
     <string name="ui_source_internal_duplicates" formatted="false">"Duplicates within parsed source data"</string>
+    <string name="ui_030_kill">Kill switch</string>
+    <string name="ui_030_guard_help">Protection while disconnected</string>
+    <string name="ui_030_vpn_settings">Android VPN settings</string>
+    <string name="ui_030_guard_text">Enabled by default. After first VPN consent and connection, selected traffic stays in the VPN interface when the engine stops, changes or fails, with no direct fallback. ChatGPT-only covers the installed ChatGPT app. Protection is not active before initial VPN consent. Manual disconnect keeps the guard; turn this switch off to release it. Domain mode temporarily blocks other captured traffic while its engine is offline. For protection after force-stop or reboot, enable Always-on VPN and Block connections without VPN in Android Settings; apps cannot enable these switches themselves, and excluded apps may also be blocked. This is not an account anonymity guarantee.</string>
+    <string name="ui_030_routes">Domain and service routes</string>
+    <string name="ui_030_routes_help">Selected domains and their subdomains use the proxy; unrelated named traffic is direct. IP-only traffic is blocked. Selected UDP is blocked so QUIC can retry TCP; unrelated named UDP is direct. Changing routes disconnects the current connection; reconnect afterwards.</string>
+    <string name="ui_030_chatgpt">Only ChatGPT Android</string>
+    <string name="ui_030_install_chatgpt">The official ChatGPT app (com.openai.chatgpt) is not installed.</string>
+    <string name="ui_030_apps">Route by apps</string>
+    <string name="ui_030_choose_domain">Choose at least one domain or service</string>
+    <string name="ui_030_country">Country filter and scan country</string>
+    <string name="ui_030_all_countries">All countries</string>
+    <string name="ui_030_scan_country">Limit the next scan to this country too? Resuming a scan retains its original input.</string>
+    <string name="ui_030_guard_ready">Kill switch: guard active</string>
+    <string name="ui_030_guard_wait">Kill switch: awaiting VPN connection</string>
 </resources>

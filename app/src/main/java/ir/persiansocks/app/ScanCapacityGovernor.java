@@ -9,7 +9,7 @@ public final class ScanCapacityGovernor {
     private double rate, previousRate;
     private boolean saturated;
     public ScanCapacityGovernor(boolean deep,long now) {
-        this.deep=deep;limit=deep?12:72;started=windowAt=now;
+        this.deep=deep;limit=deep?12:192;started=windowAt=now;
     }
     public synchronized int capacity(long now,int resourceCap,int inFlight,boolean queued) {
         int cap=Math.max(1,Math.min(deep?24:216,resourceCap));

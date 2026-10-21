@@ -11,8 +11,8 @@ android {
         buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(project.findProperty('privacyPolicyUrl') ?: '')
         minSdk 29
         targetSdk 36
-        versionCode 47
-        versionName '0.29.8'
+        versionCode 48
+        versionName '0.30.0'
     }
     buildFeatures { buildConfig true }
     testOptions { unitTests.includeAndroidResources = true }
@@ -37,7 +37,8 @@ android {
             }
         }
     }
-    buildTypes.release.signingConfig signingConfigs.originalRelease
+    // Explicit unsigned CI output; normal release builds still require the pinned key.
+    buildTypes.release.signingConfig (project.findProperty('offlineUnsigned') == 'true' ? null : signingConfigs.originalRelease)
     packaging {
         jniLibs { useLegacyPackaging = false }
     }

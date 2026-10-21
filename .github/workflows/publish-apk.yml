@@ -1,0 +1,38 @@
+name: Publish verified signed Android APK
+on:
+  push:
+    branches: [main]
+    paths: ['release-input/android.json']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager 'build-tools;35.0.0'
+      - name: Verify official signed artifact
+        run: |
+          python3 - <<'PY'
+          import json,hashlib,pathlib,subprocess
+          m=json.loads(pathlib.Path('release-input/android.json').read_text())
+          p=pathlib.Path('release-input')/m['file']
+          assert p.name=='PersianSocks-0.30.0.apk'
+          assert hashlib.sha256(p.read_bytes()).hexdigest()==m['sha256']
+          subprocess.run(['python3','scripts/audit-release-apk.py',str(p),'--sdk',__import__('os').environ['ANDROID_HOME'],'--profile','personal'],check=True)
+          out=subprocess.check_output([__import__('os').environ['ANDROID_HOME']+'/build-tools/35.0.0/aapt','dump','badging',str(p)],text=True)
+          assert "versionCode='48'" in out and "versionName='0.30.0'" in out
+          PY
+      - name: Publish Android release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.30.0 release-input/PersianSocks-0.30.0.apk --title 'PersianSocks Android 0.30.0' --notes-file .github/android-0.30.0-notes.md --target "$GITHUB_SHA"

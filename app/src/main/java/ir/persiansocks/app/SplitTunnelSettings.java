@@ -28,7 +28,7 @@ public final class SplitTunnelSettings {
     }
     public static void apply(Context context, VpnService.Builder builder) throws Exception {
         PackageManager manager = context.getPackageManager();
-        load(context).apply(context.getPackageName(), new SplitTunnelPolicy.Rules() {
+        (AndroidRoutes.mode(context).equals("chatgpt")?new SplitTunnelPolicy(SplitTunnelPolicy.Mode.ONLY_SELECTED,java.util.Collections.singleton("com.openai.chatgpt"),context.getPackageName()):load(context)).apply(context.getPackageName(), new SplitTunnelPolicy.Rules() {
             public boolean installed(String name) { return SplitTunnelSettings.installed(manager, name); }
             public boolean allow(String name) throws Exception {
                 try { builder.addAllowedApplication(name); return true; }

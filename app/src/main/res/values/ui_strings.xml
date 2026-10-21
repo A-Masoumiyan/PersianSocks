@@ -596,4 +596,19 @@
     <string name="ui_scan_capacity" formatted="false">"ظرفیت هم‌زمان"</string>
     <string name="ui_scan_rate" formatted="false">"تست/ثانیه"</string>
     <string name="ui_source_internal_duplicates" formatted="false">"تکرار در دادهٔ پردازش‌شدهٔ منبع"</string>
+    <string name="ui_030_kill">کیل‌سوییچ</string>
+    <string name="ui_030_guard_help">محدودهٔ حفاظت هنگام قطع</string>
+    <string name="ui_030_vpn_settings">تنظیمات VPN اندروید</string>
+    <string name="ui_030_guard_text">پیش‌فرض روشن است. بعد از اولین اجازه و اتصال VPN، با قطع، تعویض یا خرابی موتور، مسیرهای انتخابی در رابط VPN باقی می‌مانند و مستقیم نمی‌شوند. در حالت فقط ChatGPT فقط برنامهٔ نصب‌شدهٔ ChatGPT پوشش داده می‌شود. پیش از اولین اجازهٔ VPN حفاظتی فعال نیست. پس از قطع دستی نیز محافظ باقی می‌ماند؛ برای آزادکردن اینترنت، کلید را خاموش کن. در حالت دامنه، هنگام قطع موتور سایر ترافیک واردشده به VPN هم موقتاً مسدود می‌شود. برای حفاظت پس از بسته‌شدن اجباری برنامه یا راه‌اندازی گوشی، در تنظیمات اندروید VPN همیشگی و مسدودسازی اتصال بدون VPN را فعال کن؛ اندروید این دو کلید را خودکار به برنامه نمی‌دهد و ممکن است برنامه‌های مستثنا را هم مسدود کند. این قابلیت تضمین ناشناس‌ماندن حساب نیست.</string>
+    <string name="ui_030_routes">شرط دامنه و سرویس‌های تونل</string>
+    <string name="ui_030_routes_help">دامنه‌ها و زیر‌دامنه‌های انتخابی از پروکسی می‌گذرند؛ اتصال‌های نامرتبط مستقیم‌اند. IPهای بدون نام دامنه مسدود می‌شوند. UDP دامنه‌های انتخابی مسدود است تا QUIC با TCP تلاش کند؛ UDP نامرتبطِ دارای دامنه مستقیم است. تغییر مسیر، اتصال فعلی را متوقف می‌کند؛ دوباره وصل شو.</string>
+    <string name="ui_030_chatgpt">فقط ChatGPT اندروید</string>
+    <string name="ui_030_install_chatgpt">برنامهٔ رسمی ChatGPT با شناسهٔ com.openai.chatgpt نصب نیست.</string>
+    <string name="ui_030_apps">مسیر بر اساس برنامه‌ها</string>
+    <string name="ui_030_choose_domain">حداقل یک دامنه یا سرویس انتخاب کن</string>
+    <string name="ui_030_country">فیلتر کشور و کشور اسکن</string>
+    <string name="ui_030_all_countries">همهٔ کشورها</string>
+    <string name="ui_030_scan_country">اسکن بعدی هم فقط برای همین کشور باشد؟ ادامهٔ اسکن قبلی ورودی خودش را حفظ می‌کند.</string>
+    <string name="ui_030_guard_ready">کیل‌سوییچ: محافظ فعال</string>
+    <string name="ui_030_guard_wait">کیل‌سوییچ: منتظر اتصال VPN</string>
 </resources>

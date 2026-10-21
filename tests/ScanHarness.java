@@ -105,7 +105,7 @@ public final class ScanHarness {
             Socks5Probe.Result restored=Socks5Probe.inspect(selective.endpoint(),false,new AtomicBoolean(),null,Socket::new,InetAddress::getByName,ServiceTargets.ALL[2]);
             verify(restored.endpoint!=null&&restored.endpoint.passed(ProxyEndpoint.YOUTUBE)&&!restored.endpoint.passed(ProxyEndpoint.INSTAGRAM),"v18 any-service success survives failed Instagram measurement");
         }
-        verify(SourceCatalog.DEFAULT.length==17,"17 original v18 SOCKS5 source definitions");
+        verify(SourceCatalog.DEFAULT.length==41,"41 shared Windows and Android proxy sources");
         ServiceTargets.Target facebook=ServiceTargets.custom("فیسبوک","www.facebook.com");
         ServiceTargets.configure(Arrays.asList(facebook));
         try(Mock m=new Mock("only-facebook")) {

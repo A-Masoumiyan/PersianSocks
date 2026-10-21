@@ -12,7 +12,23 @@ import okhttp3.*;
 public final class AppHttp {
     private static volatile Context app;
     private static final Map<Long,OkHttpClient> clients=new LinkedHashMap<>();
-    static void initialize(Context context){app=context.getApplicationContext();ProxyScanner.httpFactory(url->{Network network=app.getSystemService(android.net.ConnectivityManager.class).getActiveNetwork();if(network==null)throw new IOException("Offline");return open(url,network);});}
+    static void initialize(Context context){app=context.getApplicationContext();ProxyScanner.httpFactory(url->{return sourceConnection(url);});}
+    private static HttpURLConnection sourceConnection(URL url)throws IOException {
+        try{
+            PhysicalTestNetwork path=PhysicalTestNetwork.capture(app);
+            javax.net.SocketFactory sockets=new javax.net.SocketFactory(){
+                public Socket createSocket()throws IOException {try{return path.socket();}catch(Exception e){throw new IOException(e);}}
+                private Socket dial(InetAddress host,int port)throws IOException{Socket s=createSocket();try{s.connect(new InetSocketAddress(host,port),4000);return s;}catch(IOException e){s.close();throw e;}}
+                private InetAddress resolve(String host)throws IOException{try{return path.resolve(host);}catch(Exception e){throw new IOException(e);}}
+                public Socket createSocket(String host,int port)throws IOException{return dial(resolve(host),port);}
+                public Socket createSocket(InetAddress host,int port)throws IOException{return dial(host,port);}
+                public Socket createSocket(String host,int port,InetAddress local,int localPort)throws IOException{return createSocket(host,port);}
+                public Socket createSocket(InetAddress host,int port,InetAddress local,int localPort)throws IOException{return createSocket(host,port);}
+            };
+            OkHttpClient client=new OkHttpClient.Builder().proxy(java.net.Proxy.NO_PROXY).socketFactory(sockets).dns(host->{try{return Collections.singletonList(path.resolve(host));}catch(Exception e){throw new UnknownHostException(host);}}).followRedirects(false).retryOnConnectionFailure(false).build();
+            return new Connection(url,client);
+        }catch(Exception e){throw new IOException("No physical discovery network",e);}
+    }
     public static HttpURLConnection open(URL url,Network network)throws IOException {
         if(network==null)throw new IOException("No captured network");
         return okhttp(url,network);
