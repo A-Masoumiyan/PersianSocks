@@ -28,8 +28,9 @@ public final class OpenVpnSession implements AutoCloseable {
  private final Deque<FileDescriptor> receivedFds=new ConcurrentLinkedDeque<>();private final TunConfig tun=new TunConfig();
  private final StringBuilder logs=new StringBuilder();private final ScheduledExecutorService timers=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"openvpn-deadline");t.setDaemon(true);return t;});
  private volatile Process process;private volatile LocalServerSocket server;private volatile LocalSocket bound,management;
- private File configFile,socketFile;private ScheduledFuture<?> deadline;
- public OpenVpnSession(Context c,VpnGateProfile p,Listener listener){context=c.getApplicationContext();profile=p;this.listener=listener;}
+ private final int timeoutSeconds;private File configFile,socketFile;private ScheduledFuture<?> deadline;
+ public OpenVpnSession(Context c,VpnGateProfile p,Listener listener){this(c,p,listener,150);}
+ public OpenVpnSession(Context c,VpnGateProfile p,Listener listener,int timeoutSeconds){context=c.getApplicationContext();profile=p;this.listener=listener;this.timeoutSeconds=timeoutSeconds;}
  public void start(){Thread t=new Thread(this::run,"openvpn-management");t.setDaemon(true);t.start();}
  public synchronized String report(){return logs.toString();}
  private synchronized void log(String text){if(text.length()>1800)text=text.substring(0,1800);logs.append(text).append('\n');if(logs.length()>9000)logs.delete(0,logs.length()-9000);}
@@ -44,8 +45,8 @@ public final class OpenVpnSession implements AutoCloseable {
    ProcessBuilder pb=new ProcessBuilder(executable.getAbsolutePath(),"--config",configFile.getAbsolutePath(),"--management",socketFile.getAbsolutePath(),"unix","--management-client","--management-query-passwords","--management-hold","--management-signal");pb.redirectErrorStream(true);process=pb.start();
    Process child=process;Thread watcher=new Thread(()->{try{int code=child.waitFor();if(!closed.get())fail("OpenVPN exited ("+code+"): "+tail());}catch(InterruptedException e){Thread.currentThread().interrupt();}},"openvpn-process");watcher.setDaemon(true);watcher.start();
    Thread output=new Thread(()->{try(BufferedReader in=new BufferedReader(new InputStreamReader(process.getInputStream(),StandardCharsets.UTF_8))){String line;while((line=in.readLine())!=null&&!closed.get())log(line);}catch(Exception ignored){}},"openvpn-output");output.setDaemon(true);output.start();
-   deadline=timers.schedule(()->fail("OpenVPN connection timed out after 40 seconds"),40,TimeUnit.SECONDS);
-   management=server.accept();if(management.getPeerCredentials().getUid()!=android.os.Process.myUid())throw new IOException("Unexpected management socket owner");management.setSoTimeout(45000);
+   deadline=timers.schedule(()->fail("OpenVPN connection timed out after "+timeoutSeconds+" seconds"),timeoutSeconds,TimeUnit.SECONDS);
+   management=server.accept();if(management.getPeerCredentials().getUid()!=android.os.Process.myUid())throw new IOException("Unexpected management socket owner");management.setSoTimeout(160000);
    command("version 3\nstate on\nbytecount 2\n");byte[] bytes=new byte[4096];StringBuilder pending=new StringBuilder();
    while(!closed.get()){int n=management.getInputStream().read(bytes);if(n<0)break;FileDescriptor[] fds=management.getAncillaryFileDescriptors();if(fds!=null)for(FileDescriptor fd:fds){if(receivedFds.size()>=8){Os.close(fd);throw new IOException("Too many management descriptors");}receivedFds.add(fd);}pending.append(new String(bytes,0,n,StandardCharsets.UTF_8));if(pending.length()>32768)throw new IOException("Management line is too long");int end;while((end=pending.indexOf("\n"))>=0){String line=pending.substring(0,end).trim();pending.delete(0,end+1);handle(line);}}
    if(!closed.get())fail("OpenVPN process stopped: "+tail());

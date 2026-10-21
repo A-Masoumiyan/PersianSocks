@@ -61,6 +61,7 @@ public final class MainActivity extends ComponentActivity {
     private final PreparedScanner preparedScanner = new PreparedScanner();
     private ScanFiles scanFiles;
     private VpnGateDirectory gateDirectory;
+    private boolean pendingGateScan,pendingGateDeep;private String pendingGateKey;private Button gateResultsButton;
     private ScanCheckpoint checkpoint;
     private int catalogCount;
     private boolean loading, preparing, stopping, localDataLoaded;
@@ -170,6 +171,7 @@ public final class MainActivity extends ComponentActivity {
                     }
                 } catch (Exception ignored) {}
             }
+            if(intent.getBooleanExtra("gate-result",false)&&gateDirectory!=null){String key=intent.getStringExtra("gate-key");boolean ok=intent.getBooleanExtra("gate-ok",false);gateDirectory.store.evidence(key,ok,intent.getStringExtra("gate-error"),intent.getLongExtra("gate-at",0),intent.getLongExtra("gate-latency",-1));if(!ok)healthy.reject(key,System.currentTimeMillis());renderedRevision=-1;render();}
             if(intent.getBooleanExtra("traffic-only",false)){updateTraffic();return;}
             vpnRequestPending = false;
             boolean auto=ProxyVpnService.autoScanning();
@@ -178,7 +180,7 @@ public final class MainActivity extends ComponentActivity {
             String state = intent.getStringExtra(ProxyVpnService.EXTRA_MESSAGE);
             if(intent.hasExtra("connection-error"))connectionError=intent.getStringExtra("connection-error");
             if(connectionError==null)connectionError="";
-            if(state!=null&&auto)status.setText(AppLanguage.display(state));
+            if(state!=null&&(auto||ProxyVpnService.gateScanning()||intent.hasExtra("gate-result")))status.setText(AppLanguage.display(state));
             updateActions();updateTraffic();if(siteIcons!=null)siteIcons.sync();if(renderedRevision!=healthy.revision())render();
         }
     };
@@ -445,7 +447,7 @@ public final class MainActivity extends ComponentActivity {
         // Reuse the existing controller and its controls; the approved layout
         // changes presentation without replacing scanning, paging or settings.
         View oldTools=(View)favoritesButton.getParent();detach(oldTools);
-        LinearLayout header=new LinearLayout(this);header.setOrientation(LinearLayout.VERTICAL);header.setPadding(dp(14),dp(12),dp(14),dp(6));
+        LinearLayout header=new LinearLayout(this);header.setOrientation(LinearLayout.VERTICAL);header.setPadding(dp(16),dp(12),dp(16),dp(6));
         LinearLayout top=horizontal();top.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);top.addView(new View(this),new LinearLayout.LayoutParams(dp(42),dp(48)));
         LinearLayout title=new LinearLayout(this);title.setOrientation(LinearLayout.VERTICAL);title.setGravity(Gravity.CENTER);
         android.text.SpannableString wordmark=new android.text.SpannableString("PersianSocks");wordmark.setSpan(new android.text.style.ForegroundColorSpan(PRIMARY),7,12,0);
@@ -457,30 +459,37 @@ public final class MainActivity extends ComponentActivity {
         LinearLayout state=new LinearLayout(this);state.setOrientation(LinearLayout.VERTICAL);state.setGravity(AppLanguage.gravity());state.setPadding(dp(12),0,dp(4),0);
         vpnBadge.setTextSize(21);vpnBadge.setTextColor(Color.WHITE);state.addView(detach(vpnBadge),new LinearLayout.LayoutParams(-1,-2));connectionAction.setTextSize(12);connectionAction.setTextColor(SECONDARY);connectionAction.setGravity(AppLanguage.gravity());state.addView(detach(connectionAction),margin(dp(7),0));identity.addView(state,new LinearLayout.LayoutParams(0,-2,1));hero.addView(identity);
         LinearLayout controls=horizontal();controls.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        LinearLayout kill=panel();kill.setPadding(dp(9),dp(10),dp(9),dp(10));kill.setBackground(background(Color.rgb(23,29,35),dp(11),DesignOneWidgets.STROKE));
-        LinearLayout killRow=horizontal();killRow.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);UiIconButton shield=new UiIconButton(this,UiIconButton.Kind.SHIELD,AppLanguage.t(R.string.ui_030_guard_help));shield.setBackground(null);shield.setTextColor(PRIMARY);shield.setOnClickListener(v->guardHelp());killRow.addView(shield,new LinearLayout.LayoutParams(dp(28),dp(36)));
+        LinearLayout kill=panel();kill.setPadding(dp(6),dp(10),dp(6),dp(10));kill.setBackground(background(Color.rgb(23,29,35),dp(11),DesignOneWidgets.STROKE));
+        LinearLayout killRow=horizontal();killRow.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);UiIconButton shield=new UiIconButton(this,UiIconButton.Kind.SHIELD,AppLanguage.t(R.string.ui_030_guard_help));shield.setBackground(null);shield.setTextColor(PRIMARY);shield.setOnClickListener(v->guardHelp());killRow.addView(shield,new LinearLayout.LayoutParams(dp(20),dp(36)));
         LinearLayout killWords=new LinearLayout(this);killWords.setOrientation(LinearLayout.VERTICAL);TextView killTitle=text("Kill Switch",11,Color.WHITE,true);killTitle.setSingleLine(true);killTitle.setTextSize(9);killTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);killTitle.setTextDirection(View.TEXT_DIRECTION_LTR);killTitle.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);killWords.addView(killTitle);designKillStatus=text("",9,SECONDARY,false);designKillStatus.setMaxLines(2);killWords.addView(designKillStatus);killRow.addView(killWords,new LinearLayout.LayoutParams(0,-2,1));
         quickKill=new DesignOneWidgets.Switch(this);quickKill.setChecked(AndroidRoutes.kill(this));quickKill.setContentDescription(AppLanguage.t(R.string.ui_030_kill));quickKill.setOnCheckedChangeListener((v,on)->setKill(on));killRow.addView(quickKill,new LinearLayout.LayoutParams(dp(44),dp(36)));kill.addView(killRow);
         controls.addView(kill,new LinearLayout.LayoutParams(0,dp(76),1));
         LinearLayout scope=panel();scope.setPadding(dp(8),dp(6),dp(8),dp(6));scope.setBackground(background(Color.rgb(23,29,35),dp(11),DesignOneWidgets.STROKE));scope.addView(text(AppLanguage.t(R.string.ui_032_scope),10,SECONDARY,false));LinearLayout choices=horizontal();choices.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         designAllApps=button(AppLanguage.t(R.string.ui_032_all_apps),false);designAllApps.setTextSize(9);designAllApps.setPadding(dp(3),0,dp(3),0);designAllApps.setOnClickListener(v->{AndroidRoutes.chatgpt(this,false);getSharedPreferences("persiansocks",0).edit().putString("routing-mode","apps").apply();SplitTunnelSettings.save(this,SplitTunnelPolicy.Mode.ALL,java.util.Collections.emptySet(),false);applyRoutes();});choices.addView(designAllApps,new LinearLayout.LayoutParams(0,dp(36),1));
-        chatOnly.setButtonDrawable(null);chatOnly.setTextSize(9);chatOnly.setPadding(dp(3),0,dp(3),0);chatOnly.setGravity(Gravity.CENTER);chatOnly.setMinHeight(0);choices.addView(detach(chatOnly),new LinearLayout.LayoutParams(0,dp(36),1));scope.addView(choices);LinearLayout.LayoutParams scopeCell=new LinearLayout.LayoutParams(0,dp(76),1);scopeCell.setMarginStart(dp(8));controls.addView(scope,scopeCell);hero.addView(controls,margin(dp(12),0));
+        chatOnly.setButtonDrawable(null);chatOnly.setTextSize(9);chatOnly.setPadding(dp(3),0,dp(3),0);chatOnly.setGravity(Gravity.CENTER);chatOnly.setMinHeight(0);choices.addView(detach(chatOnly),new LinearLayout.LayoutParams(0,dp(36),1));scope.addView(choices);LinearLayout.LayoutParams scopeCell=new LinearLayout.LayoutParams(0,dp(76),1);controls.addView(new View(this),new LinearLayout.LayoutParams(dp(8),1));controls.addView(scope,scopeCell);hero.addView(controls,margin(dp(12),0));
         hero.addView(detach(vpnStatus),margin(dp(7),0));header.addView(hero,margin(dp(14),0));
         LinearLayout sources=horizontal();sources.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);sources.setPadding(dp(4),dp(4),dp(4),dp(4));sources.setBackground(background(SURFACE,dp(14),DesignOneWidgets.STROKE));String[] captions={AppLanguage.t(R.string.ui_032_all),"SOCKS5","VPN Gate"};ProxyResults.Protocol[] types={ProxyResults.Protocol.ALL,ProxyResults.Protocol.SOCKS,ProxyResults.Protocol.VPN_GATE};
-        for(int i=0;i<3;i++){final ProxyResults.Protocol kind=types[i];Button choice=button(captions[i],false);choice.setTextSize(12);choice.setPadding(0,0,0,0);choice.setMinHeight(0);designSources[i]=choice;choice.setOnClickListener(v->{protocol=kind;getSharedPreferences("persiansocks",0).edit().putString("protocol-filter",kind.name()).apply();renderedRevision=-1;render();if(kind==ProxyResults.Protocol.VPN_GATE&&gateDirectory!=null&&gateDirectory.store.snapshot().isEmpty())gateDirectory.refresh();});sources.addView(choice,new LinearLayout.LayoutParams(0,dp(38),1));}header.addView(sources,margin(dp(14),0));
+        for(int i=0;i<3;i++){final ProxyResults.Protocol kind=types[i];Button choice=button(captions[i],false);choice.setTextSize(12);choice.setPadding(0,0,0,0);choice.setMinHeight(0);designSources[i]=choice;choice.setOnClickListener(v->{protocol=kind;getSharedPreferences("persiansocks",0).edit().putString("protocol-filter",kind.name()).apply();renderedRevision=-1;render();if(kind==ProxyResults.Protocol.VPN_GATE&&gateDirectory!=null&&gateDirectory.store.snapshot().isEmpty())gateDirectory.refresh();});sources.addView(choice,new LinearLayout.LayoutParams(0,dp(38),1));}header.addView(sources,margin(dp(12),0));
         LinearLayout filters=horizontal();filters.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);designCountry=button(AppLanguage.t(R.string.ui_030_all_countries)+"  ◉",false);designCountry.setTextSize(11);designCountry.setOnClickListener(v->countryDialog());filters.addView(designCountry,new LinearLayout.LayoutParams(0,dp(42),1));
         designSort=button("≡  "+sortLabel(),false);designSort.setTextSize(11);designSort.setOnClickListener(v->designSortDialog());LinearLayout.LayoutParams sorting=new LinearLayout.LayoutParams(0,dp(42),1);sorting.setMarginStart(dp(8));filters.addView(designSort,sorting);header.addView(filters,margin(dp(10),0));
+        gateResultsButton=button("",false);gateResultsButton.setTextSize(12);gateResultsButton.setOnClickListener(v->{boolean checked=getSharedPreferences("persiansocks",0).getBoolean("gate-verified-only",true);getSharedPreferences("persiansocks",0).edit().putBoolean("gate-verified-only",!checked).apply();renderedRevision=-1;render();});header.addView(gateResultsButton,margin(dp(8),0));
         filterSummary.setTextSize(10);header.addView(detach(filterSummary),margin(dp(2),0));header.addView(detach(emptyState),margin(dp(4),0));
         results.setAdapter(new ConcatAdapter(new HeaderAdapter(header),resultAdapter));
-        LinearLayout footer=new LinearLayout(this);footer.setOrientation(LinearLayout.VERTICAL);footer.setPadding(dp(14),dp(10),dp(14),dp(2));footer.setBackgroundColor(BG);LinearLayout actions=horizontal();actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        scanToggle=new DesignOneWidgets.Scan(this);scanToggle.setOnClickListener(v->{if(gateDirectory.busy()){gateDirectory.stop();if(scanning||ProxyVpnService.autoScanning())stopScan();return;}if(protocol==ProxyResults.Protocol.VPN_GATE){if(gateDirectory.busy())gateDirectory.stop();else if(gateDirectory.store.snapshot().isEmpty())gateDirectory.refresh();else gateDirectory.scan();}else if(scanning||ProxyVpnService.autoScanning())stopScan();else {if(protocol==ProxyResults.Protocol.ALL&&!gateDirectory.busy())gateDirectory.scan();if(catalogCount==0){Toast.makeText(this,AppLanguage.t(R.string.ui_119),Toast.LENGTH_SHORT).show();return;}if(resumableScan())runPrepared(checkpoint);else doScan(false,false);}});scanToggle.setOnLongClickListener(v->{chooseScanMode(false);return true;});actions.addView(scanToggle,new LinearLayout.LayoutParams(0,dp(54),1));
-        detach(collectButton);((UiIconButton)collectButton).kind(UiIconButton.Kind.SYNC);((UiIconButton)collectButton).caption("");collectButton.setBackground(background(SURFACE,dp(13),DesignOneWidgets.STROKE));LinearLayout.LayoutParams refresh=new LinearLayout.LayoutParams(dp(54),dp(54));refresh.setMarginStart(dp(8));actions.addView(collectButton,refresh);footer.addView(actions);
+        LinearLayout footer=new LinearLayout(this);footer.setOrientation(LinearLayout.VERTICAL);footer.setPadding(dp(16),dp(10),dp(16),dp(2));footer.setBackgroundColor(BG);LinearLayout actions=horizontal();actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        scanToggle=new DesignOneWidgets.Scan(this);scanToggle.setOnClickListener(v->{
+            if(ProxyVpnService.gateScanning()){stopGateScan();return;}if(gateDirectory.busy()){gateDirectory.stop();return;}
+            if(protocol==ProxyResults.Protocol.VPN_GATE){requestGateScan(false,null);return;}
+            if(scanning||ProxyVpnService.autoScanning())stopScan();else {if(catalogCount==0){Toast.makeText(this,AppLanguage.t(R.string.ui_119),Toast.LENGTH_SHORT).show();return;}if(resumableScan())runPrepared(checkpoint);else doScan(false,false);}
+        });scanToggle.setOnLongClickListener(v->{if(protocol==ProxyResults.Protocol.VPN_GATE)chooseGateScan();else chooseScanMode(false);return true;});actions.addView(scanToggle,new LinearLayout.LayoutParams(0,dp(54),1));
+        UiIconButton speedAction=new UiIconButton(this,UiIconButton.Kind.DOWNLOAD,AppLanguage.t(R.string.ui_176));speedAction.setBackground(background(SURFACE,dp(13),DesignOneWidgets.STROKE));speedAction.setOnClickListener(v->{if(selected!=null)startSpeedTest(selected);else Toast.makeText(this,AppLanguage.t(R.string.ui_202),Toast.LENGTH_LONG).show();});LinearLayout.LayoutParams speedSize=new LinearLayout.LayoutParams(dp(48),dp(54));speedSize.setMarginStart(dp(8));actions.addView(speedAction,speedSize);
+
+        detach(collectButton);((UiIconButton)collectButton).kind(UiIconButton.Kind.SYNC);((UiIconButton)collectButton).caption("");collectButton.setBackground(background(SURFACE,dp(13),DesignOneWidgets.STROKE));LinearLayout.LayoutParams refresh=new LinearLayout.LayoutParams(dp(48),dp(54));refresh.setMarginStart(dp(8));actions.addView(collectButton,refresh);footer.addView(actions);
         LinearLayout reports=horizontal();reports.setGravity(Gravity.CENTER);status.setGravity(Gravity.CENTER);status.setTextSize(10);reports.addView(detach(status),new LinearLayout.LayoutParams(0,dp(22),1));listStatus.setTextSize(10);reports.addView(detach(listStatus),new LinearLayout.LayoutParams(0,dp(22),1));footer.addView(reports);footer.addView(detach(scanProgress),new LinearLayout.LayoutParams(-1,dp(2)));
         View rule=new View(this);rule.setBackgroundColor(DesignOneWidgets.STROKE);footer.addView(rule,sized(dp(1),dp(4)));LinearLayout navigation=horizontal();navigation.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         designSettings=designNavigation(navigation,UiIconButton.Kind.SETTINGS,AppLanguage.t(R.string.ui_032_settings),()->setSidebarVisible(true));designSaved=designNavigation(navigation,UiIconButton.Kind.STAR,AppLanguage.t(R.string.ui_design_saved),()->{showFavorites=true;renderedRevision=-1;render();});designServers=designNavigation(navigation,UiIconButton.Kind.SERVERS,AppLanguage.t(R.string.ui_032_servers),()->{showFavorites=false;renderedRevision=-1;render();});footer.addView(navigation);
         page.addView(footer,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));sidebarOverlay.bringToFront();
         for(int i=0;i<sidebar.getChildCount();i++)if(sidebar.getChildAt(i) instanceof ScrollView){LinearLayout content=(LinearLayout)((ScrollView)sidebar.getChildAt(i)).getChildAt(0);content.addView(text(AppLanguage.t(R.string.ui_032_list_tools),12,PRIMARY,true),margin(dp(12),0));content.addView(oldTools);content.addView(detach(activeProfile),margin(dp(10),0));LinearLayout metrics=(LinearLayout)trafficDown.getParent().getParent();content.addView(detach(metrics),margin(dp(8),0));break;}
-        page.setOnApplyWindowInsetsListener((v,insets)->{int topInset,bottomInset;if(Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars());topInset=bars.top;bottomInset=bars.bottom;}else{topInset=insets.getSystemWindowInsetTop();bottomInset=insets.getSystemWindowInsetBottom();}header.setPadding(dp(14),dp(10)+topInset,dp(14),dp(6));footer.setPadding(dp(14),dp(10),dp(14),dp(2)+bottomInset);results.setPadding(0,0,0,dp(158)+bottomInset);if(sidebar!=null)sidebar.setPadding(dp(14),dp(12)+topInset,dp(14),dp(12)+bottomInset);return insets;});page.requestApplyInsets();
+        page.setOnApplyWindowInsetsListener((v,insets)->{int topInset,bottomInset;if(Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars());topInset=bars.top;bottomInset=bars.bottom;}else{topInset=insets.getSystemWindowInsetTop();bottomInset=insets.getSystemWindowInsetBottom();}header.setPadding(dp(16),dp(10)+topInset,dp(16),dp(6));footer.setPadding(dp(16),dp(10),dp(16),dp(2)+bottomInset);results.setPadding(0,0,0,dp(158)+bottomInset);if(sidebar!=null)sidebar.setPadding(dp(14),dp(12)+topInset,dp(14),dp(12)+bottomInset);return insets;});page.requestApplyInsets();
     }
     private UiIconButton designNavigation(LinearLayout row,UiIconButton.Kind kind,String caption,Runnable action){UiIconButton b=new UiIconButton(this,kind,caption);b.caption(caption);b.setBackground(null);b.setOnClickListener(v->action.run());row.addView(b,new LinearLayout.LayoutParams(0,dp(58),1));return b;}
     private void designSortDialog(){ProxyResults.Sort[] choices=ProxyResults.Sort.values();String[] labels=new String[choices.length];for(int i=0;i<labels.length;i++)labels[i]=AppLanguage.display(choices[i].label);new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_032_sort)).setItems(labels,(d,i)->{sort=choices[i];smoothResults=false;getSharedPreferences("persiansocks",0).edit().putString("sort",sort.name()).putBoolean("smooth-results",false).apply();renderedRevision=-1;render();}).setNeutralButton(AppLanguage.t(R.string.ui_home_filters),(d,w)->homeFiltersDialog()).show();}
@@ -832,16 +841,17 @@ public final class MainActivity extends ComponentActivity {
         if (scanToggle == null) return;
         if(chatOnly!=null){boolean enabled=AndroidRoutes.mode(this).equals("chatgpt");chatOnly.setChecked(enabled);chatOnly.setText(AppLanguage.t(enabled?R.string.ui_031_chatgpt_on:R.string.ui_031_chatgpt_off));}
         if(quickKill!=null&&AndroidRoutes.kill(this))quickKill.setText(AppLanguage.t(AndroidRoutes.kill(this)&&ProxyVpnService.guardArmed()?R.string.ui_030_guard_ready:R.string.ui_030_guard_wait));
-        boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto||(gateDirectory!=null&&gateDirectory.busy());
-        boolean resumable=resumableScan();
-        iconState(scanToggle,anyScan?UiIconButton.Kind.PAUSE:UiIconButton.Kind.PLAY,AppLanguage.t(anyScan?R.string.ui_scan_pause:resumable?R.string.ui_scan_resume:R.string.ui_home_scan),anyScan||resumable);
+        boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto||ProxyVpnService.gateScanning()||(gateDirectory!=null&&gateDirectory.busy());
+        if(gateResultsButton!=null){gateResultsButton.setVisibility(protocol==ProxyResults.Protocol.VPN_GATE?View.VISIBLE:View.GONE);gateResultsButton.setText(AppLanguage.t(getSharedPreferences("persiansocks",0).getBoolean("gate-verified-only",true)?R.string.ui_gate_verified_only:R.string.ui_gate_candidates));}
+        boolean resumable=protocol!=ProxyResults.Protocol.VPN_GATE&&resumableScan();
+        iconState(scanToggle,anyScan?UiIconButton.Kind.STOP:UiIconButton.Kind.PLAY,AppLanguage.t(anyScan?R.string.ui_scan_pause:resumable?R.string.ui_scan_resume:R.string.ui_home_scan),anyScan||resumable);
         ((UiIconButton)scanToggle).caption(AppLanguage.t(anyScan?R.string.ui_design_pause:resumable?R.string.ui_design_resume:R.string.ui_design_scan));
         boolean dataBusy=!localDataLoaded||loading||preparing||stopping;
         scanToggle.setEnabled(protocol==ProxyResults.Protocol.VPN_GATE||(!collecting && !dataBusy));
         collectButton.setEnabled(!anyScan && !dataBusy);
         scanRestart.setEnabled(!anyScan&&!collecting&&!dataBusy&&catalogCount>0);
-        int total=auto?ProxyVpnService.autoScanTotal():checkpoint!=null?checkpoint.total():lastScanTotal>0?lastScanTotal:catalogCount;
-        int done=auto?ProxyVpnService.autoScanDone():checkpoint!=null?checkpoint.done():lastScanDone;
+        int total=ProxyVpnService.gateScanning()?ProxyVpnService.gateTotal():auto?ProxyVpnService.autoScanTotal():checkpoint!=null?checkpoint.total():lastScanTotal>0?lastScanTotal:catalogCount;
+        int done=ProxyVpnService.gateScanning()?ProxyVpnService.gateDone():auto?ProxyVpnService.autoScanDone():checkpoint!=null?checkpoint.done():lastScanDone;
         scanTotal.setText(AppLanguage.t(R.string.ui_scan_total)+" "+AppLanguage.isolate(localDataLoaded?Integer.toString(total):"—"));
         scanChecked.setText(AppLanguage.t(R.string.ui_scan_checked)+" "+AppLanguage.isolate(localDataLoaded?Integer.toString(done):"—"));
         scanTotal.setContentDescription(AppLanguage.t(R.string.ui_scan_total)+": "+total);scanChecked.setContentDescription(AppLanguage.t(R.string.ui_scan_checked)+": "+done);
@@ -853,6 +863,7 @@ public final class MainActivity extends ComponentActivity {
         scanToggle.setTextColor(anyScan ? DANGER : Color.WHITE);
         scanProgress.setVisibility(anyScan||collecting||resumable?View.VISIBLE:View.GONE);
         if(!anyScan&&!collecting&&resumable){scanProgress.setIndeterminate(false);scanProgress.setProgress(total==0?0:(int)(100L*done/total));}
+        if(ProxyVpnService.gateScanning()){scanProgress.setIndeterminate(total==0);scanProgress.setProgress(total==0?0:(int)(100L*done/total));}
         if(auto){
             int progress=ProxyVpnService.autoProgress();
             scanProgress.setIndeterminate(progress<0);scanProgress.setProgress(Math.max(0,progress));
@@ -906,6 +917,7 @@ public final class MainActivity extends ComponentActivity {
         if(resumableScan())runPrepared(checkpoint);else chooseScanMode(false);
     }
     private void chooseScanMode(boolean savedOnly){
+        if(protocol==ProxyResults.Protocol.VPN_GATE){chooseGateScan();return;}
         if(scanning||ProxyVpnService.autoScanning()||collecting||preparing||loading||stopping||!localDataLoaded)return;
         if(savedOnly?healthy.isEmpty():catalogCount==0){Toast.makeText(this,AppLanguage.t(savedOnly?R.string.ui_118:R.string.ui_119),Toast.LENGTH_SHORT).show();return;}
         new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_scan_choose))
@@ -1075,9 +1087,9 @@ public final class MainActivity extends ComponentActivity {
             if(!CountryLookup.initialized())try{CountryLookup.initialize(getAssets().open("ip-country.bin"));}catch(Exception ignored){}
         });
     }
-    private List<ProxyEndpoint> allDirectoryEndpoints(){List<ProxyEndpoint> nodes=healthy.snapshot();if(gateDirectory!=null)for(VpnGateProfile p:gateDirectory.store.snapshot())nodes.add(p.endpoint());return nodes;}
+    private List<ProxyEndpoint> allDirectoryEndpoints(){List<ProxyEndpoint> nodes=healthy.snapshot();if(gateDirectory!=null)for(VpnGateProfile p:gateDirectory.store.snapshot())if(p.port>0)nodes.add(p.endpoint());return nodes;}
     private boolean hasSelected(){return selected!=null&&(healthy.find(selected.key())!=null||favorites.containsKey(selected.key())||(selected.type==ProxyEndpoint.Type.OPENVPN&&gateDirectory!=null&&gateDirectory.store.get(selected.key())!=null));}
-    private String criteria(){return (gateDirectory==null?0:gateDirectory.store.revision())+"|"+getSharedPreferences("persiansocks",0).getString("display-country","")+"|"+filter+"|"+protocol+"|"+sort+"|"+pingLimit+"|"+smoothResults+"|"+measurementRevision+"|"+QualityHistory.revision()+"|"+QualityHistory.scope()+"|"+showFavorites+"|"+favoritesRevision+"|"+(ProxyVpnService.phase()==ProxyVpnService.CONNECTED?ProxyVpnService.activeEndpoint():"");}
+    private String criteria(){return getSharedPreferences("persiansocks",0).getBoolean("gate-verified-only",true)+"|"+(gateDirectory==null?0:gateDirectory.store.revision())+"|"+getSharedPreferences("persiansocks",0).getString("display-country","")+"|"+filter+"|"+protocol+"|"+sort+"|"+pingLimit+"|"+smoothResults+"|"+measurementRevision+"|"+QualityHistory.revision()+"|"+QualityHistory.scope()+"|"+showFavorites+"|"+favoritesRevision+"|"+(ProxyVpnService.phase()==ProxyVpnService.CONNECTED?ProxyVpnService.activeEndpoint():"");}
     private List<ProxyEndpoint> favoriteSnapshots(){
         List<ProxyEndpoint> items=new ArrayList<>();
         for(ProxyEndpoint saved:favorites.values()){
@@ -1158,17 +1170,17 @@ public final class MainActivity extends ComponentActivity {
         ranking=true;final String requested=criteria();final String service=filter;
         final ProxyResults.Sort order=sort;final ProxyResults.Protocol kind=protocol;final ProxyResults.PingLimit limit=pingLimit;
         final long revision=healthy.revision();
-        final boolean favoritesMode=showFavorites;
+        final boolean favoritesMode=showFavorites;final boolean gateCandidates=!getSharedPreferences("persiansocks",0).getBoolean("gate-verified-only",true);
         final List<ProxyEndpoint> snapshot=favoritesMode?favoriteSnapshots():healthy.snapshot();
         final List<VpnGateProfile> gateProfiles=gateDirectory==null?java.util.Collections.emptyList():gateDirectory.store.snapshot();
         final Map<String,Double> speeds=speedSnapshot();final boolean smooth=smoothResults;
         rankWorker.execute(()->{
             try {
             List<ProxyEndpoint> visible=favoritesMode?snapshot:ProxyResults.visible(snapshot,service,order,kind,limit,speeds,smooth);
-            if(!favoritesMode&&(kind==ProxyResults.Protocol.ALL||kind==ProxyResults.Protocol.VPN_GATE)&&service.equals("ALL")){
+            if(gateCandidates&&!favoritesMode&&(kind==ProxyResults.Protocol.ALL||kind==ProxyResults.Protocol.VPN_GATE)&&service.equals("ALL")){
                 java.util.Set<String> keys=new java.util.HashSet<>();for(ProxyEndpoint p:visible)keys.add(p.key());
                 gateProfiles.sort(java.util.Comparator.comparingLong((VpnGateProfile p)->p.portLatency<0?Long.MAX_VALUE:p.portLatency).thenComparing(java.util.Comparator.comparingLong((VpnGateProfile p)->p.score).reversed()));
-                for(VpnGateProfile p:gateProfiles)if(!keys.contains(p.key())&&(limit==ProxyResults.PingLimit.NONE||limit.accepts(p.endpoint())))visible.add(p.endpoint());
+                for(VpnGateProfile p:gateProfiles)if(p.port>0&&!keys.contains(p.key())&&(limit==ProxyResults.PingLimit.NONE||limit.accepts(p.endpoint())))visible.add(p.endpoint());
             }
             ProxyEndpoint connected=ProxyVpnService.phase()==ProxyVpnService.CONNECTED?healthy.find(ProxyVpnService.activeEndpoint()):null;
             if(connected==null&&ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&selected!=null&&selected.key().equals(ProxyVpnService.activeEndpoint()))connected=selected;
@@ -1245,7 +1257,8 @@ public final class MainActivity extends ComponentActivity {
         final ServiceFlowLayout services=new ServiceFlowLayout(MainActivity.this);
         final TextView address=text("",15,Color.WHITE,true),badge=chip(AppLanguage.t(R.string.ui_162),PRIMARY,Color.rgb(22,75,68)),detail=text("",12,SECONDARY,false);
         final TextView down=metricValue("",SECONDARY),ping=metricValue("",Color.WHITE);
-        final TextView designFlag=text("",25,Color.WHITE,false),designName=text("",14,Color.WHITE,true),designProtocol=chip("",PRIMARY,SURFACE),designRadio=text("○",27,SECONDARY,false);
+        final TextView designFlag=text("",23,Color.WHITE,false),designName=text("",14,Color.WHITE,true),designProtocol=chip("",PRIMARY,SURFACE),designRadio=new DesignOneWidgets.Choice(MainActivity.this);
+        final DesignOneWidgets.Signal designSignal=new DesignOneWidgets.Signal(MainActivity.this);
         final List<ServiceIcon> serviceViews=new ArrayList<>();
         final View divider=new View(MainActivity.this);
         final FrameLayout swipeFrame=new FrameLayout(MainActivity.this);
@@ -1310,10 +1323,10 @@ public final class MainActivity extends ComponentActivity {
             });
         }
         private void designCard(){
-            row.removeAllViews();row.setPadding(dp(12),dp(12),dp(10),dp(12));row.setMinimumHeight(dp(104));wrapper.setPadding(dp(14),dp(5),dp(14),dp(5));LinearLayout body=horizontal();body.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-            designFlag.setGravity(Gravity.CENTER);designFlag.setBackground(background(Color.rgb(246,248,250),dp(7),Color.rgb(246,248,250)));body.addView(designFlag,new LinearLayout.LayoutParams(dp(42),dp(34)));
+            row.removeAllViews();row.setPadding(dp(12),dp(8),dp(12),dp(8));row.setMinimumHeight(dp(78));wrapper.setPadding(dp(16),dp(6),dp(16),dp(6));LinearLayout body=horizontal();body.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+            designFlag.setGravity(Gravity.CENTER);designFlag.setBackground(null);body.addView(designFlag,new LinearLayout.LayoutParams(dp(36),dp(30)));
             LinearLayout identity=new LinearLayout(MainActivity.this);identity.setOrientation(LinearLayout.VERTICAL);identity.setPadding(dp(10),0,dp(3),0);designName.setSingleLine(true);designName.setEllipsize(android.text.TextUtils.TruncateAt.END);designName.setGravity(Gravity.LEFT);identity.addView(designName,new LinearLayout.LayoutParams(-1,-2));address.setAutoSizeTextTypeWithDefaults(TextView.AUTO_SIZE_TEXT_TYPE_NONE);address.setTextSize(12);address.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));address.setTextColor(SECONDARY);address.setGravity(Gravity.LEFT);body.addView(identity,new LinearLayout.LayoutParams(0,-2,1));
-            LinearLayout info=new LinearLayout(MainActivity.this);info.setOrientation(LinearLayout.VERTICAL);info.setGravity(Gravity.RIGHT);LinearLayout metrics=horizontal();metrics.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);ping.setTextSize(14);ping.setGravity(Gravity.CENTER);metrics.addView(detach(ping),new LinearLayout.LayoutParams(dp(67),dp(30)));favoriteButton.setBackground(null);metrics.addView(detach(favoriteButton),new LinearLayout.LayoutParams(dp(34),dp(34)));designRadio.setGravity(Gravity.CENTER);metrics.addView(designRadio,new LinearLayout.LayoutParams(dp(26),dp(34)));info.addView(metrics,new LinearLayout.LayoutParams(dp(127),dp(34)));designProtocol.setPadding(dp(10),dp(3),dp(10),dp(3));designProtocol.setTextSize(10);body.addView(info,new LinearLayout.LayoutParams(dp(127),-2));row.addView(body);LinearLayout lower=horizontal();lower.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);lower.setPadding(dp(52),0,0,0);lower.addView(detach(address),new LinearLayout.LayoutParams(0,-2,1));lower.addView(designProtocol,new LinearLayout.LayoutParams(-2,-2));row.addView(lower,margin(dp(8),0));
+            LinearLayout info=new LinearLayout(MainActivity.this);info.setOrientation(LinearLayout.VERTICAL);info.setGravity(Gravity.RIGHT);LinearLayout metrics=horizontal();metrics.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);ping.setTextSize(14);ping.setGravity(Gravity.CENTER);metrics.addView(detach(ping),new LinearLayout.LayoutParams(dp(60),dp(30)));metrics.addView(designSignal,new LinearLayout.LayoutParams(dp(12),dp(20)));favoriteButton.setBackground(null);metrics.addView(detach(favoriteButton),new LinearLayout.LayoutParams(dp(34),dp(34)));designRadio.setGravity(Gravity.CENTER);metrics.addView(designRadio,new LinearLayout.LayoutParams(dp(26),dp(34)));info.addView(metrics,new LinearLayout.LayoutParams(dp(132),dp(34)));designProtocol.setPadding(dp(10),dp(3),dp(10),dp(3));designProtocol.setTextSize(10);body.addView(info,new LinearLayout.LayoutParams(dp(132),-2));row.addView(body);LinearLayout lower=horizontal();lower.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);lower.setPadding(dp(46),0,0,0);lower.addView(detach(address),new LinearLayout.LayoutParams(0,-2,1));lower.addView(designProtocol,new LinearLayout.LayoutParams(-2,-2));row.addView(lower,margin(dp(2),0));
             row.setLongClickable(true);row.setOnLongClickListener(v->{if(endpoint==null)return false;android.widget.PopupMenu menu=new android.widget.PopupMenu(MainActivity.this,row);int[] labels={R.string.ui_design_connect,R.string.ui_175,R.string.ui_176,R.string.ui_177,R.string.ui_167};for(int i=0;i<labels.length;i++)menu.getMenu().add(0,i,0,AppLanguage.t(labels[i]));menu.setOnMenuItemClickListener(item->{ProxyEndpoint p=endpoint;if(p==null)return false;switch(item.getItemId()){case 0:chooseProxy(p);connect();break;case 1:startProxyProbe(p,true);break;case 2:startSpeedTest(p);break;case 3:proxyDetails(p);break;case 4:toggleFavorite(p);break;}return true;});menu.show();return true;});
         }
         void bind(ProxyEndpoint p){
@@ -1332,7 +1345,7 @@ public final class MainActivity extends ComponentActivity {
             boundState=state;
             if(endpoint==null||!endpoint.key().equals(p.key())||!swiping){row.animate().cancel();row.setTranslationX(0);pingHint.setVisibility(View.GONE);downloadHint.setVisibility(View.GONE);swiping=false;}
             endpoint=p;boolean unavailable=healthy.rejected(p.key());boolean active=selected!=null&&selected.key().equals(p.key());
-            row.setBackground(background(active?Color.rgb(20,43,53):SURFACE,dp(18),active?Color.rgb(57,145,134):STROKE));
+            row.setBackground(background(active?Color.rgb(20,42,43):SURFACE,dp(14),active?Color.rgb(57,145,134):STROKE));
             row.setSelected(active);
             address.setText(p.address());badge.setVisibility(ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&p.key().equals(ProxyVpnService.activeEndpoint())?View.VISIBLE:View.GONE);
             boolean saved=favorites.containsKey(p.key());
@@ -1359,8 +1372,8 @@ public final class MainActivity extends ComponentActivity {
             down.setTextColor(unavailable?WARNING:downloadRunning||measured.speedError.isEmpty()&&measured.downloadMBps>=0?PRIMARY:measured.speedError.isEmpty()?SECONDARY:WARNING);
             setMetricValue(ping,unavailable?AppLanguage.t(R.string.ui_proxy_unavailable):probeRunning?AppLanguage.t(R.string.ui_172):ScanProbePolicy.latency(p)==Long.MAX_VALUE?AppLanguage.t(R.string.ui_181):measured.pingValue(p));divider.setBackgroundColor(active?Color.rgb(44,88,88):STROKE);
             address.setText(p.host);address.setContentDescription(p.key());
-            boolean known=country.matches("[A-Z]{2}");designFlag.setText(known?new String(Character.toChars(0x1f1e6+country.charAt(0)-'A'))+new String(Character.toChars(0x1f1e6+country.charAt(1)-'A')):"◉");designName.setText(known?new java.util.Locale("",country).getDisplayCountry(AppLanguage.locale()):AppLanguage.t(R.string.ui_032_unknown));designRadio.setText(active?"◉":"○");designRadio.setTextColor(active?PRIMARY:SECONDARY);designProtocol.setText(p.type==ProxyEndpoint.Type.OPENVPN?"VPN Gate":p.type.name());int tint=p.type==ProxyEndpoint.Type.OPENVPN?Color.rgb(130,167,255):PRIMARY;designProtocol.setTextColor(tint);designProtocol.setBackground(background(p.type==ProxyEndpoint.Type.OPENVPN?Color.rgb(28,43,70):Color.rgb(20,48,47),dp(12),tint));if(p.type==ProxyEndpoint.Type.OPENVPN){ping.setText(p.latencyMs<0?"—":p.latencyMs+" ms");ping.setContentDescription(AppLanguage.t(R.string.ui_032_gate_speed));row.setContentDescription(designName.getText()+", VPN Gate, "+AppLanguage.t(p.hasAnyService()?R.string.ui_091:R.string.ui_032_gate_unverified));}
-            long ms=ScanProbePolicy.latency(p);ping.setTextColor(unavailable?WARNING:ms==Long.MAX_VALUE?SECONDARY:ms<150?PRIMARY:ms<300?Color.rgb(255,191,55):Color.rgb(255,135,64));
+            boolean known=country.matches("[A-Z]{2}");designFlag.setText(known?new String(Character.toChars(0x1f1e6+country.charAt(0)-'A'))+new String(Character.toChars(0x1f1e6+country.charAt(1)-'A')):"◉");designName.setText(known?new java.util.Locale("",country).getDisplayCountry(AppLanguage.locale()):AppLanguage.t(R.string.ui_032_unknown));designRadio.setSelected(active);designRadio.setTextColor(active?PRIMARY:SECONDARY);designProtocol.setText(p.type==ProxyEndpoint.Type.OPENVPN?"VPN Gate":p.type.name());int tint=p.type==ProxyEndpoint.Type.OPENVPN?Color.rgb(130,167,255):PRIMARY;designProtocol.setTextColor(tint);designProtocol.setBackground(background(p.type==ProxyEndpoint.Type.OPENVPN?Color.rgb(28,43,70):Color.rgb(20,48,47),dp(12),tint));if(p.type==ProxyEndpoint.Type.OPENVPN){ping.setText(p.latencyMs<0?"—":p.latencyMs+" ms");ping.setContentDescription(AppLanguage.t(R.string.ui_032_gate_speed));row.setContentDescription(designName.getText()+", VPN Gate, "+AppLanguage.t(p.hasAnyService()?R.string.ui_091:R.string.ui_032_gate_unverified));}
+            long ms=ScanProbePolicy.latency(p);designSignal.latency(ms);ping.setTextColor(unavailable?WARNING:ms==Long.MAX_VALUE?SECONDARY:ms<150?PRIMARY:ms<300?Color.rgb(255,191,55):Color.rgb(255,135,64));
         }
     }
     private UiIconButton cardIcon(LinearLayout row,UiIconButton.Kind kind,String label,Runnable action){UiIconButton icon=new UiIconButton(this,kind,label);icon.setOnClickListener(v->action.run());LinearLayout.LayoutParams cell=new LinearLayout.LayoutParams(0,dp(48),1);cell.setMarginStart(dp(2));cell.setMarginEnd(dp(2));row.addView(icon,cell);return icon;}
@@ -1368,8 +1381,8 @@ public final class MainActivity extends ComponentActivity {
         String country = p.countryCode.isEmpty() ? CountryLookup.lookup(p.host) : p.countryCode;
         StringBuilder details = new StringBuilder(p.key()).append(AppLanguage.t(R.string.ui_179)).append(CountryLookup.display(country,AppLanguage.locale()))
             .append(AppLanguage.t(R.string.ui_180)).append(p.latencyMs < 0 ? AppLanguage.t(R.string.ui_181) : isolated(p.latencyMs + " ms"))
-            .append(AppLanguage.t(R.string.ui_182)).append("\n").append(AppLanguage.t(R.string.ui_health_scope))
-            .append("\n").append(p.udpAdvertised ? AppLanguage.t(R.string.ui_183) : AppLanguage.t(R.string.ui_184))
+            .append(AppLanguage.t(p.type==ProxyEndpoint.Type.OPENVPN&&p.latencyTarget.equals("tcp-port")?R.string.ui_gate_port_help:R.string.ui_182)).append("\n").append(AppLanguage.t(R.string.ui_health_scope))
+            .append("\n").append(p.type==ProxyEndpoint.Type.OPENVPN?"OpenVPN":p.udpAdvertised ? AppLanguage.t(R.string.ui_183) : AppLanguage.t(R.string.ui_184))
             .append("\n\n");
         for (ServiceTargets.Target target : ServiceTargets.current())
             details.append(AppLanguage.display(target.name)).append(": ").append(p.passed(target) ? AppLanguage.t(R.string.ui_185) : p.checked(target) ? AppLanguage.t(R.string.ui_186) : AppLanguage.t(R.string.ui_187)).append('\n');
@@ -1389,7 +1402,8 @@ public final class MainActivity extends ComponentActivity {
         if(measured!=null&&measured.speedAt>0)details.append("\n").append(AppLanguage.t(R.string.ui_v28_speed_time)).append(android.text.format.DateFormat.getDateFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt))).append(" ").append(android.text.format.DateFormat.getTimeFormat(AppLanguage.wrap(this)).format(new java.util.Date(measured.speedAt)));
         if(p.key().equals(getSharedPreferences("persiansocks",0).getString("connection-error-endpoint","")))details.append("\n\n").append(AppLanguage.t(R.string.ui_v28_vpn_error)).append(getSharedPreferences("persiansocks",0).getString("connection-error",""));
         details.append("\n\n").append(AppLanguage.t(R.string.ui_v28_evidence));
-        if(p.type==ProxyEndpoint.Type.OPENVPN)details.append("\n\n").append(AppLanguage.t(R.string.ui_032_gate_speed)).append("\n\n").append(AppLanguage.t(R.string.ui_032_gate_privacy));
+        if(p.type==ProxyEndpoint.Type.OPENVPN){VpnGateProfile node=gateDirectory.store.get(p.key());if(node!=null&&node.vpnTestedAt>0)details.append("\n\n").append(AppLanguage.t(node.vpnSuccess?R.string.ui_gate_scan_passed:R.string.ui_v28_vpn_error)).append("\n").append(node.vpnError);}
+        if(p.type==ProxyEndpoint.Type.OPENVPN)details.append("\n\n").append(AppLanguage.t(R.string.ui_gate_scan_help)).append("\n\n").append(AppLanguage.t(R.string.ui_032_gate_privacy));
         TextView info = text(details.toString(), 14, Color.WHITE, false);
         info.setPadding(dp(18), dp(12), dp(18), dp(12)); info.setTextIsSelectable(true);
         ScrollView scroll = new ScrollView(this); scroll.addView(info);
@@ -1462,12 +1476,23 @@ public final class MainActivity extends ComponentActivity {
             }).show();
     }
     private void connect() {
+        pendingGateScan=false;
         if (selected == null) { Toast.makeText(this, AppLanguage.t(R.string.ui_202), Toast.LENGTH_LONG).show(); return; }
         if(selected.type==ProxyEndpoint.Type.OPENVPN&&AndroidRoutes.mode(this).equals("domains")){connectionError=AppLanguage.t(R.string.ui_032_gate_scope);updateActions();return;}
         if (!selected.hasAnyService()&&selected.type!=ProxyEndpoint.Type.OPENVPN) { connectionError=AppLanguage.t(R.string.ui_203);updateActions(); return; }
         connectionError="";getSharedPreferences("persiansocks",MODE_PRIVATE).edit().remove("connection-error").apply();
         vpnRequestPending=true;updateActions();
         VpnDisclosure.ensure(this,this::prepareVpn,()->{vpnRequestPending=false;connectionError=AppLanguage.t(R.string.ui_204);updateActions();});
+    }
+    private void stopGateScan(){startService(new Intent(this,ProxyVpnService.class).setAction(ProxyVpnService.GATE_STOP));}
+    private void chooseGateScan(){if(ProxyVpnService.gateScanning()){stopGateScan();return;}new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_gate_scan_title)).setItems(new String[]{AppLanguage.t(R.string.ui_scan_fast),AppLanguage.t(R.string.ui_scan_deep)},(dialog,which)->requestGateScan(which==1,null)).show();}
+    private void requestGateScan(boolean deep,String key){
+        if(ProxyVpnService.gateScanning()){stopGateScan();return;}if(gateDirectory.busy())return;
+        if(AndroidRoutes.mode(this).equals("domains")){connectionError=AppLanguage.t(R.string.ui_032_gate_scope);updateActions();return;}
+        if(gateDirectory.store.snapshot().isEmpty()){gateDirectory.refresh();Toast.makeText(this,AppLanguage.t(R.string.ui_gate_scan_empty),Toast.LENGTH_LONG).show();return;}
+        new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_gate_scan_title)).setMessage(AppLanguage.t(R.string.ui_gate_scan_help)).setNegativeButton(AppLanguage.t(R.string.ui_067),null).setPositiveButton(AppLanguage.t(deep?R.string.ui_scan_deep:R.string.ui_scan_fast),(dialog,which)->{
+            if(scanning||ProxyVpnService.autoScanning())stopScan();pendingGateScan=true;pendingGateDeep=deep;pendingGateKey=key;vpnRequestPending=true;VpnDisclosure.ensure(this,this::prepareVpn,()->{pendingGateScan=false;vpnRequestPending=false;updateActions();});
+        }).show();
     }
     private void prepareVpn(){
         Intent prep = VpnService.prepare(this);
@@ -1515,10 +1540,12 @@ public final class MainActivity extends ComponentActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == VPN_REQUEST) {
             if (resultCode == RESULT_OK) initiateVpn();
-            else { vpnRequestPending = false; connectionError=AppLanguage.t(R.string.ui_229);updateActions(); }
+            else { pendingGateScan=false;vpnRequestPending = false; connectionError=AppLanguage.t(R.string.ui_229);updateActions(); }
         }
     }
     private void initiateVpn() {
+        if(pendingGateScan){pendingGateScan=false;try{startForegroundService(new Intent(this,ProxyVpnService.class).setAction(ProxyVpnService.GATE_SCAN).putExtra("deep",pendingGateDeep).putExtra("key",pendingGateKey));}catch(Exception e){connectionError=String.valueOf(e.getMessage());}vpnRequestPending=false;updateActions();return;}
+
         if(selected==null){vpnRequestPending=false;connectionError=AppLanguage.t(R.string.ui_230);updateActions();return;}
         if(!VpnDisclosure.accepted(this)){connect();return;}
         if(!DistributionPolicy.allows(selected)){vpnRequestPending=false;connectionError=AppLanguage.t(R.string.ui_231);updateActions();return;}
@@ -1582,7 +1609,7 @@ public final class MainActivity extends ComponentActivity {
         }
     }
     private void startProxyProbe(ProxyEndpoint proxy, boolean latencyOnly) {
-        if(proxy!=null&&proxy.type==ProxyEndpoint.Type.OPENVPN){if(latencyOnly){gateDirectory.scan(proxy.key());}else{chooseProxy(proxy);connect();}return;}
+        if(proxy!=null&&proxy.type==ProxyEndpoint.Type.OPENVPN){requestGateScan(false,proxy.key());return;}
         if (!prepareSingleTest(proxy)) return;
         final SingleProxyTest test = new SingleProxyTest(); singleTest = test; testingProxy = proxy; testingLatency = latencyOnly;
         final ServiceTargets.Target target = SingleProxyTest.latencyTarget(proxy, filter);
@@ -1636,7 +1663,8 @@ public final class MainActivity extends ComponentActivity {
         }, "single-proxy-connection-test").start();
     }
     private void startSpeedTest(ProxyEndpoint proxy) {
-        if(proxy!=null&&proxy.type==ProxyEndpoint.Type.OPENVPN){new AlertDialog.Builder(this,R.style.AppDialogTheme).setMessage(AppLanguage.t(R.string.ui_032_gate_speed)).setPositiveButton(AppLanguage.t(R.string.ui_design_connect),(d,w)->{chooseProxy(proxy);connect();}).setNegativeButton(AppLanguage.t(R.string.ui_067),null).show();return;}
+        if(proxy!=null&&proxy.type==ProxyEndpoint.Type.OPENVPN&&(!proxy.key().equals(ProxyVpnService.activeEndpoint())||ProxyVpnService.phase()!=ProxyVpnService.CONNECTED||ProxyVpnService.gateScanning())){new AlertDialog.Builder(this,R.style.AppDialogTheme).setMessage(AppLanguage.t(R.string.ui_gate_speed_connect)).setPositiveButton(AppLanguage.t(R.string.ui_design_connect),(d,w)->{chooseProxy(proxy);connect();}).setNegativeButton(AppLanguage.t(R.string.ui_067),null).show();return;}
+
         if (!prepareSingleTest(proxy)) return;
         runSpeedTest(proxy);
     }
@@ -1644,19 +1672,19 @@ public final class MainActivity extends ComponentActivity {
         final DownloadSpeedTest test = new DownloadSpeedTest();final String targetUrl=ScanInputs.speedUrl(this);runningSpeedTarget=targetUrl;speedTest = test; testingProxy = proxy; liveDownloadMBps = -1;
         render();
         new Thread(() -> {
-            PhysicalTestNetwork network;
-            try { network = PhysicalTestNetwork.capture(this); }
+            PhysicalTestNetwork network;final android.net.ConnectivityManager manager=getSystemService(android.net.ConnectivityManager.class);final android.net.Network vpn=proxy.type==ProxyEndpoint.Type.OPENVPN?manager.getActiveNetwork():null;
+            try { if(proxy.type==ProxyEndpoint.Type.OPENVPN){android.net.NetworkCapabilities caps=vpn==null?null:manager.getNetworkCapabilities(vpn);if(caps==null||!caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN))throw new java.io.IOException("VPN unavailable");network=null;}else network = PhysicalTestNetwork.capture(this); }
             catch (Exception ex) {
                 ui.post(() -> finishSpeedTest(test, proxy, 0, 0, String.valueOf(ex.getMessage()))); return;
             }
             test.run(new DownloadSpeedTest.Transport() {
                 private long lastCheck; private boolean available = true;
-                public java.net.HttpURLConnection open(java.net.URL url) {
-                    return new ProxyHttpConnection(url, proxy, network, network);
+                public java.net.HttpURLConnection open(java.net.URL url) throws Exception {
+                    return vpn==null?new ProxyHttpConnection(url, proxy, network, network):AppHttp.open(url,vpn);
                 }
                 public boolean valid() {
                     long now = System.nanoTime();
-                    if (now - lastCheck >= 200_000_000L) { available = network.valid() && DistributionPolicy.allows(proxy); lastCheck = now; }
+                    if (now - lastCheck >= 200_000_000L) { available = vpn==null?network.valid() && DistributionPolicy.allows(proxy):ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&!ProxyVpnService.gateScanning()&&proxy.key().equals(ProxyVpnService.activeEndpoint())&&vpn.equals(manager.getActiveNetwork())&&manager.getNetworkCapabilities(vpn)!=null&&manager.getNetworkCapabilities(vpn).hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN); lastCheck = now; }
                     return available;
                 }
             }, new DownloadSpeedTest.Listener() {

@@ -553,7 +553,7 @@
     <string name="ui_scan_fast">Fast scan</string>
     <string name="ui_scan_deep">Deep scan</string>
     <string name="ui_scan_choose">Choose scan type</string>
-    <string name="ui_scan_pause">Pause scan</string>
+    <string name="ui_scan_pause">Stop scan</string>
     <string name="ui_scan_resume">Resume scan</string>
     <string name="ui_scan_restart">Scan from beginning</string>
     <string name="ui_scan_total">Total</string>
@@ -568,7 +568,7 @@
     <string name="ui_design_restart">Restart</string>
     <string name="ui_design_sources">Sources</string>
     <string name="ui_design_scan">Scan</string>
-    <string name="ui_design_pause">Pause</string>
+    <string name="ui_design_pause">Stop</string>
     <string name="ui_design_resume">Resume</string>
     <string name="ui_design_saved">Saved</string>
     <string name="ui_design_all">All</string>
@@ -646,4 +646,13 @@
     <string name="ui_032_gate_privacy">VPN Gate is a volunteer network. Operators can log your IP address and connection metadata; VPN Gate retains connection logs for at least three months.</string>
     <string name="ui_032_gate_unverified">Connect to verify</string>
     <string name="ui_032_disconnected">Not connected</string>
+    <string name="ui_gate_scan_progress">VPN Gate connection tests</string>
+    <string name="ui_gate_scan_passed">Verified tunnels</string>
+    <string name="ui_gate_scan_title">VPN Gate connection scan</string>
+    <string name="ui_gate_scan_help">Each server establishes a real VPN tunnel followed by HTTPS verification. Tests temporarily replace the current connection and preserve app scope and Kill Switch. Fast scan skips closed TCP ports; deep scan allows more time and checks all test targets. Thousands of servers can take a long time; stopping preserves completed results.</string>
+    <string name="ui_gate_scan_empty">Downloading the directory first; start the connection scan after it finishes.</string>
+    <string name="ui_gate_verified_only">✓ Verified connections only · Show candidates</string>
+    <string name="ui_gate_candidates">All candidates · Show verified connections only</string>
+    <string name="ui_gate_port_help">This is TCP port latency only; VPN connectivity and HTTPS have not been verified.</string>
+    <string name="ui_gate_speed_connect">Connect this server first, then tap download speed test. The download uses only that VPN network.</string>
 </resources>
