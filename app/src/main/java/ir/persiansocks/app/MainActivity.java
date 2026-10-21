@@ -1679,7 +1679,7 @@ public final class MainActivity extends ComponentActivity {
             }
             test.run(new DownloadSpeedTest.Transport() {
                 private long lastCheck; private boolean available = true;
-                public java.net.HttpURLConnection open(java.net.URL url) {
+                public java.net.HttpURLConnection open(java.net.URL url) throws Exception {
                     return vpn==null?new ProxyHttpConnection(url, proxy, network, network):AppHttp.open(url,vpn);
                 }
                 public boolean valid() {

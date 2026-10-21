@@ -23,7 +23,7 @@ public final class TunnelVerifier {
             this.timings=java.util.Collections.unmodifiableMap(new HashMap<>(timings));passed=p;checked=c;report=r;extraPassed=good;extraChecked=tried;
         }
         public ProxyEndpoint profile(ProxyEndpoint p) {
-            ServiceTargets.Target selected=ScanProbePolicy.profile().target();String target=selected==null?p.latencyTarget:selected.url();
+            ServiceTargets.Target selected=ScanProbePolicy.profile().target();String target=selected==null?p.latencyTarget:selected.url();if(p.type==ProxyEndpoint.Type.OPENVPN&&!timings.containsKey(target)&&!timings.isEmpty())target=timings.keySet().iterator().next();
             return new ProxyEndpoint(p.host,p.port,timings.getOrDefault(target,p.latencyMs),p.udpAdvertised,passed,checked,
                 System.currentTimeMillis(),extraPassed,extraChecked,p.countryCode,p.type).withServiceLatencies(timings).withLatency(timings.getOrDefault(target,p.latencyMs),target);
         }

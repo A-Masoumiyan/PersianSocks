@@ -18,7 +18,7 @@ public final class VpnGateProfile {
   try{String ip=row.getString("ip");ProxyEndpoint address=ProxyEndpoint.parse(ip+":1");if(address==null||!address.isPublicIpv4()||!commit.matches("[a-f0-9]{40}"))throw new IOException("Invalid pool endpoint");
    String hash=row.getString("openvpn_config_sha256");JSONObject descriptor=row.getJSONObject("config");String path=descriptor.getString("path");int bytes=descriptor.getInt("bytes"),decoded=row.getInt("openvpn_config_bytes");String digest=descriptor.getString("sha256");
    if(!hash.matches("[a-f0-9]{64}")||!path.equals("pool/configs/"+hash+".json")||!digest.matches("[a-f0-9]{64}")||bytes<1||bytes>MAX_CONFIG*2||decoded<1||decoded>MAX_CONFIG)throw new IOException("Invalid pool descriptor");
-   boolean tcp=row.getString("probe_reason").equals("tcp");int port=0;if(tcp){JSONObject target=row.getJSONArray("probe_targets").getJSONObject(0);if(!ip.equals(target.getString("ip")))throw new IOException("Mismatched pool target");port=target.getInt("port");if(port<1||port>65535)throw new IOException("Invalid pool port");}
+   String reason=row.getString("probe_reason");if(!reason.equals("tcp")&&!reason.equals("udp"))throw new IOException("Unsupported pool transport");boolean tcp=reason.equals("tcp");int port=0;if(tcp){JSONObject target=row.getJSONArray("probe_targets").getJSONObject(0);if(!ip.equals(target.getString("ip")))throw new IOException("Mismatched pool target");port=target.getInt("port");if(port<1||port>65535)throw new IOException("Invalid pool port");}
    VpnGateProfile p=new VpnGateProfile(ip,row.optString("country_code").toUpperCase(Locale.ROOT),port,tcp,Math.max(0,row.optLong("score")),"");p.poolCommit=commit;p.configHash=hash;p.configBytes=decoded;p.documentHash=digest;p.documentBytes=bytes;
    p.lastSeenAt=java.time.Instant.parse(row.getString("last_seen_at")).toEpochMilli();if(p.lastSeenAt>System.currentTimeMillis()+3600000L||p.lastSeenAt<System.currentTimeMillis()-7L*86400000)throw new IOException("Expired pool endpoint");return p;
   }catch(Exception e){throw new IOException("Invalid VPN Gate pool row",e);}
@@ -29,7 +29,7 @@ public final class VpnGateProfile {
  public void copyEvidence(VpnGateProfile p){portLatency=p.portLatency;portTestedAt=p.portTestedAt;lastError=p.lastError;vpnTestedAt=p.vpnTestedAt;vpnSuccess=p.vpnSuccess;vpnError=p.vpnError;}
 
  private VpnGateProfile(String ip,String country,int port,boolean tcp,long score,String config){this.ip=ip;this.country=country;this.port=port;this.tcp=tcp;this.score=score;this.config=config;}
- public String key(){return "openvpn://"+ip+":"+port;}
+ public String key(){return "openvpn://"+ip+":"+port+(port==0?"#"+configHash:"");}
  public ProxyEndpoint endpoint(){return new ProxyEndpoint(ip,port,portLatency,false,0,0,0,Collections.emptySet(),Collections.emptySet(),country,ProxyEndpoint.Type.OPENVPN).withLatency(portLatency,"tcp-port");}
  public JSONObject json(){JSONObject o=new JSONObject();try{o.put("ip",ip).put("country",country).put("port",port).put("tcp",tcp).put("score",score).put("config",config).put("portLatency",portLatency).put("portTestedAt",portTestedAt).put("error",lastError).put("seen",lastSeenAt).put("vpnAt",vpnTestedAt).put("vpnOk",vpnSuccess).put("vpnError",vpnError).put("commit",poolCommit).put("configHash",configHash).put("configBytes",configBytes).put("documentHash",documentHash).put("documentBytes",documentBytes);}catch(Exception ignored){}return o;}
  public static VpnGateProfile fromJson(JSONObject o)throws IOException{try{
