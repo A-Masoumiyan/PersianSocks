@@ -20,7 +20,7 @@ public final class GateFixtureService extends VpnService {
   }catch(Exception e){failure=e.toString();state="FAILED";}},"gate-fixture").start();return START_NOT_STICKY;
  }
  private String readFixture(PhysicalTestNetwork path,String name)throws Exception{
-  try(Socket socket=new Socket()){if(!protect(socket))throw new IOException("Fixture socket protection failed");path.bind(socket);socket.connect(new InetSocketAddress("10.0.2.2",18080),3000);socket.setSoTimeout(3000);socket.getOutputStream().write(("GET /"+name+" HTTP/1.0\r\nHost: local.fixture\r\n\r\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+  try(Socket socket=new Socket()){socket.bind(new InetSocketAddress(0));if(!protect(socket))throw new IOException("Fixture socket protection failed");path.bind(socket);socket.connect(new InetSocketAddress("10.0.2.2",18080),3000);socket.setSoTimeout(3000);socket.getOutputStream().write(("GET /"+name+" HTTP/1.0\r\nHost: local.fixture\r\n\r\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII));
    InputStream in=new BufferedInputStream(socket.getInputStream());ByteArrayOutputStream headers=new ByteArrayOutputStream();int value;while((value=in.read())!=-1){headers.write(value);if(headers.size()>8192)throw new IOException("Fixture headers too large");String h=headers.toString("US-ASCII");if(h.endsWith("\r\n\r\n"))break;}if(!headers.toString("US-ASCII").startsWith("HTTP/1.0 200"))throw new IOException("Fixture HTTP failed");ByteArrayOutputStream body=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int n;while((n=in.read(buffer))!=-1){if(body.size()+n>32768)throw new IOException("Fixture PEM too large");body.write(buffer,0,n);}return body.toString("UTF-8");
   }
  }
