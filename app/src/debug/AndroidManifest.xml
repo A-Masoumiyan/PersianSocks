@@ -1,3 +1,4 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <instrumentation android:name=".ParityInstrumentation" android:targetPackage="ir.persiansocks.app" />
+    <application><service android:name=".GateFixtureService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Debug-only deterministic local VPN test" /><intent-filter><action android:name="android.net.VpnService" /></intent-filter></service></application>
 </manifest>

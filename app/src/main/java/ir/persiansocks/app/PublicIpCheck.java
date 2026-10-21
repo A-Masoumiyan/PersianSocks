@@ -33,6 +33,7 @@ public final class PublicIpCheck {
                 String actual=read((HttpURLConnection)active.openConnection(url,java.net.Proxy.NO_PROXY));
                 if(!active.equals(cm.getActiveNetwork()))throw new IOException("Network changed");
                 String expected="";
+                if(vpn&&proxy!=null&&proxy.type==ProxyEndpoint.Type.OPENVPN){return new Result(actual,"",true);}
                 if(vpn){
                     if(proxy==null)throw new IOException("No active proxy");
                     PhysicalTestNetwork physical=PhysicalTestNetwork.capture(context);

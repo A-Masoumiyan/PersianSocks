@@ -33,11 +33,11 @@ public final class PowerToggle extends View {
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);animation();}
     @Override protected void onDraw(Canvas canvas){
         super.onDraw(canvas);float x=getWidth()/2f,y=getHeight()/2f,r=Math.min(x,y)-dp(3);
-        paint.setStyle(Paint.Style.FILL);paint.setColor(connected?Color.rgb(22,75,68):Color.rgb(22,32,48));canvas.drawCircle(x,y,r,paint);
+        paint.setStyle(Paint.Style.FILL);paint.setColor(connected?Color.rgb(22,75,68):Color.rgb(44,52,63));canvas.drawCircle(x,y,r,paint);paint.setColor(Color.rgb(13,18,24));canvas.drawCircle(x,y,r-dp(4),paint);paint.setShader(new LinearGradient(x-r,y-r,x+r,y+r,connected?0xff1c665c:0xff343d4b,connected?0xff143e38:0xff202833,Shader.TileMode.CLAMP));canvas.drawCircle(x,y,r-dp(9),paint);paint.setShader(null);
         paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(1));paint.setColor(connected?Color.rgb(70,226,184):Color.rgb(60,79,96));canvas.drawCircle(x,y,r,paint);
         if(waiting){paint.setColor(Color.rgb(70,226,184));paint.setStrokeWidth(dp(2.5f));canvas.drawArc(x-r,y-r,x+r,y+r,angle,95,false,paint);}
-        float icon=dp(11);paint.setStrokeWidth(dp(2.8f));paint.setStrokeCap(Paint.Cap.ROUND);
+        float icon=dp(14);paint.setStrokeWidth(dp(3.4f));paint.setStrokeCap(Paint.Cap.ROUND);
         paint.setColor(connected?Color.rgb(70,226,184):Color.WHITE);
-        canvas.drawArc(x-icon,y-icon,x+icon,y+icon,-45,270,false,paint);canvas.drawLine(x,y-dp(15),x,y-dp(1),paint);
+        canvas.drawArc(x-icon,y-icon,x+icon,y+icon,-45,270,false,paint);canvas.drawLine(x,y-dp(19),x,y-dp(2),paint);
     }
 }
