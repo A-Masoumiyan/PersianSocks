@@ -765,7 +765,7 @@ public final class MainActivity extends ComponentActivity {
     private void updateActions() {
         if(!foregroundVisible)return;
         if (scanToggle == null) return;
-        if(quickKill!=null&&AndroidRoutes.kill(this))quickKill.setText(AppLanguage.t(AndroidRoutes.kill(this)&&(ProxyVpnService.guardActive()||ProxyVpnService.phase()!=ProxyVpnService.DISCONNECTED)?R.string.ui_030_guard_ready:R.string.ui_030_guard_wait));
+        if(quickKill!=null&&AndroidRoutes.kill(this))quickKill.setText(AppLanguage.t(AndroidRoutes.kill(this)&&ProxyVpnService.guardArmed()?R.string.ui_030_guard_ready:R.string.ui_030_guard_wait));
         boolean auto=ProxyVpnService.autoScanning(), anyScan=scanning||auto;
         boolean resumable=resumableScan();
         iconState(scanToggle,anyScan?UiIconButton.Kind.PAUSE:UiIconButton.Kind.PLAY,AppLanguage.t(anyScan?R.string.ui_scan_pause:resumable?R.string.ui_scan_resume:R.string.ui_home_scan),anyScan||resumable);

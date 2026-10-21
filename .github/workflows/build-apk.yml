@@ -1,6 +1,9 @@
 name: Validate Android parity
 on:
   workflow_dispatch:
+  push:
+    branches: [main, feat/android-030-parity]
+    paths: ['app/**', 'tests/**', 'scripts/**', '.github/workflows/build-apk.yml']
   pull_request:
     paths: ['app/**', 'tests/**', 'scripts/**', '.github/workflows/build-apk.yml']
 permissions:

@@ -49,7 +49,7 @@ public final class ConfiguredTargetsHarness {
         AtomicInteger opened=new AtomicInteger(),callbacks=new AtomicInteger();
         new DownloadSpeedTest().run(new DownloadSpeedTest.Transport(){public boolean valid(){return true;}public HttpURLConnection open(URL u){opened.incrementAndGet();throw new AssertionError();}},new DownloadSpeedTest.Listener(){public void progress(long b,double r){}public void finished(long b,double r,String e){callbacks.incrementAndGet();check(!e.isEmpty(),"invalid domain reports failure");}},"https://other.example/file");
         check(opened.get()==0&&callbacks.get()==1,"invalid custom destination never leaves the transport and finishes once");
-        check(Arrays.stream(SourceCatalog.HTTP).filter(s->s.type==ProxyEndpoint.Type.HTTPS).count()==1,"v18 TLS candidate feed restored");
+        check(java.util.stream.Stream.concat(Arrays.stream(SourceCatalog.DEFAULT),Arrays.stream(SourceCatalog.HTTP)).filter(s->s.type==ProxyEndpoint.Type.HTTPS).count()==1,"v18 TLS candidate feed restored");
         ScanProbePolicy.configure(false,"");
         System.out.println("PASS: "+checks+" configured ping/download target checks with real local proxy TLS");
     }

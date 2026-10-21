@@ -34,6 +34,7 @@ public final class ProxyVpnService extends VpnService {
     public static final String CONNECT = "ir.persiansocks.app.CONNECT";
     public static final String RECONFIGURE="ir.persiansocks.app.RECONFIGURE";
     public static final String RELEASE_GUARD="ir.persiansocks.app.RELEASE_GUARD";
+    public static boolean guardArmed(){ProxyVpnService s=instance.get();return s!=null&&s.tun!=null;}
     public static boolean guardActive(){ProxyVpnService s=instance.get();return s!=null&&s.tun!=null&&phase==DISCONNECTED;}
     public static final String DISCONNECT = "ir.persiansocks.app.DISCONNECT";
     public static final String SCAN_CONNECT = "ir.persiansocks.app.SCAN_CONNECT";
@@ -303,7 +304,8 @@ public final class ProxyVpnService extends VpnService {
             else startForeground(ID, n);
         } catch (Throwable t) { saveVpnReport(AppLanguage.t(R.string.ui_extra_036) + t); announce(AppLanguage.t(R.string.ui_extra_037) + t.getMessage()); userRequested=false;closeTunnel(); scheduleIdleStop(); return; }
         announce(AppLanguage.t(R.string.ui_extra_038) + ProxyResults.label(requiredFilter) + "»: " + current);
-        final ServiceTargets.Target preflightTarget=AndroidRoutes.verification(this,new ServiceTargets.Target[]{ConnectionPreflight.target(requiredFilter,ProxyStore.index().find(proxy.key()))})[0];
+        final ServiceTargets.Target preflightTarget;
+        try{preflightTarget=AndroidRoutes.verification(this,new ServiceTargets.Target[]{ConnectionPreflight.target(requiredFilter,ProxyStore.index().find(proxy.key()))})[0];}catch(Exception error){finishConnection("مسیر معتبر نیست: "+error.getMessage());return;}
         try{armGuard();}catch(Exception error){finishConnection("حفاظت آماده نشد: "+error.getMessage());return;}
         new Thread(() -> {
             ProxyEndpoint cached=ConnectionFastPath.recent(proxy,System.currentTimeMillis())?proxy:ProxyStore.index().find(proxy.key());
