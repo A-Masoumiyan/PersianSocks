@@ -1,0 +1,12 @@
+{
+  "file": "PersianSocks-0.30.0.apk",
+  "sha256": "fafa08a8c1d4ab7e7915a68fd4c2e70954f36362f3136669be03071fe631ce64",
+  "bytes": 15490394,
+  "sourceCommit": "56493f26203020a3813bdecb6676d0335e4224fc",
+  "workflowRun": 39589678453,
+  "parts": [
+    "PersianSocks-0.30.0.apk.part1",
+    "PersianSocks-0.30.0.apk.part2",
+    "PersianSocks-0.30.0.apk.part3"
+  ]
+}

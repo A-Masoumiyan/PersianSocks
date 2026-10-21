@@ -24,8 +24,10 @@ jobs:
           python3 - <<'PY'
           import json,hashlib,pathlib,subprocess
           m=json.loads(pathlib.Path('release-input/android.json').read_text())
+          assert m['file']=='PersianSocks-0.30.0.apk'
+          assert m['parts']==[m['file']+'.part'+str(i) for i in range(1,4)]
           p=pathlib.Path('release-input')/m['file']
-          assert p.name=='PersianSocks-0.30.0.apk'
+          p.write_bytes(b''.join((p.parent/name).read_bytes() for name in m['parts']))
           assert hashlib.sha256(p.read_bytes()).hexdigest()==m['sha256']
           subprocess.run(['python3','scripts/audit-release-apk.py',str(p),'--sdk',__import__('os').environ['ANDROID_HOME'],'--profile','personal'],check=True)
           out=subprocess.check_output([__import__('os').environ['ANDROID_HOME']+'/build-tools/35.0.0/aapt','dump','badging',str(p)],text=True)
