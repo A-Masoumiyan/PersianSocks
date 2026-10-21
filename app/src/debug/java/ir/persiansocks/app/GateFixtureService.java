@@ -12,6 +12,7 @@ public final class GateFixtureService extends VpnService {
    guard=new Builder().setSession("OpenVPN pre-connect guard").setBlocking(false).addAddress("198.18.0.1",15).addAddress("fd00:1::2",64).addRoute("0.0.0.0",0).addRoute("::",0).addDnsServer("198.18.0.2").setUnderlyingNetworks(new Network[]{path.network()}).establish();
    VpnGateProfile base=VpnGateProfile.sanitize("8.8.8.8","JP",1,"client\ndev tun\nproto tcp\nremote 8.8.8.8 11940\ncipher AES-128-GCM\nauth SHA256\n<ca>\n"+pem[0]+"</ca>\n<cert>\n"+pem[1]+"</cert>\n<key>\n"+pem[2]+"</key>\n");
    java.lang.reflect.Constructor<VpnGateProfile> constructor=VpnGateProfile.class.getDeclaredConstructor(String.class,String.class,int.class,boolean.class,long.class,String.class);constructor.setAccessible(true);VpnGateProfile profile=constructor.newInstance("10.0.2.2","JP",11940,true,1L,base.config.replace("remote 8.8.8.8 11940","remote 10.0.2.2 11940"));
+   try(Socket probe=new Socket()){probe.bind(new InetSocketAddress(0));if(!protect(probe))throw new IOException("Probe protection failed");path.bind(probe);probe.connect(new InetSocketAddress("10.0.2.2",11940),3000);if(!OpenVpnReachability.tcp(probe,2500))throw new IOException("Real OpenVPN control preflight failed");}
    NativeSocketProtector upstream=new NativeSocketProtector(this,path);
    session=new OpenVpnSession(this,profile,new OpenVpnSession.Listener(){
     public boolean protect(FileDescriptor fd)throws Exception{boolean ok=upstream.protect(fd);if(ok)protectedSockets++;return ok;}
