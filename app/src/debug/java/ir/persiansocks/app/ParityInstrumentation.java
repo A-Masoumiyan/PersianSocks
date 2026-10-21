@@ -13,7 +13,9 @@ public final class ParityInstrumentation extends Instrumentation {
  private String stage="initializing",lastSocketError="";
  private void check(boolean value,String label){if(!value)throw new AssertionError(label);}
  private void waitFor(java.util.function.BooleanSupplier condition)throws Exception{long until=SystemClock.elapsedRealtime()+15_000;while(!condition.getAsBoolean()&&SystemClock.elapsedRealtime()<until)Thread.sleep(100);check(condition.getAsBoolean(),"Timed out at "+stage+"; "+lastSocketError);}
- private boolean physical(){try(Socket s=new Socket()){s.connect(new InetSocketAddress("10.0.2.2",18080),1500);return true;}catch(Exception e){lastSocketError=e.toString();return false;}}
+ // A tun2socks stack may acknowledge SYN before opening its upstream socket.
+ // Prove an actual peer round trip, rather than mistaking local TCP for a leak.
+ private boolean physical(){try(Socket s=new Socket()){s.connect(new InetSocketAddress("10.0.2.2",18080),1500);s.setSoTimeout(1500);s.getOutputStream().write("GET / HTTP/1.0\r\nHost: 10.0.2.2\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));s.getOutputStream().flush();String line=new java.io.BufferedReader(new java.io.InputStreamReader(s.getInputStream(),java.nio.charset.StandardCharsets.US_ASCII)).readLine();return line!=null&&line.startsWith("HTTP/")&&line.contains(" 200 ");}catch(Exception e){lastSocketError=e.toString();return false;}}
  @Override public void onStart(){Bundle report=new Bundle();CountDownLatch release=new CountDownLatch(1);try{
   Context c=getTargetContext();c.getSharedPreferences("persiansocks",0).edit().putString("routing-mode","apps").putString("split-mode","ALL").putInt("vpn-disclosure",DistributionPolicy.DISCLOSURE_VERSION).putBoolean("kill-switch-off",false).putBoolean("auto-switch",false).putBoolean("initial-discovery-030",true).putBoolean("background-maintenance",false).commit();
   check(VpnService.prepare(c)==null,"Fixture requires Android VPN app-op consent");
@@ -33,7 +35,7 @@ public final class ParityInstrumentation extends Instrumentation {
   stage="VPN default route";waitFor(()->{Network active=manager.getActiveNetwork();NetworkCapabilities caps=active==null?null:manager.getNetworkCapabilities(active);lastSocketError="active="+active+" caps="+caps;return caps!=null&&caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);});
   check(!physical(),"Direct IPv4 bypassed running engine");
   runOnMainSync(()->c.startService(new Intent(c,ProxyVpnService.class).setAction(ProxyVpnService.DISCONNECT)));
-  stage="retained guard";waitFor(ProxyVpnService::guardActive);for(int i=0;i<3;i++){Network active=manager.getActiveNetwork();check(!physical(),"Direct IPv4 escaped after engine disconnect; active="+active+" caps="+(active==null?null:manager.getNetworkCapabilities(active)));Thread.sleep(250);}
+  stage="retained guard";waitFor(()->ProxyVpnService.guardActive()&&!TProxyService.TProxyIsRunning());for(int i=0;i<3;i++){Network active=manager.getActiveNetwork();check(!physical(),"Direct IPv4 escaped after engine disconnect; active="+active+" caps="+(active==null?null:manager.getNetworkCapabilities(active)));Thread.sleep(250);}
   c.getSharedPreferences("persiansocks",0).edit().putBoolean("kill-switch-off",true).commit();runOnMainSync(()->c.startService(new Intent(c,ProxyVpnService.class).setAction(ProxyVpnService.RELEASE_GUARD)));
   stage="release guard";waitFor(()->!ProxyVpnService.guardActive());waitFor(this::physical);
   report.putString("stream","PARITY_NATIVE_PASS: first-screen preview while storage blocked; native JNI engine; IPv4/IPv6 default routes; no direct IPv4 after engine disconnect; OFF restores traffic\n");finish(Activity.RESULT_OK,report);
