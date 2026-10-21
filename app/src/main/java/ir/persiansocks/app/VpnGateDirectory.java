@@ -14,6 +14,7 @@ import org.json.JSONObject;
 public final class VpnGateDirectory implements AutoCloseable {
  public interface Listener {void changed(String status);}
  public final VpnGateStore store;
+ private int connectTimeout=8000,readTimeout=12000;
  private final Context context;private final Listener listener;
  private final ExecutorService worker=Executors.newSingleThreadExecutor();
  private final Set<HttpURLConnection> connections=ConcurrentHashMap.newKeySet();
@@ -24,7 +25,7 @@ public final class VpnGateDirectory implements AutoCloseable {
  private void changed(String message){if(!closed)listener.changed(message);}
  private byte[] download(String address,int maximum,int token)throws Exception{
   if(closed||token!=generation.get())throw new IOException("Cancelled");
-  HttpURLConnection connection=AppHttp.sourceConnection(new URL(address));connections.add(connection);connection.setConnectTimeout(8000);connection.setReadTimeout(12000);
+  HttpURLConnection connection=AppHttp.sourceConnection(new URL(address));connections.add(connection);connection.setConnectTimeout(connectTimeout);connection.setReadTimeout(readTimeout);
   try{if(connection.getResponseCode()!=200)throw new IOException("Directory HTTP "+connection.getResponseCode());if(connection.getContentLengthLong()>maximum)throw new IOException("Directory too large");
    try(InputStream in=connection.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1){if(closed||token!=generation.get())throw new IOException("Cancelled");if(out.size()+n>maximum)throw new IOException("Directory too large");out.write(buffer,0,n);}return out.toByteArray();}
   }finally{connections.remove(connection);connection.disconnect();}
@@ -33,6 +34,8 @@ public final class VpnGateDirectory implements AutoCloseable {
  private byte[] pinned(String commit,String path,int size,String hash,int token)throws Exception{
   byte[] bytes;try{bytes=download(MIRROR+commit+"/"+path,size,token);}catch(Exception e){bytes=download("https://cdn.jsdelivr.net/gh/GeorgeXie2333/vpngate-list-mirror@"+commit+"/"+path,size,token);}VpnGateProfile.checksum(bytes,size,hash);return bytes;
  }
+ public void scanDownloads(boolean quick){if(quick){connectTimeout=3500;readTimeout=4500;}}
+ public VpnGateProfile resolve(VpnGateProfile profile)throws Exception{return profile.lazy()?profile.resolve(pinned(profile.poolCommit,"pool/configs/"+profile.configHash+".json",profile.documentBytes,profile.documentHash,generation.get())):profile;}
  public static VpnGateProfile resolve(Context context,VpnGateProfile profile)throws Exception{
   if(!profile.lazy())return profile;try(VpnGateDirectory directory=new VpnGateDirectory(context,message->{})){return profile.resolve(directory.pinned(profile.poolCommit,"pool/configs/"+profile.configHash+".json",profile.documentBytes,profile.documentHash,directory.generation.get()));}
  }

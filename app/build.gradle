@@ -11,8 +11,8 @@ android {
         buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(project.findProperty('privacyPolicyUrl') ?: '')
         minSdk 29
         targetSdk 36
-        versionCode 50
-        versionName '0.31.1'
+        versionCode 51
+        versionName '0.31.2'
     }
     buildFeatures { buildConfig true }
     testOptions { unitTests.includeAndroidResources = true }
