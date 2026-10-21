@@ -603,6 +603,10 @@
     <string name="ui_030_routes">شرط دامنه و سرویس‌های تونل</string>
     <string name="ui_030_routes_help">دامنه‌ها و زیر‌دامنه‌های انتخابی از پروکسی می‌گذرند؛ اتصال‌های نامرتبط مستقیم‌اند. IPهای بدون نام دامنه مسدود می‌شوند. UDP دامنه‌های انتخابی مسدود است تا QUIC با TCP تلاش کند؛ UDP نامرتبطِ دارای دامنه مستقیم است. تغییر مسیر، اتصال فعلی را متوقف می‌کند؛ دوباره وصل شو.</string>
     <string name="ui_030_chatgpt">فقط ChatGPT اندروید</string>
+    <string name="ui_031_chatgpt_on">فقط ChatGPT: روشن</string>
+    <string name="ui_031_chatgpt_off">فقط ChatGPT: خاموش</string>
+    <string name="ui_031_copy_error">کپی گزارش</string>
+    <string name="ui_031_clear_error">پاک کردن خطا</string>
     <string name="ui_030_install_chatgpt">برنامهٔ رسمی ChatGPT با شناسهٔ com.openai.chatgpt نصب نیست.</string>
     <string name="ui_030_apps">مسیر بر اساس برنامه‌ها</string>
     <string name="ui_030_choose_domain">حداقل یک دامنه یا سرویس انتخاب کن</string>
