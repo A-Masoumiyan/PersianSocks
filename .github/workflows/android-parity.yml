@@ -39,6 +39,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Start deterministic host TCP peer
+        run: nohup python3 -m http.server 18080 --bind 0.0.0.0 > /tmp/android-host-peer.txt 2>&1 &
       - name: Native Android VPN guard and startup smoke
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -51,6 +53,7 @@ jobs:
             adb shell appops set ir.persiansocks.app ACTIVATE_VPN allow
             adb shell pm grant ir.persiansocks.app android.permission.POST_NOTIFICATIONS
             adb shell am instrument -w ir.persiansocks.app/.ParityInstrumentation | tee /tmp/android-native.txt
+            adb logcat -d -s AndroidRuntime PersianSocks > /tmp/android-logcat.txt
             grep 'PARITY_NATIVE_PASS' /tmp/android-native.txt
       - name: Prepare unsigned artifact and signing tools
         run: |
@@ -72,3 +75,4 @@ jobs:
             app/build/test-results/
             app/build/reports/tests/
             /tmp/android-native.txt
+            /tmp/android-logcat.txt
