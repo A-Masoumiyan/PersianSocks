@@ -128,12 +128,12 @@ public class StartupRegressionTest {
             prefs.edit().putBoolean("scan-ping-only",true).putString("ping-target-url",ServiceTargets.ALL[1].url()).commit();ScanInputs.initializePolicy(c);assertTrue(ScanProbePolicy.profile().only);
         }finally{owner.destroy();prefs.edit().putBoolean("scan-ping-only",false).putString("ping-target-url","").commit();ScanInputs.configureTests(c);}
     }
-    @Test public void newAndRestartScansShowOnlyTwoModesWhileResumeSkipsTheDialog()throws Exception{
+    @Test public void longPressAndRestartOfferTwoModesWhileResumeSkipsTheDialog()throws Exception{
         Context c=RuntimeEnvironment.getApplication();Shadows.shadowOf(c.getSystemService(android.net.ConnectivityManager.class)).clearAllNetworks();
         org.robolectric.android.controller.ActivityController<MainActivity> owner=Robolectric.buildActivity(MainActivity.class).create();
         try{
             MainActivity activity=owner.get();ReflectionHelpers.setField(activity,"localDataLoaded",true);ReflectionHelpers.setField(activity,"catalogCount",10);ReflectionHelpers.callInstanceMethod(activity,"updateActions");
-            android.widget.Button play=ReflectionHelpers.getField(activity,"scanToggle"),restart=ReflectionHelpers.getField(activity,"scanRestart");play.performClick();
+            ReflectionHelpers.setField(activity,"protocol",ProxyResults.Protocol.SOCKS);android.widget.Button play=ReflectionHelpers.getField(activity,"scanToggle"),restart=ReflectionHelpers.getField(activity,"scanRestart");play.performLongClick();
             android.app.AlertDialog first=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertEquals(2,first.getListView().getAdapter().getCount());assertEquals(AppLanguage.t(R.string.ui_scan_fast),first.getListView().getAdapter().getItem(0));assertEquals(AppLanguage.t(R.string.ui_scan_deep),first.getListView().getAdapter().getItem(1));first.dismiss();
             ScanCheckpoint paused=new ScanCheckpoint(Arrays.asList(ProxyEndpoint.parse("8.8.8.8:1080"),ProxyEndpoint.parse("9.9.9.9:1080")),new ProxyScanner.Options(100,true),"CATALOG");paused.record(0,new Socks5Probe.Result(good("8.8.8.8",1080,System.currentTimeMillis()),Socks5Probe.Failure.NONE,true,true));
             ReflectionHelpers.setField(activity,"checkpoint",paused);ReflectionHelpers.callInstanceMethod(activity,"updateActions");assertEquals(UiIconButton.Kind.PLAY,ReflectionHelpers.getField(play,"kind"));assertEquals(AppLanguage.t(R.string.ui_scan_resume),play.getContentDescription().toString());

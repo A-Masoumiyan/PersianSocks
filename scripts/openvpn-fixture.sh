@@ -34,6 +34,6 @@ log /tmp/android-openvpn-server.txt
 CONFIG
 touch /tmp/android-openvpn-server.txt
 chmod 644 /tmp/android-openvpn-server.txt
-sudo modprobe tun
+[ -c /dev/net/tun ] || sudo modprobe tun
 if ! sudo openvpn --config "$fixture/server.conf" --daemon; then cat /tmp/android-openvpn-server.txt; exit 1; fi
 nohup python3 -m http.server 18080 --bind 0.0.0.0 --directory "$fixture" > /tmp/android-host-peer.txt 2>&1 &
