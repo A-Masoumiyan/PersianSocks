@@ -29,15 +29,28 @@ public final class VpnGateDirectory implements AutoCloseable {
    try(InputStream in=connection.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1){if(closed||token!=generation.get())throw new IOException("Cancelled");if(out.size()+n>maximum)throw new IOException("Directory too large");out.write(buffer,0,n);}return out.toByteArray();}
   }finally{connection.disconnect();}
  }
- public void refresh(){if(busy||closed)return;busy=true;int token=generation.incrementAndGet();changed(AppLanguage.t(R.string.ui_032_gate_loading));worker.execute(()->{
-  try{List<VpnGateProfile> profiles;
-   try{profiles=VpnGateProfile.parse(new String(download("https://www.vpngate.net/api/iphone/",VpnGateProfile.MAX_DIRECTORY_BYTES,token),StandardCharsets.UTF_8));}
-   catch(Exception official){JSONObject index=new JSONObject(new String(download("https://raw.githubusercontent.com/GeorgeXie2333/vpngate-list-mirror/main/latest.json",32768,token),StandardCharsets.UTF_8));String commit=index.getString("data_commit");if(index.getInt("schema_version")!=1||!commit.matches("[a-f0-9]{40}"))throw new IOException("Invalid directory index");JSONObject file=index.getJSONObject("files").getJSONObject("data/vpngate.csv");long size=file.getLong("bytes");String expected=file.getString("sha256");if(size<1||size>VpnGateProfile.MAX_DIRECTORY_BYTES||!expected.matches("[a-f0-9]{64}"))throw new IOException("Invalid directory size/hash");byte[] csv;
-    try{csv=download("https://raw.githubusercontent.com/GeorgeXie2333/vpngate-list-mirror/"+commit+"/data/vpngate.csv",(int)size,token);}catch(Exception raw){csv=download("https://cdn.jsdelivr.net/gh/GeorgeXie2333/vpngate-list-mirror@"+commit+"/data/vpngate.csv",(int)size,token);}
-    StringBuilder hash=new StringBuilder();for(byte b:MessageDigest.getInstance("SHA-256").digest(csv))hash.append(String.format(Locale.US,"%02x",b&255));if(csv.length!=size||!expected.contentEquals(hash))throw new IOException("Directory checksum mismatch");profiles=VpnGateProfile.parse(new String(csv,StandardCharsets.UTF_8));
+ private static final String MIRROR="https://raw.githubusercontent.com/GeorgeXie2333/vpngate-list-mirror/";
+ private byte[] pinned(String commit,String path,int size,String hash,int token)throws Exception{
+  byte[] bytes;try{bytes=download(MIRROR+commit+"/"+path,size,token);}catch(Exception e){bytes=download("https://cdn.jsdelivr.net/gh/GeorgeXie2333/vpngate-list-mirror@"+commit+"/"+path,size,token);}VpnGateProfile.checksum(bytes,size,hash);return bytes;
+ }
+ public static VpnGateProfile resolve(Context context,VpnGateProfile profile)throws Exception{
+  if(!profile.lazy())return profile;try(VpnGateDirectory directory=new VpnGateDirectory(context,message->{})){return profile.resolve(directory.pinned(profile.poolCommit,"pool/configs/"+profile.configHash+".json",profile.documentBytes,profile.documentHash,directory.generation.get()));}
+ }
+ public void refresh(){if(busy||closed||ProxyVpnService.gateScanning())return;busy=true;int token=generation.incrementAndGet();changed(AppLanguage.t(R.string.ui_032_gate_loading));worker.execute(()->{
+  List<VpnGateProfile> profiles=new ArrayList<>();String error="";
+  try{profiles.addAll(VpnGateProfile.parse(new String(download("https://www.vpngate.net/api/iphone/",VpnGateProfile.MAX_DIRECTORY_BYTES,token),StandardCharsets.UTF_8)));}catch(Exception e){error=String.valueOf(e.getMessage());}
+  try{
+   JSONObject index=new JSONObject(new String(download(MIRROR+"main/pool/latest.json",32768,token),StandardCharsets.UTF_8));String commit=index.getString("data_commit");if(index.getInt("schema_version")!=1||!index.getString("kind").equals("vpngate-pool")||!commit.matches("[a-f0-9]{40}"))throw new IOException("Invalid pool index");
+   JSONObject file=index.getJSONObject("files").getJSONObject("pool/servers.json");int size=file.getInt("bytes");if(size<1||size>16*1024*1024)throw new IOException("Invalid pool size");
+   JSONObject pool=new JSONObject(new String(pinned(commit,"pool/servers.json",size,file.getString("sha256"),token),StandardCharsets.UTF_8));if(pool.getInt("schema_version")!=1||!pool.getString("kind").equals("vpngate-pool"))throw new IOException("Invalid pool catalog");
+   org.json.JSONArray rows=pool.getJSONArray("servers");for(int i=0;i<Math.min(rows.length(),VpnGateProfile.MAX_PROFILES);i++){
+    if(closed||token!=generation.get())throw new IOException("Cancelled");
+    try{VpnGateProfile p=VpnGateProfile.candidate(rows.getJSONObject(i),commit);profiles.add(p);}catch(Exception invalid){/* Invalid or stale rows do not discard the verified catalog. */}
    }
-   if(!closed&&token==generation.get()){store.replace(profiles);changed(AppLanguage.t(R.string.ui_032_gate_count)+profiles.size());}
-  }catch(Exception e){if(token==generation.get())changed(AppLanguage.t(R.string.ui_032_gate_error)+e.getMessage());}finally{if(token==generation.get()){busy=false;changed("");}}
+  }catch(Exception e){error=String.valueOf(e.getMessage());}
+  try{if(!closed&&token==generation.get()){if(profiles.isEmpty())throw new IOException(error);store.replace(profiles);changed(AppLanguage.t(R.string.ui_032_gate_count)+store.snapshot().size());}}
+  catch(Exception e){if(token==generation.get())changed(AppLanguage.t(R.string.ui_032_gate_error)+e.getMessage());}
+  finally{if(token==generation.get()){busy=false;changed("");}}
  });}
  public void scan(){scan(null);}
  public void scan(String key){if(busy||closed)return;busy=true;int token=generation.incrementAndGet();List<VpnGateProfile> profiles=store.snapshot();changed(AppLanguage.t(R.string.ui_032_gate_scanning));worker.execute(()->{

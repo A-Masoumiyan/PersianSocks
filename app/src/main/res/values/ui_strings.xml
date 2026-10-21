@@ -553,7 +553,7 @@
     <string name="ui_scan_fast">اسکن سریع</string>
     <string name="ui_scan_deep">اسکن عمیق</string>
     <string name="ui_scan_choose">نوع اسکن را انتخاب کن</string>
-    <string name="ui_scan_pause">مکث اسکن</string>
+    <string name="ui_scan_pause">توقف اسکن</string>
     <string name="ui_scan_resume">ادامهٔ اسکن</string>
     <string name="ui_scan_restart">اسکن از ابتدا</string>
     <string name="ui_scan_total">کل</string>
@@ -568,7 +568,7 @@
     <string name="ui_design_restart">از نو</string>
     <string name="ui_design_sources">منابع</string>
     <string name="ui_design_scan">اسکن</string>
-    <string name="ui_design_pause">مکث</string>
+    <string name="ui_design_pause">توقف</string>
     <string name="ui_design_resume">ادامه</string>
     <string name="ui_design_saved">ذخیره‌ها</string>
     <string name="ui_design_all">همه</string>
@@ -646,4 +646,13 @@
     <string name="ui_032_gate_privacy">VPN Gate شبکه‌ای داوطلبانه است. گردانندگان آن می‌توانند نشانی IP و فرادادهٔ اتصال را ثبت کنند؛ گزارش‌های VPN Gate حداقل سه ماه نگهداری می‌شوند.</string>
     <string name="ui_032_gate_unverified">نیاز به آزمون اتصال</string>
     <string name="ui_032_disconnected">متصل نیست</string>
+    <string name="ui_gate_scan_progress">آزمون اتصال VPN Gate</string>
+    <string name="ui_gate_scan_passed">تونل تأییدشده</string>
+    <string name="ui_gate_scan_title">اسکن اتصال VPN Gate</string>
+    <string name="ui_gate_scan_help">سرورها به‌ترتیب واقعاً متصل می‌شوند و پاسخ HTTPS از داخل تونل بررسی می‌شود. اتصال فعلی هنگام آزمون عوض می‌شود؛ محدودهٔ برنامه‌ها و کیل‌سوییچ حفظ می‌شوند. اسکن سریع پورت‌های بسته را کنار می‌گذارد؛ عمیق زمان بیشتری می‌دهد و همهٔ نشانی‌های آزمون را بررسی می‌کند. آزمون هزاران سرور ممکن است طولانی باشد؛ توقف، نتایج انجام‌شده را نگه می‌دارد.</string>
+    <string name="ui_gate_scan_empty">ابتدا فهرست دریافت می‌شود؛ سپس اسکن اتصال را بزنید.</string>
+    <string name="ui_gate_verified_only">✓ فقط اتصال‌های تأییدشده · نمایش نامزدها</string>
+    <string name="ui_gate_candidates">همهٔ نامزدها · نمایش فقط اتصال‌های تأییدشده</string>
+    <string name="ui_gate_port_help">این عدد فقط زمان باز شدن پورت TCP است؛ هنوز تونل VPN یا HTTPS تأیید نشده است.</string>
+    <string name="ui_gate_speed_connect">برای تست دانلود، ابتدا همین سرور را متصل کنید و سپس دکمهٔ تست سرعت را بزنید. دانلود فقط از شبکهٔ همان VPN انجام می‌شود.</string>
 </resources>
