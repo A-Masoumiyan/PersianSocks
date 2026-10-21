@@ -645,4 +645,5 @@
     <string name="ui_032_gate_speed">Connect to VPN Gate to verify real access. The directory ping measures TCP port reachability only; it does not verify a working VPN.</string>
     <string name="ui_032_gate_privacy">VPN Gate is a volunteer network. Operators can log your IP address and connection metadata; VPN Gate retains connection logs for at least three months.</string>
     <string name="ui_032_gate_unverified">Connect to verify</string>
+    <string name="ui_032_disconnected">Not connected</string>
 </resources>

@@ -645,4 +645,5 @@
     <string name="ui_032_gate_speed">برای سنجش واقعی VPN Gate ابتدا به آن متصل شوید. عدد پینگ این فهرست فقط تأخیر باز شدن پورت TCP است و سلامت VPN را تضمین نمی‌کند.</string>
     <string name="ui_032_gate_privacy">VPN Gate شبکه‌ای داوطلبانه است. گردانندگان آن می‌توانند نشانی IP و فرادادهٔ اتصال را ثبت کنند؛ گزارش‌های VPN Gate حداقل سه ماه نگهداری می‌شوند.</string>
     <string name="ui_032_gate_unverified">نیاز به آزمون اتصال</string>
+    <string name="ui_032_disconnected">متصل نیست</string>
 </resources>
