@@ -365,9 +365,12 @@ public final class ProxyVpnService extends VpnService {
                 public InetAddress resolve(String host)throws Exception {return path.resolve(host);}
             },ProtectedSocksGateway.TCP_IDLE_MILLIS,AndroidRoutes.load(this));
             Socks5Probe.setResolver(path::resolve);Socks5Probe.setSocketMaker(path::socket);
-            // Keep the old TUN until its replacement is established. An engine
-            // stop cannot restore a physical route while the guard descriptor lives.
-            replaceTun(path);
+            // The guard already owns the routes for this scope. Replacing its
+            // interface here creates an unnecessary Android network handover.
+            // Scope changes explicitly rebuild it in RECONFIGURE instead.
+            if(tun==null)replaceTun(path);
+            else if(!setUnderlyingNetworks(new Network[]{path.network()}))
+                throw new java.io.IOException("Unable to update VPN underlying network");
             String yaml = "tunnel:\n" +
                 "  mtu: 1400\n" +
                 "  ipv4: 198.18.0.1\n" +

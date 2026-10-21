@@ -16,6 +16,7 @@ public final class ParityInstrumentation extends Instrumentation {
  // A tun2socks stack may acknowledge SYN before opening its upstream socket.
  // Prove an actual peer round trip, rather than mistaking local TCP for a leak.
  private boolean physical(){try(Socket s=new Socket()){s.connect(new InetSocketAddress("10.0.2.2",18080),1500);s.setSoTimeout(1500);s.getOutputStream().write("GET / HTTP/1.0\r\nHost: 10.0.2.2\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));s.getOutputStream().flush();String line=new java.io.BufferedReader(new java.io.InputStreamReader(s.getInputStream(),java.nio.charset.StandardCharsets.US_ASCII)).readLine();return line!=null&&line.startsWith("HTTP/")&&line.contains(" 200 ");}catch(Exception e){lastSocketError=e.toString();return false;}}
+ private Object descriptor()throws Exception {java.lang.reflect.Field owner=ProxyVpnService.class.getDeclaredField("instance");owner.setAccessible(true);Object service=((java.lang.ref.WeakReference<?>)owner.get(null)).get();java.lang.reflect.Field field=ProxyVpnService.class.getDeclaredField("tun");field.setAccessible(true);return field.get(service);}
  @Override public void onStart(){Bundle report=new Bundle();CountDownLatch release=new CountDownLatch(1);try{
   Context c=getTargetContext();c.getSharedPreferences("persiansocks",0).edit().putString("routing-mode","apps").putString("split-mode","ALL").putInt("vpn-disclosure",DistributionPolicy.DISCLOSURE_VERSION).putBoolean("kill-switch-off",false).putBoolean("auto-switch",false).putBoolean("initial-discovery-030",true).putBoolean("background-maintenance",false).commit();
   check(VpnService.prepare(c)==null,"Fixture requires Android VPN app-op consent");
@@ -25,8 +26,10 @@ public final class ParityInstrumentation extends Instrumentation {
   long start=SystemClock.elapsedRealtime();Activity screen=startActivitySync(new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
   java.lang.reflect.Field chosen=MainActivity.class.getDeclaredField("selected");chosen.setAccessible(true);check(chosen.get(screen)!=null,"Preview/selection waits for full storage");
   report.putLong("startup_preview_ms",SystemClock.elapsedRealtime()-start);
+  stage="initial guard";runOnMainSync(()->c.startForegroundService(new Intent(c,ProxyVpnService.class).setAction(ProxyVpnService.RECONFIGURE)));waitFor(ProxyVpnService::guardActive);Object initialDescriptor=descriptor();
   stage="native engine";runOnMainSync(()->c.startForegroundService(new Intent(c,ProxyVpnService.class).setAction(ProxyVpnService.CONNECT).putExtra(ProxyVpnService.EXTRA_ENDPOINT,snapshot.key()).putExtra("filter","ALL").putExtra("sort","FASTEST").putExtra("evidence",snapshot.json().toString())));
   waitFor(()->{try{return TProxyService.TProxyIsRunning();}catch(Throwable e){return false;}});release.countDown();
+  check(initialDescriptor==descriptor(),"Connecting replaced the existing guard interface");
   ConnectivityManager manager=c.getSystemService(ConnectivityManager.class);boolean v4=false,v6=false;
   for(Network n:manager.getAllNetworks()){NetworkCapabilities caps=manager.getNetworkCapabilities(n);if(caps==null||!caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN))continue;LinkProperties lp=manager.getLinkProperties(n);if(lp!=null)for(RouteInfo route:lp.getRoutes())if(route.isDefaultRoute()){v4|=route.getDestination().getAddress() instanceof java.net.Inet4Address;v6|=route.getDestination().getAddress() instanceof java.net.Inet6Address;}}
   check(v4&&v6,"Guard must capture both default address families");
