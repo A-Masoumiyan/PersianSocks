@@ -360,7 +360,7 @@ public final class ProxyVpnService extends VpnService {
     private void retireOldTuns(int attempt){
         if(tun==null||retiredTuns.isEmpty())return;final ParcelFileDescriptor currentTun=tun;
         String name=TunLinkInfo.name(currentTun);boolean ready=false;ConnectivityManager manager=getSystemService(ConnectivityManager.class);
-        if(!name.isEmpty())for(Network network:manager.getAllNetworks()){NetworkCapabilities caps=manager.getNetworkCapabilities(network);android.net.LinkProperties links=manager.getLinkProperties(network);if(caps!=null&&caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)&&links!=null&&name.equals(links.getInterfaceName()))ready=true;}
+        Network active=manager.getActiveNetwork();NetworkCapabilities caps=active==null?null:manager.getNetworkCapabilities(active);android.net.LinkProperties links=active==null?null:manager.getLinkProperties(active);if(!name.isEmpty()&&caps!=null&&caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)&&links!=null&&name.equals(links.getInterfaceName()))ready=true;
         if(ready){for(ParcelFileDescriptor old:retiredTuns)try{old.close();}catch(Exception ignored){}retiredTuns.clear();}
         else if(attempt<30)handler.postDelayed(()->{if(tun==currentTun)retireOldTuns(attempt+1);},200);
     }
