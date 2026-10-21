@@ -19,7 +19,7 @@ public class AndroidParityTest {
  }
  @Test public void killSwitchIsOnByDefaultAndChatgptModeDoesNotRestrictToDomains(){
   Context c=RuntimeEnvironment.getApplication();c.getSharedPreferences("persiansocks",0).edit().clear().commit();assertTrue(AndroidRoutes.kill(c));
-  c.getSharedPreferences("persiansocks",0).edit().putBoolean("kill-switch-off",true).putString("routing-mode","chatgpt").commit();assertFalse(AndroidRoutes.kill(c));assertFalse(AndroidRoutes.load(c).restricted);
+  c.getSharedPreferences("persiansocks",0).edit().putBoolean("kill-switch-off",true).putString("routing-mode","chatgpt").commit();assertFalse(AndroidRoutes.kill(c));assertFalse(AndroidRoutes.load(c).restricted);assertTrue(AndroidRoutes.scopedVerification(c));assertEquals("chatgpt.com",AndroidRoutes.verification(c,ServiceTargets.ALL)[0].host);
  }
  @Test public void domainProfileVerifiesAnIncludedDestinationAndRejectsEmptyRules(){
   Context c=RuntimeEnvironment.getApplication();c.getSharedPreferences("persiansocks",0).edit().clear().putString("routing-mode","domains").putString("route-domains","chatgpt.com").commit();

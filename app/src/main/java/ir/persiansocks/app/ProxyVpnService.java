@@ -433,7 +433,7 @@ public final class ProxyVpnService extends VpnService {
             return;
         }
         AtomicBoolean stop = cancelled;
-        final String verificationFilter=AndroidRoutes.load(this).restricted?"ALL":requiredFilter;
+        final String verificationFilter=AndroidRoutes.scopedVerification(this)?"ALL":requiredFilter;
         final ServiceTargets.Target[] verificationTargets=AndroidRoutes.verification(this,ConnectionPreflight.verificationTargets(verificationFilter,lastProfile));
         new Thread(() -> {
             TunnelVerifier.Result result = TunnelVerifier.check(new TunnelVerifier.Transport() {
@@ -611,7 +611,7 @@ public final class ProxyVpnService extends VpnService {
             AtomicBoolean stop = cancelled;
             final ProtectedSocksGateway checkedGateway=gateway;
             final long previousCapacity=checkedGateway==null?0:checkedGateway.capacityRejections();
-            final String healthFilter=AndroidRoutes.load(this).restricted?"ALL":requiredFilter;
+            final String healthFilter=AndroidRoutes.scopedVerification(this)?"ALL":requiredFilter;
             ServiceTargets.Target[] targets = AndroidRoutes.verification(this,failover.healthTargets(healthFilter, lastProfile));
             new Thread(() -> {
                 TunnelVerifier.Result result = TunnelVerifier.check(new TunnelVerifier.Transport() {
