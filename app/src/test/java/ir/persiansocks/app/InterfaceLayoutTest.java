@@ -81,7 +81,7 @@ public class InterfaceLayoutTest {
         Context c=context();AppLanguage.select(c,"fa");var owner=Robolectric.buildActivity(MainActivity.class).create();try{
             MainActivity a=owner.get();for(int type:new int[]{0,1}){Object card=card(a,type);View wrapper=ReflectionHelpers.getField(card,"wrapper");layout(wrapper,320,0);int height=wrapper.getMeasuredHeight();
                 java.util.Map<String,ProxyTestResult> tests=ReflectionHelpers.getField(a,"testResults");ProxyTestResult measured=new ProxyTestResult();measured.downloadMBps=2.75;measured.speedTarget=ScanInputs.speedUrl(c);tests.put(sample(type).key(),measured);
-                ReflectionHelpers.callInstanceMethod(card,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,sample(type)));layout(wrapper,320,0);TextView down=ReflectionHelpers.getField(card,"down");assertEquals(View.VISIBLE,down.getVisibility());assertNotNull(down.getParent());assertTrue(down.getHeight()>0);assertTrue(down.getText().toString().contains("2.75"));assertTrue(down.getWidth()>0);assertEquals(height,wrapper.getMeasuredHeight());
+                ReflectionHelpers.callInstanceMethod(card,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,sample(type)));layout(wrapper,320,0);TextView down=ReflectionHelpers.getField(card,"designDownload");assertEquals(View.VISIBLE,down.getVisibility());assertNotNull(down.getParent());assertTrue(down.getHeight()>0);assertTrue(down.getText().toString().contains("2.75"));assertTrue(down.getWidth()>0);assertEquals(height,wrapper.getMeasuredHeight());
             }
             TextView live=ReflectionHelpers.getField(a,"heroTraffic"),mode=ReflectionHelpers.getField(a,"designModeStatus");assertNotNull(live.getParent());assertNotNull(mode.getParent());assertNotNull(((View)ReflectionHelpers.getField(a,"healthyRetest")).getParent());
             c.getSharedPreferences("persiansocks",0).edit().putBoolean("proxy-only",true).putBoolean("kill-switch-off",false).commit();ReflectionHelpers.callInstanceMethod(a,"refreshDesignOne");assertFalse(AndroidRoutes.kill(c));assertTrue(mode.getText().toString().contains("پروکسی"));
@@ -131,7 +131,7 @@ public class InterfaceLayoutTest {
                     public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent,int type){View row=rows[type];if(row.getParent()!=null)((ViewGroup)row.getParent()).removeView(row);row.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));return new RecyclerView.ViewHolder(row){};}
                     public void onBindViewHolder(RecyclerView.ViewHolder holder,int position){}
                 });
-                View page=ReflectionHelpers.getField(activity,"page");layout(page,width,900);
+                View page=ReflectionHelpers.getField(activity,"page");layout(page,width,900);layout(page,width,900);
                 export(page,destination,"home-"+language+"-"+width+".png");
                 ReflectionHelpers.callInstanceMethod(activity,"setSidebarVisible",ReflectionHelpers.ClassParameter.from(boolean.class,true));layout(page,width,900);
                 // The drawer width is recalculated by its parent layout callback.
