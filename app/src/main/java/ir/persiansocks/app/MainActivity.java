@@ -1374,7 +1374,7 @@ public final class MainActivity extends ComponentActivity {
             ProxyTestResult measured=testResults.get(p.key());if(measured==null)measured=new ProxyTestResult();
             boolean running=testingProxy!=null&&testingProxy.key().equals(p.key());boolean downloadRunning=running&&speedTest!=null,probeRunning=running&&singleTest!=null;
             setMetricValue(down,unavailable?AppLanguage.t(R.string.ui_proxy_unavailable):downloadRunning?liveDownloadMBps>=0?ProxyTestResult.speed(liveDownloadMBps):AppLanguage.t(R.string.ui_172):measured.speedError.isEmpty()&&!measured.speedTarget.equals(ScanInputs.speedUrl(MainActivity.this))?AppLanguage.t(R.string.ui_181):measured.speedValue());
-            down.setTextSize(10);down.setText("↓ "+down.getText());
+            down.setTextSize(10);if(down.getText().toString().contains("MB/s"))down.setText("↓ "+down.getText());
             down.setTextColor(unavailable?WARNING:downloadRunning||measured.speedError.isEmpty()&&measured.downloadMBps>=0?PRIMARY:measured.speedError.isEmpty()?SECONDARY:WARNING);
             setMetricValue(ping,unavailable?AppLanguage.t(R.string.ui_proxy_unavailable):probeRunning?AppLanguage.t(R.string.ui_172):ScanProbePolicy.latency(p)==Long.MAX_VALUE?AppLanguage.t(R.string.ui_181):measured.pingValue(p));divider.setBackgroundColor(active?Color.rgb(44,88,88):STROKE);
             address.setText(p.host);address.setContentDescription(p.key());
