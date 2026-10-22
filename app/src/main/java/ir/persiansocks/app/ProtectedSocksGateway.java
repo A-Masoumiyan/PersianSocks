@@ -63,7 +63,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         if(idleMillis<100)throw new IllegalArgumentException("Idle budget too short");
         idleNanos=TimeUnit.MILLISECONDS.toNanos(idleMillis);
         this.proxy=proxy;this.protector=protector;
-        listener=new ServerSocket();listener.setReuseAddress(true);listener.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),port),64);
+        listener=new ServerSocket();try{listener.setReuseAddress(true);listener.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),port),64);}catch(IOException|RuntimeException error){listener.close();throw error;}
         acceptThread=new Thread(()-> {
             while(!stopped.get()) try {
                 Socket s=listener.accept();
@@ -248,5 +248,6 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         if(!stopped.compareAndSet(false,true))return;
         try{listener.close();}catch(Exception ignored){}
         for(Connection c:connections)c.close();idleWatch.shutdownNow();pool.shutdownNow();acceptThread.interrupt();
+        if(Thread.currentThread()!=acceptThread)try{acceptThread.join(1000);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
     }
 }
