@@ -5,7 +5,7 @@ public final class LocalProxyHarness {
  public static void main(String[] args)throws Exception{
   ScanHarness.init(args[0]);AtomicInteger sockets=new AtomicInteger();
   try(ScanHarness.Mock upstream=new ScanHarness.Mock("valid");ProtectedSocksGateway local=new ProtectedSocksGateway(upstream.endpoint(),new ProtectedSocksGateway.Protector(){
-   public boolean tcp(Socket socket){sockets.incrementAndGet();return true;}public boolean udp(DatagramSocket socket){return true;}public InetAddress resolve(String host){throw new AssertionError("SOCKS destination DNS must stay upstream");}
+   public boolean tcp(Socket socket){sockets.incrementAndGet();return true;}public boolean udp(DatagramSocket socket){return true;}public InetAddress resolve(String host)throws Exception{if(host.equals("127.0.0.1"))return InetAddress.getByName(host);throw new AssertionError("SOCKS destination DNS must stay upstream");}
   })){
    ThreadLocal<String> host=new ThreadLocal<>();var active=ConcurrentHashMap.<Socket>newKeySet();
    TunnelVerifier.Result verified=TunnelVerifier.check(new TunnelVerifier.Transport(){
