@@ -1433,7 +1433,7 @@ public final class MainActivity extends ComponentActivity {
         ipRoute=route;ipCheckedAt=now;activeProfile.setVisibility(View.VISIBLE);activeProfile.setTextColor(SECONDARY);
         if(ProxyVpnService.phase()==ProxyVpnService.CONNECTING||vpnRequestPending){activeProfile.setText(AppLanguage.t(R.string.ui_v25_006));return;}
         activeProfile.setText(AppLanguage.t(R.string.ui_v25_000)+AppLanguage.t(R.string.ui_v25_001));
-        final boolean vpn=ProxyVpnService.phase()==ProxyVpnService.CONNECTED;
+        final boolean vpn=ProxyVpnService.phase()==ProxyVpnService.CONNECTED&&!AndroidRoutes.proxyOnly(this);
         final ProxyEndpoint proxy=ProxyEndpoint.parse(ProxyVpnService.activeEndpoint());final PublicIpCheck task=new PublicIpCheck();ipCheck=task;
         new Thread(()->{
             PublicIpCheck.Result result=null;try{result=task.inspect(getApplicationContext(),vpn,proxy);}catch(Exception ignored){}
@@ -1495,6 +1495,7 @@ public final class MainActivity extends ComponentActivity {
         new AlertDialog.Builder(this,R.style.AppDialogTheme).setTitle(AppLanguage.t(R.string.ui_033_mode)).setMessage(AppLanguage.t(R.string.ui_033_proxy_help)).setPositiveButton("VPN",(d,w)->setProxyOnly(false)).setNeutralButton(AppLanguage.t(R.string.ui_033_proxy_only),(d,w)->setProxyOnly(true)).setNegativeButton(AppLanguage.t(R.string.ui_007),null).show();
     }
     private void setProxyOnly(boolean enabled){
+        if(enabled==AndroidRoutes.proxyOnly(this))return;
         getSharedPreferences("persiansocks",0).edit().putBoolean("proxy-only",enabled).apply();vpnRequestPending=false;
         startService(new Intent(this,ProxyVpnService.class).setAction(ProxyVpnService.DISCONNECT));updateActions();
     }

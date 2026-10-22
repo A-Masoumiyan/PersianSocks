@@ -84,7 +84,7 @@ public class InterfaceLayoutTest {
                 ReflectionHelpers.callInstanceMethod(card,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,sample(type)));layout(wrapper,320,0);TextView down=ReflectionHelpers.getField(card,"down");assertEquals(View.VISIBLE,down.getVisibility());assertNotNull(down.getParent());assertTrue(down.getHeight()>0);assertTrue(down.getText().toString().contains("2.75"));assertTrue(down.getWidth()>0);assertEquals(height,wrapper.getMeasuredHeight());
             }
             TextView live=ReflectionHelpers.getField(a,"heroTraffic"),mode=ReflectionHelpers.getField(a,"designModeStatus");assertNotNull(live.getParent());assertNotNull(mode.getParent());assertNotNull(((View)ReflectionHelpers.getField(a,"healthyRetest")).getParent());
-            c.getSharedPreferences("persiansocks",0).edit().putBoolean("proxy-only",true).putBoolean("kill-switch-off",false).commit();ReflectionHelpers.callInstanceMethod(a,"updateActions");assertFalse(AndroidRoutes.kill(c));assertTrue(mode.getText().toString().contains("پروکسی"));
+            c.getSharedPreferences("persiansocks",0).edit().putBoolean("proxy-only",true).putBoolean("kill-switch-off",false).commit();ReflectionHelpers.callInstanceMethod(a,"refreshDesignOne");assertFalse(AndroidRoutes.kill(c));assertTrue(mode.getText().toString().contains("پروکسی"));
             assertFalse(((View)ReflectionHelpers.getField(a,"sidebarKill")).isEnabled());
         }finally{c.getSharedPreferences("persiansocks",0).edit().remove("proxy-only").commit();owner.destroy();}
     }
