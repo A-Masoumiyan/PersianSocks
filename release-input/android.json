@@ -1,14 +1,14 @@
 {
-  "file": "PersianSocks-0.31.2.apk",
-  "sha256": "4d5a36f35ada31b3997f0f1e75544f6e94d4bf2799630be86f810aa2251cd0ea",
-  "bytes": 24993895,
-  "sourceCommit": "19a3f5ccae5b65073e0fd9ef9d50a89ef9ffd0c6",
-  "workflowRun": 39686455683,
+  "file": "PersianSocks-0.31.3.apk",
+  "bytes": 25026663,
+  "sha256": "5576d6393072f53cecdab90ec82e475a1b75a04474dce351091f916b20220548",
+  "sourceCommit": "0e53f79da1049e7f6020208ed07513fbc6bc7888",
+  "workflowRun": 39730402256,
   "parts": [
-    "PersianSocks-0.31.2.apk.part1",
-    "PersianSocks-0.31.2.apk.part2",
-    "PersianSocks-0.31.2.apk.part3",
-    "PersianSocks-0.31.2.apk.part4",
-    "PersianSocks-0.31.2.apk.part5"
+    "PersianSocks-0.31.3.apk.part1",
+    "PersianSocks-0.31.3.apk.part2",
+    "PersianSocks-0.31.3.apk.part3",
+    "PersianSocks-0.31.3.apk.part4",
+    "PersianSocks-0.31.3.apk.part5"
   ]
 }
