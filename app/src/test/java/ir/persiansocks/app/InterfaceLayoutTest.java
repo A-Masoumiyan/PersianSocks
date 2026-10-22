@@ -123,6 +123,8 @@ public class InterfaceLayoutTest {
                 ((View)ReflectionHelpers.getField(activity,"emptyState")).setVisibility(View.GONE);
                 RecyclerView list=ReflectionHelpers.getField(activity,"results");ConcatAdapter original=(ConcatAdapter)list.getAdapter();
                 View header=ReflectionHelpers.getField(original.getAdapters().get(0),"header");
+                java.util.Map<String,ProxyTestResult> preview=ReflectionHelpers.getField(activity,"testResults");for(int i=0;i<3;i++){ProxyTestResult measured=new ProxyTestResult();measured.downloadMBps=i==0?2.75:i==1?4.2:1.35;measured.speedTarget=ScanInputs.speedUrl(c);preview.put(sample(i).key(),measured);}
+                ((TextView)ReflectionHelpers.getField(activity,"heroTraffic")).setText("↓ 1.25 MB/s   ↑ 86 KB/s");ReflectionHelpers.callInstanceMethod(activity,"refreshDesignOne");
                 Object first=card(activity,0);View[] rows={header,ReflectionHelpers.getField(first,"wrapper"),ReflectionHelpers.getField(card(activity,1),"wrapper"),ReflectionHelpers.getField(card(activity,2),"wrapper")};
                 list.setAdapter(new RecyclerView.Adapter<RecyclerView.ViewHolder>(){
                     public int getItemCount(){return rows.length;}public int getItemViewType(int position){return position;}
