@@ -109,8 +109,8 @@ public class StartupRegressionTest {
         Context c=RuntimeEnvironment.getApplication();for(String language:new String[]{"fa","en"}){
             AppLanguage.select(c,language);var owner=Robolectric.buildActivity(MainActivity.class).create();try{
                 MainActivity activity=owner.get();android.view.View power=ReflectionHelpers.getField(activity,"vpnToggle");
-                android.widget.CheckBox kill=ReflectionHelpers.getField(activity,"quickKill"),chat=ReflectionHelpers.getField(activity,"chatOnly");android.widget.Button all=ReflectionHelpers.getField(activity,"designAllApps");
-                assertNotNull(power.getParent());assertNotNull(kill.getParent());assertNotNull(chat.getParent());assertNotNull(all.getParent());
+                android.widget.CheckBox kill=ReflectionHelpers.getField(activity,"sidebarKill"),chat=ReflectionHelpers.getField(activity,"chatOnly");android.widget.Button all=ReflectionHelpers.getField(activity,"designAllApps");
+                assertNotNull(power.getParent());assertNull(ReflectionHelpers.getField(activity,"quickKill"));assertNotNull(kill.getParent());assertNotNull(chat.getParent());assertNotNull(all.getParent());
                 assertEquals(AndroidRoutes.kill(c),kill.isChecked());assertEquals(AndroidRoutes.mode(c).equals("chatgpt"),chat.isChecked());
                 assertFalse(power.getContentDescription().toString().isEmpty());assertFalse(chat.getContentDescription().toString().isEmpty());
             }finally{owner.destroy();}

@@ -25,6 +25,7 @@ public final class ControlActivity extends Activity {
     private boolean waiting;
     private void runCommand() {
         if(QuickControlState.busy(ProxyVpnService.phase(),ProxyVpnService.autoScanning())){execute();return;}
+        if(AndroidRoutes.proxyOnly(this)){execute();return;}
         VpnDisclosure.ensure(this,this::prepareVpn,this::finishQuietly);
     }
     private void prepareVpn(){

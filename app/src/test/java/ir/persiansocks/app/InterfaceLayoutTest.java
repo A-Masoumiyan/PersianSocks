@@ -77,6 +77,17 @@ public class InterfaceLayoutTest {
             }finally{owner.destroy();}
         }
     }
+    @Test public void measuredDownloadIsVisibleWithoutChangingCompactCardHeight()throws Exception{
+        Context c=context();AppLanguage.select(c,"fa");var owner=Robolectric.buildActivity(MainActivity.class).create();try{
+            MainActivity a=owner.get();for(int type:new int[]{0,1}){Object card=card(a,type);View wrapper=ReflectionHelpers.getField(card,"wrapper");layout(wrapper,320,0);int height=wrapper.getMeasuredHeight();
+                java.util.Map<String,ProxyTestResult> tests=ReflectionHelpers.getField(a,"testResults");ProxyTestResult measured=new ProxyTestResult();measured.downloadMBps=2.75;measured.speedTarget=ScanInputs.speedUrl(c);tests.put(sample(type).key(),measured);
+                ReflectionHelpers.callInstanceMethod(card,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,sample(type)));layout(wrapper,320,0);TextView down=ReflectionHelpers.getField(card,"designDownload");assertEquals(View.VISIBLE,down.getVisibility());assertNotNull(down.getParent());assertTrue(down.getHeight()>0);assertTrue(down.getText().toString().contains("2.75"));assertTrue(down.getWidth()>0);assertEquals(height,wrapper.getMeasuredHeight());
+            }
+            TextView live=ReflectionHelpers.getField(a,"heroTraffic"),mode=ReflectionHelpers.getField(a,"designModeStatus");assertNotNull(live.getParent());assertNotNull(mode.getParent());assertNotNull(((View)ReflectionHelpers.getField(a,"healthyRetest")).getParent());
+            c.getSharedPreferences("persiansocks",0).edit().putBoolean("proxy-only",true).putBoolean("kill-switch-off",false).commit();ReflectionHelpers.callInstanceMethod(a,"refreshDesignOne");assertFalse(AndroidRoutes.kill(c));assertTrue(mode.getText().toString().contains("پروکسی"));
+            assertFalse(((View)ReflectionHelpers.getField(a,"sidebarKill")).isEnabled());
+        }finally{c.getSharedPreferences("persiansocks",0).edit().remove("proxy-only").commit();owner.destroy();}
+    }
     @Test public void unchangedCardsKeepTheirViewsWhenAnotherResultOrSelectionChanges()throws Exception{
         Context c=context();var owner=Robolectric.buildActivity(MainActivity.class).create();
         try{
@@ -112,13 +123,16 @@ public class InterfaceLayoutTest {
                 ((View)ReflectionHelpers.getField(activity,"emptyState")).setVisibility(View.GONE);
                 RecyclerView list=ReflectionHelpers.getField(activity,"results");ConcatAdapter original=(ConcatAdapter)list.getAdapter();
                 View header=ReflectionHelpers.getField(original.getAdapters().get(0),"header");
+                java.util.Map<String,ProxyTestResult> preview=ReflectionHelpers.getField(activity,"testResults");for(int i=0;i<3;i++){ProxyTestResult measured=new ProxyTestResult();measured.downloadMBps=i==0?2.75:i==1?4.2:1.35;measured.speedTarget=ScanInputs.speedUrl(c);preview.put(sample(i).key(),measured);}
+                ((TextView)ReflectionHelpers.getField(activity,"heroTraffic")).setText("↓ 1.25 MB/s   ↑ 86 KB/s");ReflectionHelpers.callInstanceMethod(activity,"refreshDesignOne");
                 Object first=card(activity,0);View[] rows={header,ReflectionHelpers.getField(first,"wrapper"),ReflectionHelpers.getField(card(activity,1),"wrapper"),ReflectionHelpers.getField(card(activity,2),"wrapper")};
                 list.setAdapter(new RecyclerView.Adapter<RecyclerView.ViewHolder>(){
                     public int getItemCount(){return rows.length;}public int getItemViewType(int position){return position;}
                     public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent,int type){View row=rows[type];if(row.getParent()!=null)((ViewGroup)row.getParent()).removeView(row);row.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));return new RecyclerView.ViewHolder(row){};}
                     public void onBindViewHolder(RecyclerView.ViewHolder holder,int position){}
                 });
-                View page=ReflectionHelpers.getField(activity,"page");layout(page,width,900);
+                View page=ReflectionHelpers.getField(activity,"page");layout(page,width,900);layout(page,width,900);
+                for(Object entry:new Object[]{ReflectionHelpers.getField(activity,"heroTraffic"),ReflectionHelpers.getField(activity,"designModeStatus"),ReflectionHelpers.getField(first,"designDownload")}){TextView v=(TextView)entry;System.out.println("METRIC "+language+"/"+width+" text="+v.getText()+" size="+v.getWidth()+"x"+v.getHeight()+" xy="+v.getLeft()+","+v.getTop()+" scroll="+v.getScrollX()+","+v.getScrollY()+" padding="+v.getCompoundPaddingTop()+","+v.getCompoundPaddingBottom()+" baseline="+v.getBaseline()+" layout="+(v.getLayout()==null?"null":v.getLayout().getHeight()+"/"+v.getLayout().getLineCount()));}
                 export(page,destination,"home-"+language+"-"+width+".png");
                 ReflectionHelpers.callInstanceMethod(activity,"setSidebarVisible",ReflectionHelpers.ClassParameter.from(boolean.class,true));layout(page,width,900);
                 // The drawer width is recalculated by its parent layout callback.

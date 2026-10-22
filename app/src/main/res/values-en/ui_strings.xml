@@ -655,4 +655,17 @@
     <string name="ui_gate_candidates">All candidates · Show verified connections only</string>
     <string name="ui_gate_port_help">This is TCP port latency only; VPN connectivity and HTTPS have not been verified.</string>
     <string name="ui_gate_speed_connect">Connect this server first, then tap download speed test. The download uses only that VPN network.</string>
+    <string name="ui_033_proxy_only">Proxy only</string>
+    <string name="ui_033_mode_vpn">Mode: VPN</string>
+    <string name="ui_033_mode_proxy">Mode: proxy only</string>
+    <string name="ui_033_mode">Connection mode</string>
+    <string name="ui_033_proxy_help">The local proxy works only in apps with SOCKS5 settings. System VPN and system Kill Switch are off in this mode. Connect, then copy the address into the target app. VPN Gate requires VPN mode.</string>
+    <string name="ui_033_copy_proxy">Copy local proxy address</string>
+    <string name="ui_033_proxy_connect">First connect a proxy in proxy-only mode.</string>
+    <string name="ui_033_gate_vpn">Select VPN mode for VPN Gate.</string>
+    <string name="ui_033_healthy_proxy">Retest healthy proxies</string>
+    <string name="ui_033_healthy_gate">Retest healthy VPN Gate</string>
+    <string name="ui_033_kill_on">Enabled</string>
+    <string name="ui_033_kill_off">Disabled</string>
+    <string name="ui_033_local_ready">Local proxy is ready; copy its address from settings.</string>
 </resources>

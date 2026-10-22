@@ -15,11 +15,13 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         boolean udp(DatagramSocket socket);
         InetAddress resolve(String host) throws Exception;
     }
+    private final AtomicLong downloaded=new AtomicLong(),uploaded=new AtomicLong();
+    public long downloadedBytes(){return downloaded.get();}public long uploadedBytes(){return uploaded.get();}
     private final ProxyEndpoint proxy;
     private final DomainRoutes routes;
     private final Protector protector;
     private final ServerSocket listener;
-    private final String username = token(), password = token();
+    private final String username,password;
     private static String token() {
         byte[] bytes = new byte[32];new java.security.SecureRandom().nextBytes(bytes);
         StringBuilder value = new StringBuilder(64);
@@ -51,12 +53,17 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         this(proxy,protector,idleMillis,new DomainRoutes(Collections.emptyList()));
     }
     public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector,int idleMillis,DomainRoutes routes)throws IOException {
+        this(proxy,protector,idleMillis,routes,0,null,null);
+    }
+    public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector,int idleMillis,DomainRoutes routes,int port,String user,String secret)throws IOException {
+        username=user==null?token():user;password=secret==null?token():secret;
+        if(!username.matches("[a-f0-9]{64}")||!password.matches("[a-f0-9]{64}"))throw new IllegalArgumentException("Invalid local proxy credentials");
         DistributionPolicy.require(proxy);
         this.routes=routes;
         if(idleMillis<100)throw new IllegalArgumentException("Idle budget too short");
         idleNanos=TimeUnit.MILLISECONDS.toNanos(idleMillis);
         this.proxy=proxy;this.protector=protector;
-        listener=new ServerSocket(0,64,InetAddress.getByName("127.0.0.1"));
+        listener=new ServerSocket();try{listener.setReuseAddress(true);listener.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),port),64);}catch(IOException|RuntimeException error){listener.close();throw error;}
         acceptThread=new Thread(()-> {
             while(!stopped.get()) try {
                 Socket s=listener.accept();
@@ -143,11 +150,11 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         }catch(Exception error){lastError=error.getClass().getSimpleName()+": "+String.valueOf(error.getMessage());}
         finally{if(!handedOff)c.close();}
     }
-    private static void pump(Socket from,Socket to,Connection c,AtomicInteger remaining) {
+    private void pump(Socket from,Socket to,Connection c,AtomicInteger remaining) {
         try {
             InputStream in=from.getInputStream();OutputStream out=to.getOutputStream();
             byte[]buffer=new byte[8192];int n;
-            while((n=in.read(buffer))!=-1){if(n==0)continue;c.activity.set(System.nanoTime());out.write(buffer,0,n);c.activity.set(System.nanoTime());}
+            while((n=in.read(buffer))!=-1){if(n==0)continue;c.activity.set(System.nanoTime());out.write(buffer,0,n);(from==c.client?uploaded:downloaded).addAndGet(n);c.activity.set(System.nanoTime());}
             try{to.shutdownOutput();}catch(Exception ignored){}
         }catch(Exception ex){c.close();}
         finally{if(remaining.decrementAndGet()==0)c.close();}
@@ -173,7 +180,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
                 if(!p.getAddress().isLoopbackAddress())continue;
                 peer.compareAndSet(null,p.getSocketAddress());
                 if(!p.getSocketAddress().equals(peer.get()))continue;
-                activity.set(System.nanoTime());physical.send(new DatagramPacket(p.getData(),p.getLength()));
+                activity.set(System.nanoTime());physical.send(new DatagramPacket(p.getData(),p.getLength()));uploaded.addAndGet(p.getLength());
             }catch(SocketTimeoutException ex){if(System.nanoTime()-activity.get()>TimeUnit.SECONDS.toNanos(90))c.close();}
             catch(Exception ex){c.close();}
         });
@@ -182,7 +189,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
             while(!c.ended.get())try {
                 DatagramPacket p=new DatagramPacket(bytes,bytes.length);physical.receive(p);
                 SocketAddress recipient=peer.get();if(recipient==null)continue;
-                activity.set(System.nanoTime());local.send(new DatagramPacket(p.getData(),p.getLength(),recipient));
+                activity.set(System.nanoTime());local.send(new DatagramPacket(p.getData(),p.getLength(),recipient));downloaded.addAndGet(p.getLength());
             }catch(SocketTimeoutException ex){if(System.nanoTime()-activity.get()>TimeUnit.SECONDS.toNanos(90))c.close();}
             catch(Exception ex){c.close();}
         });
@@ -241,5 +248,6 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         if(!stopped.compareAndSet(false,true))return;
         try{listener.close();}catch(Exception ignored){}
         for(Connection c:connections)c.close();idleWatch.shutdownNow();pool.shutdownNow();acceptThread.interrupt();
+        if(Thread.currentThread()!=acceptThread)try{acceptThread.join(1000);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
     }
 }
