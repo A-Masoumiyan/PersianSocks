@@ -21,7 +21,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
     private final DomainRoutes routes;
     private final Protector protector;
     private final ServerSocket listener;
-    private final String username = token(), password = token();
+    private final String username,password;
     private static String token() {
         byte[] bytes = new byte[32];new java.security.SecureRandom().nextBytes(bytes);
         StringBuilder value = new StringBuilder(64);
@@ -53,12 +53,17 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         this(proxy,protector,idleMillis,new DomainRoutes(Collections.emptyList()));
     }
     public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector,int idleMillis,DomainRoutes routes)throws IOException {
+        this(proxy,protector,idleMillis,routes,0,null,null);
+    }
+    public ProtectedSocksGateway(ProxyEndpoint proxy,Protector protector,int idleMillis,DomainRoutes routes,int port,String user,String secret)throws IOException {
+        username=user==null?token():user;password=secret==null?token():secret;
+        if(!username.matches("[a-f0-9]{64}")||!password.matches("[a-f0-9]{64}"))throw new IllegalArgumentException("Invalid local proxy credentials");
         DistributionPolicy.require(proxy);
         this.routes=routes;
         if(idleMillis<100)throw new IllegalArgumentException("Idle budget too short");
         idleNanos=TimeUnit.MILLISECONDS.toNanos(idleMillis);
         this.proxy=proxy;this.protector=protector;
-        listener=new ServerSocket(0,64,InetAddress.getByName("127.0.0.1"));
+        listener=new ServerSocket();listener.setReuseAddress(true);listener.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),port),64);
         acceptThread=new Thread(()-> {
             while(!stopped.get()) try {
                 Socket s=listener.accept();

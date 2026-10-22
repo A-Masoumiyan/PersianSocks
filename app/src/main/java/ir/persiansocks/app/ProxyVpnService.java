@@ -495,7 +495,7 @@ public final class ProxyVpnService extends VpnService {
                 public boolean tcp(Socket s) {try{if(!AndroidRoutes.proxyOnly(ProxyVpnService.this)&&!protect(s))return false;path.bind(s);return true;}catch(Exception ex){return false;}}
                 public boolean udp(DatagramSocket s) {try{if(!AndroidRoutes.proxyOnly(ProxyVpnService.this)&&!protect(s))return false;path.bind(s);return true;}catch(Exception ex){return false;}}
                 public InetAddress resolve(String host)throws Exception {return path.resolve(host);}
-            },ProtectedSocksGateway.TCP_IDLE_MILLIS,AndroidRoutes.proxyOnly(this)?new DomainRoutes(java.util.Collections.emptyList()):AndroidRoutes.load(this));
+            },ProtectedSocksGateway.TCP_IDLE_MILLIS,AndroidRoutes.proxyOnly(this)?new DomainRoutes(java.util.Collections.emptyList()):AndroidRoutes.load(this),AndroidRoutes.proxyOnly(this)?10818:0,AndroidRoutes.proxyOnly(this)?AndroidRoutes.localCredential(this,"username"):null,AndroidRoutes.proxyOnly(this)?AndroidRoutes.localCredential(this,"password"):null);
             if(AndroidRoutes.proxyOnly(this)){localProxyRunning=true;trafficMeter.beginEngine(System.nanoTime());verifyLocalProxy(thisGeneration,true);return;}
             Socks5Probe.setResolver(path::resolve);Socks5Probe.setSocketMaker(path::socket);
             // The guard already owns the routes for this scope. Replacing its

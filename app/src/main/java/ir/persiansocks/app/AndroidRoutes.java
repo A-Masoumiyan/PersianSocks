@@ -16,6 +16,9 @@ public final class AndroidRoutes {
   else if(current.equals("chatgpt")){String previous=prefs.getString("routing-before-chatgpt","apps");edit.putString("routing-mode",previous.equals("domains")?"domains":"apps");}
   edit.apply();
  }
+ public static String localCredential(Context c,String name){
+  android.content.SharedPreferences p=c.getSharedPreferences("persiansocks-local-proxy",0);String value=p.getString(name,"");if(!value.matches("[a-f0-9]{64}")){byte[] bytes=new byte[32];new java.security.SecureRandom().nextBytes(bytes);StringBuilder s=new StringBuilder();for(byte b:bytes)s.append(String.format(java.util.Locale.US,"%02x",b&255));value=s.toString();p.edit().putString(name,value).apply();}return value;
+ }
  public static boolean proxyOnly(Context c){return c.getSharedPreferences("persiansocks",0).getBoolean("proxy-only",false);}
  public static boolean kill(Context c){return !proxyOnly(c)&&!c.getSharedPreferences("persiansocks",0).getBoolean("kill-switch-off",false);}
 }
