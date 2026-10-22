@@ -16,5 +16,6 @@ public final class AndroidRoutes {
   else if(current.equals("chatgpt")){String previous=prefs.getString("routing-before-chatgpt","apps");edit.putString("routing-mode",previous.equals("domains")?"domains":"apps");}
   edit.apply();
  }
- public static boolean kill(Context c){return !c.getSharedPreferences("persiansocks",0).getBoolean("kill-switch-off",false);}
+ public static boolean proxyOnly(Context c){return c.getSharedPreferences("persiansocks",0).getBoolean("proxy-only",false);}
+ public static boolean kill(Context c){return !proxyOnly(c)&&!c.getSharedPreferences("persiansocks",0).getBoolean("kill-switch-off",false);}
 }

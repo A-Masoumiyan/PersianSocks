@@ -45,14 +45,14 @@ jobs:
       - name: Prepare unsigned artifact and signing tools
         run: |
           mkdir -p /tmp/android-build/sdk/build-tools/35.0.0/lib /tmp/android-build/sdk/build-tools/35.0.0/lib64
-          cp app/build/outputs/apk/personal/release/*unsigned.apk /tmp/android-build/PersianSocks-0.31.2-unsigned.apk
+          cp app/build/outputs/apk/personal/release/*unsigned.apk /tmp/android-build/PersianSocks-0.31.3-unsigned.apk
           cp app/build/outputs/apk/personal/debug/app-personal-debug.apk /tmp/android-build/native-fixture-debug.apk
           for name in apksigner aapt zipalign; do cp "$ANDROID_HOME/build-tools/35.0.0/$name" /tmp/android-build/sdk/build-tools/35.0.0/; done
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" /tmp/android-build/sdk/build-tools/35.0.0/lib/
           cp "$ANDROID_HOME/build-tools/35.0.0/lib64/"* /tmp/android-build/sdk/build-tools/35.0.0/lib64/
       - uses: actions/upload-artifact@v4
         with:
-          name: PersianSocks-Android-0.31.2-unsigned
+          name: PersianSocks-Android-0.31.3-unsigned
           path: /tmp/android-build/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: PersianSocks-Android-0.31.2-unsigned
+          name: PersianSocks-Android-0.31.3-unsigned
           path: /tmp/android-build
       - uses: android-actions/setup-android@v3
         with:

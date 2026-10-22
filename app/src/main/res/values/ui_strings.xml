@@ -655,4 +655,17 @@
     <string name="ui_gate_candidates">همهٔ نامزدها · نمایش فقط اتصال‌های تأییدشده</string>
     <string name="ui_gate_port_help">این عدد فقط زمان باز شدن پورت TCP است؛ هنوز تونل VPN یا HTTPS تأیید نشده است.</string>
     <string name="ui_gate_speed_connect">برای تست دانلود، ابتدا همین سرور را متصل کنید و سپس دکمهٔ تست سرعت را بزنید. دانلود فقط از شبکهٔ همان VPN انجام می‌شود.</string>
+    <string name="ui_033_proxy_only">فقط پروکسی</string>
+    <string name="ui_033_mode_vpn">حالت: VPN</string>
+    <string name="ui_033_mode_proxy">حالت: فقط پروکسی</string>
+    <string name="ui_033_mode">نوع اتصال</string>
+    <string name="ui_033_proxy_help">پروکسی محلی فقط برای برنامه‌هایی است که تنظیم SOCKS5 دارند. VPN و کیل‌سوئیچ سراسری در این حالت فعال نیستند. پس از اتصال، آدرس را کپی کنید و در برنامهٔ مقصد وارد کنید. VPN Gate به حالت VPN نیاز دارد.</string>
+    <string name="ui_033_copy_proxy">کپی آدرس پروکسی محلی</string>
+    <string name="ui_033_proxy_connect">ابتدا یک پروکسی را در حالت فقط پروکسی متصل کنید.</string>
+    <string name="ui_033_gate_vpn">برای VPN Gate حالت VPN را انتخاب کنید.</string>
+    <string name="ui_033_healthy_proxy">اسکن مجدد پروکسی‌های سالم</string>
+    <string name="ui_033_healthy_gate">اسکن مجدد VPN Gate سالم</string>
+    <string name="ui_033_kill_on">فعال</string>
+    <string name="ui_033_kill_off">غیرفعال</string>
+    <string name="ui_033_local_ready">پروکسی محلی آماده است؛ آدرس را از تنظیمات کپی کنید.</string>
 </resources>

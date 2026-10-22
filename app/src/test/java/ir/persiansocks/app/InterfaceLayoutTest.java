@@ -77,6 +77,17 @@ public class InterfaceLayoutTest {
             }finally{owner.destroy();}
         }
     }
+    @Test public void measuredDownloadIsVisibleWithoutChangingCompactCardHeight()throws Exception{
+        Context c=context();AppLanguage.select(c,"fa");var owner=Robolectric.buildActivity(MainActivity.class).create();try{
+            MainActivity a=owner.get();for(int type:new int[]{0,1}){Object card=card(a,type);View wrapper=ReflectionHelpers.getField(card,"wrapper");layout(wrapper,320,0);int height=wrapper.getMeasuredHeight();
+                java.util.Map<String,ProxyTestResult> tests=ReflectionHelpers.getField(a,"testResults");ProxyTestResult measured=new ProxyTestResult();measured.downloadMBps=2.75;measured.speedTarget=ScanInputs.speedUrl(c);tests.put(sample(type).key(),measured);
+                ReflectionHelpers.callInstanceMethod(card,"bind",ReflectionHelpers.ClassParameter.from(ProxyEndpoint.class,sample(type)));layout(wrapper,320,0);TextView down=ReflectionHelpers.getField(card,"down");assertEquals(View.VISIBLE,down.getVisibility());assertNotNull(down.getParent());assertTrue(down.getHeight()>0);assertTrue(down.getText().toString().contains("2.75"));assertTrue(down.getWidth()>0);assertEquals(height,wrapper.getMeasuredHeight());
+            }
+            TextView live=ReflectionHelpers.getField(a,"heroTraffic"),mode=ReflectionHelpers.getField(a,"designModeStatus");assertNotNull(live.getParent());assertNotNull(mode.getParent());assertNotNull(((View)ReflectionHelpers.getField(a,"healthyRetest")).getParent());
+            c.getSharedPreferences("persiansocks",0).edit().putBoolean("proxy-only",true).putBoolean("kill-switch-off",false).commit();ReflectionHelpers.callInstanceMethod(a,"updateActions");assertFalse(AndroidRoutes.kill(c));assertTrue(mode.getText().toString().contains("پروکسی"));
+            assertFalse(((View)ReflectionHelpers.getField(a,"sidebarKill")).isEnabled());
+        }finally{c.getSharedPreferences("persiansocks",0).edit().remove("proxy-only").commit();owner.destroy();}
+    }
     @Test public void unchangedCardsKeepTheirViewsWhenAnotherResultOrSelectionChanges()throws Exception{
         Context c=context();var owner=Robolectric.buildActivity(MainActivity.class).create();
         try{

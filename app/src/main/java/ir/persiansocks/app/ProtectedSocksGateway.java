@@ -15,6 +15,8 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         boolean udp(DatagramSocket socket);
         InetAddress resolve(String host) throws Exception;
     }
+    private final AtomicLong downloaded=new AtomicLong(),uploaded=new AtomicLong();
+    public long downloadedBytes(){return downloaded.get();}public long uploadedBytes(){return uploaded.get();}
     private final ProxyEndpoint proxy;
     private final DomainRoutes routes;
     private final Protector protector;
@@ -143,11 +145,11 @@ public final class ProtectedSocksGateway implements AutoCloseable {
         }catch(Exception error){lastError=error.getClass().getSimpleName()+": "+String.valueOf(error.getMessage());}
         finally{if(!handedOff)c.close();}
     }
-    private static void pump(Socket from,Socket to,Connection c,AtomicInteger remaining) {
+    private void pump(Socket from,Socket to,Connection c,AtomicInteger remaining) {
         try {
             InputStream in=from.getInputStream();OutputStream out=to.getOutputStream();
             byte[]buffer=new byte[8192];int n;
-            while((n=in.read(buffer))!=-1){if(n==0)continue;c.activity.set(System.nanoTime());out.write(buffer,0,n);c.activity.set(System.nanoTime());}
+            while((n=in.read(buffer))!=-1){if(n==0)continue;c.activity.set(System.nanoTime());out.write(buffer,0,n);(from==c.client?uploaded:downloaded).addAndGet(n);c.activity.set(System.nanoTime());}
             try{to.shutdownOutput();}catch(Exception ignored){}
         }catch(Exception ex){c.close();}
         finally{if(remaining.decrementAndGet()==0)c.close();}
@@ -173,7 +175,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
                 if(!p.getAddress().isLoopbackAddress())continue;
                 peer.compareAndSet(null,p.getSocketAddress());
                 if(!p.getSocketAddress().equals(peer.get()))continue;
-                activity.set(System.nanoTime());physical.send(new DatagramPacket(p.getData(),p.getLength()));
+                activity.set(System.nanoTime());physical.send(new DatagramPacket(p.getData(),p.getLength()));uploaded.addAndGet(p.getLength());
             }catch(SocketTimeoutException ex){if(System.nanoTime()-activity.get()>TimeUnit.SECONDS.toNanos(90))c.close();}
             catch(Exception ex){c.close();}
         });
@@ -182,7 +184,7 @@ public final class ProtectedSocksGateway implements AutoCloseable {
             while(!c.ended.get())try {
                 DatagramPacket p=new DatagramPacket(bytes,bytes.length);physical.receive(p);
                 SocketAddress recipient=peer.get();if(recipient==null)continue;
-                activity.set(System.nanoTime());local.send(new DatagramPacket(p.getData(),p.getLength(),recipient));
+                activity.set(System.nanoTime());local.send(new DatagramPacket(p.getData(),p.getLength(),recipient));downloaded.addAndGet(p.getLength());
             }catch(SocketTimeoutException ex){if(System.nanoTime()-activity.get()>TimeUnit.SECONDS.toNanos(90))c.close();}
             catch(Exception ex){c.close();}
         });
