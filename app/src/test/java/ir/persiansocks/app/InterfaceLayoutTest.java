@@ -132,6 +132,7 @@ public class InterfaceLayoutTest {
                     public void onBindViewHolder(RecyclerView.ViewHolder holder,int position){}
                 });
                 View page=ReflectionHelpers.getField(activity,"page");layout(page,width,900);layout(page,width,900);
+                for(Object entry:new Object[]{ReflectionHelpers.getField(activity,"heroTraffic"),ReflectionHelpers.getField(activity,"designModeStatus"),ReflectionHelpers.getField(first,"designDownload")}){TextView v=(TextView)entry;System.out.println("METRIC "+language+"/"+width+" text="+v.getText()+" size="+v.getWidth()+"x"+v.getHeight()+" xy="+v.getLeft()+","+v.getTop()+" scroll="+v.getScrollX()+","+v.getScrollY()+" padding="+v.getCompoundPaddingTop()+","+v.getCompoundPaddingBottom()+" baseline="+v.getBaseline()+" layout="+(v.getLayout()==null?"null":v.getLayout().getHeight()+"/"+v.getLayout().getLineCount()));}
                 export(page,destination,"home-"+language+"-"+width+".png");
                 ReflectionHelpers.callInstanceMethod(activity,"setSidebarVisible",ReflectionHelpers.ClassParameter.from(boolean.class,true));layout(page,width,900);
                 // The drawer width is recalculated by its parent layout callback.
