@@ -29,7 +29,7 @@ public final class PathVpnService extends VpnService {
       new NotificationChannel(CH,"PathFinder VPN",NotificationManager.IMPORTANCE_LOW));
   }
   private Notification notification(String message){
-    PendingIntent pending=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),
+    PendingIntent pending=PendingIntent.getActivity(this,0,new Intent(this,ConnectActivity.class),
       PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
     return new Notification.Builder(this,CH).setSmallIcon(android.R.drawable.stat_sys_download_done)
       .setContentTitle("Project B / PathFinder").setContentText(message)
