@@ -28,7 +28,7 @@ public final class ConnectActivity extends Activity {
     entries.setTextColor(Color.WHITE);entries.setHintTextColor(0xff8795ae);
     entries.setMinLines(4);entries.setMaxLines(7);entries.setSingleLine(false);
     entries.setHint("host:1080\nuser:pass@host:1080\nsocks5://host:1080");
-    entries.setText(getPreferences(MODE_PRIVATE).getString("saved",""));
+    // Do not persist proxy credentials in plaintext.
     page.addView(entries);
     Button action=new Button(this);action.setAllCaps(false);action.setText("آزمایش و اتصال");
     page.addView(action);action.setOnClickListener(v->connect(action));
@@ -48,7 +48,7 @@ public final class ConnectActivity extends Activity {
   private void connect(Button btn){
     if(testing)return;
     String list=entries.getText().toString();
-    getPreferences(MODE_PRIVATE).edit().putString("saved",list).apply();
+    // Secrets remain in memory for this test session only.
     if(list.trim().isEmpty()){
       status.setText("آدرس رله وارد نشده؛ IP وب‌سایت عمومی قابل تبدیل به VPN نیست.");return;
     }
@@ -68,7 +68,7 @@ public final class ConnectActivity extends Activity {
           working=entry;log.append("موفق: ").append(entry.label()).append(" (TLS + HTTP)\n");
           break;
         }catch(Exception ex){
-          log.append("ناموفق: ").append(++count).append(" / ").append(ex.getClass().getSimpleName()).append('\n');
+          log.append("ناموفق: ").append(count).append(" / ").append(ex.getClass().getSimpleName()).append('\n');
         }
       }
       final RelayProbe.Entry found=working;
