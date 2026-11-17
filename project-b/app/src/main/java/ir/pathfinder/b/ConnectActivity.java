@@ -48,7 +48,7 @@ public final class ConnectActivity extends Activity {
     root.setBackgroundColor(0xff0b111f);
     scroll.addView(root);setContentView(scroll);
 
-    root.addView(text("PROJECT B  /  0.5",13,0xff6cafff));
+    root.addView(text("PROJECT B  /  0.5.1",13,0xff6cafff));
     root.addView(text("اسکن محدوده اختصاصی",26,Color.WHITE));
     root.addView(text("37.32.0.0/19  •  8,192 IP",16,0xff75c4fa));
     root.addView(text("فقط همین بازه بررسی می‌شود. مرحله اول پورت‌های TCP را پیدا می‌کند؛ مرحله دوم SOCKS4، SOCKS4a، SOCKS5 و HTTP CONNECT را با درخواست واقعی به تلگرام و یوتیوب می‌آزماید.",14,0xffc2cede));
@@ -145,6 +145,9 @@ public final class ConnectActivity extends Activity {
       startActivity(Intent.createChooser(intent,"ارسال گزارش"));
     });root.addView(share);
 
+    Button diagnostics=button("آزمون‌های عیب‌یابی DNS / HTTPS",0xff36445b);
+    diagnostics.setOnClickListener(v->startActivity(new Intent(this,MainActivity.class)));
+    root.addView(diagnostics);
     root.addView(text("توجه: HTTPS پاسخ‌دار با کارکرد کامل پیام‌رسان یا پخش ویدیو یکسان نیست. فقط اتصال به SOCKS5 در موتور VPN فعلی فعال است؛ SOCKS4/4a و HTTP CONNECT در اسکن و گزارش پشتیبانی می‌شوند.",12,0xff9fb0c6));
     refreshSaved();
   }
