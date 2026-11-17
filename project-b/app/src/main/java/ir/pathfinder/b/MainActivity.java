@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
         scroll.addView(page);
         setContentView(scroll);
 
-        TextView tag = text("PROJECT B  /  0.1", 13, ACCENT, true);
+        TextView tag = text("PROJECT B  /  0.2", 13, ACCENT, true);
         page.addView(tag);
         TextView title = text("کشف مسیر ارتباط", 26, INK, true);
         space(page, 6);
@@ -92,6 +92,10 @@ public class MainActivity extends Activity {
         card.addView(share);
         share.setOnClickListener(v -> shareReport());
         space(page, 15);
+        Button openConnect=button("آزمایش مسیر و تلاش برای اتصال VPN", Color.rgb(46,132,113));
+        page.addView(openConnect);
+        openConnect.setOnClickListener(v -> startActivity(new Intent(this, ConnectActivity.class)));
+        space(page,15);
         TextView resultsTitle = text("گزارش بررسی", 18, INK, true);
         page.addView(resultsTitle);
         space(page, 8);
