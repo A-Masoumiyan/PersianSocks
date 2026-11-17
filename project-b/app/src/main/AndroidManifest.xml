@@ -18,15 +18,16 @@
                 android:value="testing an authorized VPN relay"/>
             <intent-filter><action android:name="android.net.VpnService"/></intent-filter>
         </service>
-        <activity android:name=".ConnectActivity" android:exported="false"/>
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
+        <activity android:name=".ConnectActivity" android:exported="true"
             android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize"/>
     </application>
 </manifest>
