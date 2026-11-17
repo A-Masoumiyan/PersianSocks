@@ -11,184 +11,260 @@ import android.widget.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Scan publicly listed Iranian-IP proxies, independently verifying
- * Telegram API and YouTube HTTPS over the proxy. Does not scan arbitrary IPs.
- */
+/** Authorized, resumable fixed-CIDR audit UI. */
 public final class ConnectActivity extends Activity {
-  private static final int REQ=71;
-  private TextView progress, results;
-  private Button scanButton, connectButton;
+  private static final int VPN_PERMISSION=71;
+  private static final String DEFAULT_PORTS="1080, 10808, 10809, 8080, 3128, 8000, 8888, 4145, 9050, 8118, 80, 443";
   private final Handler ui=new Handler(Looper.getMainLooper());
-  private AtomicBoolean stop=new AtomicBoolean(false);
+  private EditText portsInput;
+  private TextView progress, results, summary;
+  private Button scanButton,pauseButton,resetButton,connectButton;
+  private AtomicBoolean pause=new AtomicBoolean(false);
+  private volatile boolean scanning;
+  private volatile boolean destroyed;
   private String report="";
-  private RelayProbe.Entry best;
-  private boolean scanning;
-  private final Runnable poll=new Runnable(){
+  private RelayProbe.Entry chosen;
+  private final Runnable statusPoll=new Runnable(){
     @Override public void run(){
-      if(!scanning){
-        String state=getSharedPreferences("pathfinder",0).getString("status","");
-        if(!state.isEmpty()&&state.contains("تونل"))progress.setText(state);
+      if(!destroyed){
+        if(!scanning){
+          String msg=getSharedPreferences("pathfinder",MODE_PRIVATE).getString("status","");
+          if(msg.startsWith("تونل")||msg.startsWith("اتصال ناموفق"))
+            summary.setText(msg);
+        }
+        ui.postDelayed(this,2000);
       }
-      ui.postDelayed(this,1800);
     }
   };
-  @Override public void onCreate(Bundle state){
-    super.onCreate(state);
+  @Override public void onCreate(Bundle saved){
+    super.onCreate(saved);
     getWindow().setStatusBarColor(0xff0b111f);
     getWindow().setNavigationBarColor(0xff0b111f);
     ScrollView scroll=new ScrollView(this);
     LinearLayout root=new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL);
     root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-    root.setPadding(dp(17),dp(23),dp(17),dp(25));
+    root.setPadding(dp(18),dp(20),dp(18),dp(26));
     root.setBackgroundColor(0xff0b111f);
-    scroll.addView(root);
-    setContentView(scroll);
+    scroll.addView(root);setContentView(scroll);
 
-    root.addView(text("PROJECT B  /  0.4",13,0xff71b1ff));
-    root.addView(text("شناسایی پراکسی‌های ایرانی",24,Color.WHITE));
-    root.addView(text("مبدأ پراکسی حتماً IP ایران است. برنامه برای هر پراکسی عمومیِ فهرست‌شده، دسترسی مستقل به Telegram API و YouTube را از داخل خود پراکسی بررسی می‌کند.",14,0xffc1cede));
+    root.addView(text("PROJECT B  /  0.5",13,0xff6cafff));
+    root.addView(text("اسکن محدوده اختصاصی",26,Color.WHITE));
+    root.addView(text("37.32.0.0/19  •  8,192 IP",16,0xff75c4fa));
+    root.addView(text("فقط همین بازه بررسی می‌شود. مرحله اول پورت‌های TCP را پیدا می‌کند؛ مرحله دوم SOCKS4، SOCKS4a، SOCKS5 و HTTP CONNECT را با درخواست واقعی به تلگرام و یوتیوب می‌آزماید.",14,0xffc2cede));
 
-    scanButton=button("اسکن پراکسی‌های ایرانی و بررسی تلگرام / یوتیوب",0xff276eac);
-    root.addView(scanButton);
+    root.addView(text("پورت‌های مجاز برای بررسی (با ویرگول جدا کن، حداکثر ۲۴):",14,0xffc2cede));
+    portsInput=new EditText(this);
+    portsInput.setTextColor(Color.WHITE);portsInput.setHintTextColor(0xffa5b3c7);
+    portsInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT|
+        android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+    portsInput.setMinLines(2);portsInput.setMaxLines(3);
+    portsInput.setText(getPreferences(MODE_PRIVATE).getString("ports",DEFAULT_PORTS));
+    root.addView(portsInput);
+    root.addView(text("نرخ کنترل‌شده: حداکثر حدود ۳۳ تلاش TCP در ثانیه، ۲۴ اتصال هم‌زمان. تعداد آزمون‌ها برابر تعداد IP ضربدر تعداد پورت است.",12,0xff9eafc4));
+
+    scanButton=button("شروع / ادامه اسکن",0xff286fae);
     scanButton.setOnClickListener(v->new AlertDialog.Builder(this)
-       .setTitle("آزمایش پراکسی‌های عمومی")
-       .setMessage("این آزمون فقط به پراکسی‌های منتشرشده در فهرست‌های عمومی درخواست‌های محدود می‌فرستد، نه همه آدرس‌های ایران. پراکسی‌ها قابل‌اعتماد یا امن فرض نمی‌شوند. ادامه می‌دهی؟")
-       .setNegativeButton("لغو",null)
-       .setPositiveButton("شروع اسکن",(d,w)->scan()).show());
+      .setTitle("تأیید محدوده دارای مجوز")
+      .setMessage("فقط 37.32.0.0/19 روی پورت‌های انتخابی آزمایش می‌شود. تأیید می‌کنی که مجوز بررسی این شبکه را داری؟")
+      .setNegativeButton("لغو",null)
+      .setPositiveButton("شروع",(d,w)->startScan()).show());
+    root.addView(scanButton);
 
-    connectButton=button("اتصال VPN به بهترین SOCKS5 تأییدشده",0xff287c6d);
-    root.addView(connectButton);
+    pauseButton=button("توقف موقت و ذخیره پیشرفت",0xff4d627d);
+    pauseButton.setEnabled(false);
+    pauseButton.setOnClickListener(v->{
+      pause.set(true);
+      progress.setText("توقف درخواست شد؛ پس از ذخیره دسته فعلی متوقف می‌شود.");
+    });
+    root.addView(pauseButton);
+
+    resetButton=button("شروع اسکن از ابتدا",0xff394960);
+    resetButton.setOnClickListener(v->{
+      if(scanning){progress.setText("ابتدا اسکن را متوقف کن.");return;}
+      new AlertDialog.Builder(this).setTitle("پاک‌کردن پیشرفت")
+       .setMessage("نتایج و پیشرفت ذخیره‌شده این محدوده پاک شود؟")
+       .setNegativeButton("انصراف",null)
+       .setPositiveButton("پاک کن",(d,w)->{
+         CidrRangeScanner.reset(this);
+         chosen=null;report="";connectButton.setEnabled(false);
+         results.setText("نتایجی ثبت نشده است.");
+         progress.setText("آماده اسکن از ابتدا.");
+       }).show();
+    });
+    root.addView(resetButton);
+
+    progress=text("آماده.",15,0xffe9f3ff);
+    progress.setPadding(dp(12),dp(14),dp(12),dp(14));
+    GradientDrawable box=new GradientDrawable();
+    box.setColor(0xff1a2b42);box.setCornerRadius(dp(12));
+    progress.setBackground(box);root.addView(progress);
+
+    summary=text("آزمون تلگرام و یوتیوب از طریق IP میزبان پراکسی انجام می‌شود.",13,0xffc5d6e7);
+    root.addView(summary);
+
+    connectButton=button("اتصال آزمایشی به SOCKS5 موفق",0xff286e65);
     connectButton.setEnabled(false);
     connectButton.setOnClickListener(v->{
-      if(best==null){progress.setText("هیچ SOCKS5 تأییدشده‌ای موجود نیست.");return;}
-      new AlertDialog.Builder(this).setTitle("هشدار امنیت")
-         .setMessage("پراکسی‌های عمومی ناشناس می‌توانند مقصدهای اتصال و داده‌های رمزگذاری‌نشده را مشاهده کنند. برای ورود به حساب‌های حساس استفاده نکن.")
-         .setNegativeButton("انصراف",null)
-         .setPositiveButton("اتصال آزمایشی",(d,w)->permission()).show();
+      if(chosen==null)return;
+      new AlertDialog.Builder(this).setTitle("اتصال آزمایشی")
+       .setMessage("SOCKS5 عادی رمزگذاری مستقل ندارد. در استفاده از پراکسی ناشناس برای حساب‌های حساس احتیاط کن.")
+       .setNegativeButton("لغو",null)
+       .setPositiveButton("اتصال",(d,w)->permission()).show();
     });
+    root.addView(connectButton);
 
-    Button cancel=button("توقف اسکن / قطع VPN",0xff4d5363);
-    root.addView(cancel);
-    cancel.setOnClickListener(v->{
-      stop.set(true);
+    Button stopVpn=button("قطع VPN",0xff4b5365);
+    stopVpn.setOnClickListener(v->{
       Intent intent=new Intent(this,PathVpnService.class).setAction(PathVpnService.STOP);
       startService(intent);
-      progress.setText("درخواست توقف ارسال شد");
+      summary.setText("درخواست قطع VPN ارسال شد.");
     });
+    root.addView(stopVpn);
 
-    progress=text("آماده بررسی فهرست آفلاین پراکسی‌های دارای IP ایران",14,0xffe4efff);
-    progress.setPadding(dp(12),dp(13),dp(12),dp(13));
-    GradientDrawable bg=new GradientDrawable();
-    bg.setColor(0xff18263a);bg.setCornerRadius(dp(12));
-    progress.setBackground(bg);root.addView(progress);
-
-    root.addView(text("نتایج تأییدشده",18,Color.WHITE));
-    results=text("هنوز نتیجه‌ای ثبت نشده است.",13,0xffc4d0e1);
+    root.addView(text("پراکسی‌های تأییدشده",19,Color.WHITE));
+    results=text("هنوز اسکن نشده است.",13,0xffc3d0e5);
     results.setTextDirection(View.TEXT_DIRECTION_LTR);
     results.setTextIsSelectable(true);
     root.addView(results);
 
-    Button copy=button("کپی همه نتایج موفق",0xff3e5273);
-    root.addView(copy);copy.setOnClickListener(v->{
-      if(report.isEmpty()){progress.setText("نتیجه‌ای برای کپی وجود ندارد.");return;}
-      android.content.ClipboardManager cm=
-         (android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
-      cm.setPrimaryClip(ClipData.newPlainText("Iran proxies",report));
-      progress.setText("گزارش در کلیپ‌بورد کپی شد.");
-    });
-    Button share=button("اشتراک‌گذاری گزارش",0xff3e5273);
-    root.addView(share);share.setOnClickListener(v->{
-      if(report.isEmpty()){progress.setText("هنوز گزارشی وجود ندارد.");return;}
+    Button copy=button("کپی نتایج موفق",0xff405271);
+    copy.setOnClickListener(v->{
+      if(report.isEmpty()){progress.setText("گزارشی برای کپی وجود ندارد.");return;}
+      android.content.ClipboardManager manager=
+          (android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+      manager.setPrimaryClip(ClipData.newPlainText("CIDR scan",report));
+      progress.setText("نتایج کپی شدند.");
+    });root.addView(copy);
+
+    Button share=button("اشتراک‌گذاری گزارش",0xff405271);
+    share.setOnClickListener(v->{
+      if(report.isEmpty()){progress.setText("گزارشی برای اشتراک وجود ندارد.");return;}
       Intent intent=new Intent(Intent.ACTION_SEND).setType("text/plain")
-         .putExtra(Intent.EXTRA_TEXT,report);
+        .putExtra(Intent.EXTRA_TEXT,report);
       startActivity(Intent.createChooser(intent,"ارسال گزارش"));
-    });
-    root.addView(text("محدودیت: تشخیص رسیدن به Telegram API و YouTube HTTPS با اجرای کامل خود اپ تلگرام یا پخش ویدیو برابر نیست. رله‌های HTTP صرفاً در گزارش نشان داده می‌شوند؛ اتصال VPN این نسخه از SOCKS5 پشتیبانی می‌کند.",12,0xff9aaac4));
-    root.addView(text("فهرست قبل از قطع اینترنت داخل APK ذخیره شده است و برای اسکن به GitHub یا API جدید وصل نمی‌شود. پوشش آن شامل تمام IPها و پروکسی‌های ایران نیست.",12,0xff9aaac4));
+    });root.addView(share);
+
+    root.addView(text("توجه: HTTPS پاسخ‌دار با کارکرد کامل پیام‌رسان یا پخش ویدیو یکسان نیست. فقط اتصال به SOCKS5 در موتور VPN فعلی فعال است؛ SOCKS4/4a و HTTP CONNECT در اسکن و گزارش پشتیبانی می‌شوند.",12,0xff9fb0c6));
+    refreshSaved();
   }
-  private int dp(float size){return (int)(size*getResources().getDisplayMetrics().density+0.5f);}
-  private TextView text(String value,int size,int color){
-    TextView t=new TextView(this);
-    t.setText(value);t.setTextSize(size);t.setTextColor(color);
-    t.setPadding(0,dp(9),0,dp(10));return t;
+  private int dp(int n){return (int)(getResources().getDisplayMetrics().density*n+0.5f);}
+  private TextView text(String s,int size,int color){
+    TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);
+    t.setPadding(0,dp(9),0,dp(11));return t;
   }
-  private Button button(String title,int color){
-    Button b=new Button(this);b.setAllCaps(false);b.setText(title);b.setTextColor(Color.WHITE);
-    GradientDrawable shape=new GradientDrawable();
-    shape.setColor(color);shape.setCornerRadius(dp(12));b.setBackground(shape);
+  private Button button(String s,int background){
+    Button b=new Button(this);b.setAllCaps(false);b.setText(s);b.setTextColor(Color.WHITE);
+    GradientDrawable g=new GradientDrawable();g.setColor(background);g.setCornerRadius(dp(11));
+    b.setBackground(g);
     LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(52));
-    p.bottomMargin=dp(9);b.setLayoutParams(p);return b;
+    p.bottomMargin=dp(10);b.setLayoutParams(p);
+    return b;
   }
-  private void scan(){
+  private int[] readPorts()throws Exception{
+    return CidrRangeScanner.parsePorts(portsInput.getText().toString());
+  }
+  private void refreshSaved(){
+    try {
+      int[] ports=readPorts();
+      CidrRangeScanner.State state=CidrRangeScanner.load(this,ports);
+      show(state);
+      progress.setText(state.completed()?"اسکن این تنظیمات کامل شده است.":
+        state.cursor>0?"پیشرفت ذخیره شده؛ برای ادامه اسکن بزن.":"آماده شروع اسکن همه آدرس‌ها.");
+    }catch(Exception e){progress.setText(e.getMessage());}
+  }
+  private void show(CidrRangeScanner.State state){
+    StringBuilder b=new StringBuilder();
+    b.append("Project B / 37.32.0.0/19\n");
+    b.append("Proxy endpoints passing TLS checks:\n");
+    int tg=0,yt=0;
+    chosen=null;
+    ArrayList<IranProxyScanner.Hit> hits=new ArrayList<>(state.hits);
+    hits.sort((a,z)->{
+      int qa=(a.telegram?1:0)+(a.youtube?1:0)+(a.thumbnail?1:0);
+      int qb=(z.telegram?1:0)+(z.youtube?1:0)+(z.thumbnail?1:0);
+      return qa!=qb?Integer.compare(qb,qa):Long.compare(a.duration,z.duration);
+    });
+    for(IranProxyScanner.Hit h:hits){
+      b.append(h.format()).append('\n');
+      if(h.telegram)tg++;
+      if(h.youtube)yt++;
+      if(chosen==null&&h.proxy.type==IranProxyScanner.Type.SOCKS5)
+        chosen=new RelayProbe.Entry(h.proxy.ip,h.proxy.port,"","");
+    }
+    report=b.toString();
+    results.setText(hits.isEmpty()?"هنوز پراکسی موفق تأیید نشده است.":report);
+    connectButton.setEnabled(chosen!=null&&!scanning);
+    summary.setText("پورت باز: "+state.opened.size()+" | موفق تلگرام: "+tg+
+      " | موفق یوتیوب: "+yt+" | کل موفق: "+hits.size());
+  }
+  private void startScan(){
     if(scanning)return;
-    scanning=true;stop=new AtomicBoolean(false);best=null;connectButton.setEnabled(false);
-    scanButton.setEnabled(false);report="";
-    results.setText("در حال شناسایی آدرس‌های منتشرشده با IP ایران…");
-    progress.setText("تست Telegram API و YouTube از مسیر پراکسی…");
-    AtomicBoolean stopToken=stop;
+    final int[] ports;
+    try{ports=readPorts();}catch(Exception e){progress.setText(e.getMessage());return;}
+    getPreferences(MODE_PRIVATE).edit().putString("ports",portsInput.getText().toString()).apply();
+    scanning=true;pause=new AtomicBoolean(false);
+    scanButton.setEnabled(false);pauseButton.setEnabled(true);
+    resetButton.setEnabled(false);portsInput.setEnabled(false);
+    connectButton.setEnabled(false);
+    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    AtomicBoolean token=pause;
+    progress.setText("در حال اجرای اسکن مجاز روی "+CidrRangeScanner.CIDR+"…");
     new Thread(()->{
-      IranProxyScanner.Result found=null;
-      String fail="";
+      CidrRangeScanner.State result=null;String error="";
       try {
-        found=IranProxyScanner.scan(this,(done,total,success)->ui.post(()->
-           progress.setText("بررسی "+done+" از "+total+" پراکسی ایرانی | موفق: "+success)),stopToken);
-      }catch(Exception ex){fail=ex.getClass().getSimpleName()+": "+ex.getMessage();}
-      final IranProxyScanner.Result res=found;
-      final String error=fail;
+        result=CidrRangeScanner.run(this,ports,token,(phase,completed,total,open,hits)->{
+          ui.post(()->{
+            progress.setText(phase+" • "+completed+" / "+total+
+              " | پورت باز: "+open+" | پراکسی موفق: "+hits);
+            if(phase.contains("تأیید")){
+              CidrRangeScanner.State current=CidrRangeScanner.load(this,ports);
+              show(current);
+            }
+          });
+        });
+      }catch(Exception ex){error=ex.getClass().getSimpleName()+": "+ex.getMessage();}
+      final String fail=error;
+      final CidrRangeScanner.State last=result;
       ui.post(()->{
-        scanning=false;scanButton.setEnabled(true);
-        if(stopToken.get()){
-          progress.setText("اسکن متوقف شد.");return;
-        }
-        if(res==null){
-          progress.setText("خطای اسکن: "+error);
-          return;
-        }
-        StringBuilder text=new StringBuilder();
-        text.append("Iran IP public proxy audit\n");
-        text.append("Date: ").append(new java.util.Date()).append('\n');
-        text.append("IR endpoints in bundled sources: ").append(res.candidates).append('\n');
-        text.append("Completed checks: ").append(res.checked).append('\n');
-        text.append("Verified Telegram/YouTube endpoints: ").append(res.hits.size()).append("\n\n");
-        int tg=0,yt=0;
-        for(IranProxyScanner.Hit h:res.hits){
-          text.append(h.format()).append('\n');
-          if(h.telegram)tg++;
-          if(h.youtube)yt++;
-          if(best==null && h.proxy.type==IranProxyScanner.Type.SOCKS5){
-            best=new RelayProbe.Entry(h.proxy.ip,h.proxy.port,"","");
-          }
-        }
-        report=text.toString();
-        results.setText(report);
-        connectButton.setEnabled(best!=null);
-        progress.setText("پایان بررسی؛ تلگرام: "+tg+" | یوتیوب: "+yt+
-          " | پراکسی موفق: "+res.hits.size()+
-          (best==null?" | SOCKS5 مناسب اتصال یافت نشد":" | SOCKS5 قابل‌آزمایش یافت شد"));
+        if(destroyed)return;
+        scanning=false;
+        scanButton.setEnabled(true);pauseButton.setEnabled(false);
+        resetButton.setEnabled(true);portsInput.setEnabled(true);
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if(last!=null)show(last);
+        else show(CidrRangeScanner.load(this,ports));
+        if(!fail.isEmpty())progress.setText("خطای اسکن: "+fail+"؛ پیشرفت ذخیره‌شده باقی مانده است.");
+        else if(token.get())progress.setText("اسکن متوقف شد؛ با دکمه شروع، از نقطه ذخیره‌شده ادامه بده.");
+        else progress.setText("اسکن همه IPها و پورت‌های انتخابی کامل شد.");
       });
-    },"iran-ip-proxy-scan").start();
+    },"cidr-network-audit").start();
   }
   private void permission(){
-    Intent intent=VpnService.prepare(this);
-    if(intent==null)connect();else startActivityForResult(intent,REQ);
+    Intent request=VpnService.prepare(this);
+    if(request!=null)startActivityForResult(request,VPN_PERMISSION);
+    else connect();
   }
   @Override protected void onActivityResult(int request,int result,Intent data){
     super.onActivityResult(request,result,data);
-    if(request==REQ){
+    if(request==VPN_PERMISSION){
       if(result==RESULT_OK)connect();
       else progress.setText("مجوز VPN رد شد.");
     }
   }
   private void connect(){
-    if(best==null){progress.setText("هیچ SOCKS5 انتخاب نشده");return;}
-    Intent intent=new Intent(this,PathVpnService.class).setAction(PathVpnService.CONNECT)
-      .putExtra(PathVpnService.HOST,best.host).putExtra(PathVpnService.PORT,best.port)
-      .putExtra(PathVpnService.USER,best.user).putExtra(PathVpnService.PASS,best.pass);
-    if(Build.VERSION.SDK_INT>=26)startForegroundService(intent);else startService(intent);
-    progress.setText("در حال اتصال آزمایشی از طریق "+best.label());
+    if(chosen==null){progress.setText("SOCKS5 تأییدشده انتخاب نشده است.");return;}
+    Intent i=new Intent(this,PathVpnService.class).setAction(PathVpnService.CONNECT)
+      .putExtra(PathVpnService.HOST,chosen.host).putExtra(PathVpnService.PORT,chosen.port)
+      .putExtra(PathVpnService.USER,chosen.user).putExtra(PathVpnService.PASS,chosen.pass);
+    if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);
+    summary.setText("در حال راه‌اندازی VPN: "+chosen.label());
   }
-  @Override protected void onResume(){super.onResume();ui.post(poll);}
-  @Override protected void onPause(){ui.removeCallbacks(poll);super.onPause();}
+  @Override protected void onResume(){super.onResume();destroyed=false;ui.post(statusPoll);}
+  @Override protected void onPause(){ui.removeCallbacks(statusPoll);super.onPause();}
+  @Override protected void onDestroy(){
+    destroyed=true;pause.set(true);
+    ui.removeCallbacks(statusPoll);
+    super.onDestroy();
+  }
 }
