@@ -1,26 +1,13 @@
-# Project B / PathFinder v0.1
+# Project B — PathFinder v0.2
 
-Independent Android diagnostic prototype. Package: ir.pathfinder.b
+Experimental Android diagnostic + verified SOCKS5 VPN.
 
-## What it DOES
-- Runs entirely with bundled target list (no remote configuration, account, or telemetry).
-- Reads active connection's assigned DNS resolvers and available transport.
-- Sends small DNS A/TXT/nonce queries directly to the configured resolvers, distinguishes response/no-response and RCODE. A response is **not** proof of international reachability.
-- Tests direct IPv4 and IPv6 TCP 443 connectivity to fixed, public IPs.
-- Validates HTTPS connections to known public endpoints using the system TLS verifier, checks HTTP status, and reads at most 128 bytes.
-- Stores scan history locally and offers report export through Android share intent.
-- Uses bounded socket timeouts and only well-known public endpoints.
+- Retains all v0.1 offline diagnostics (network DNS resolvers, TCP IPv4/IPv6, HTTPS response checks).
+- New real connection flow: up to 8 user-supplied authorized SOCKS5 relay endpoints, manual entry; verify SOCKS5 CONNECT to www.example.com:443, verify TLS hostname and HTTP response, request Android VPN permission, start TUN via upstream pinned hev-socks5-tunnel AAR.
+- Native tunnel excludes the upstream IPv4 address from VPN routes to avoid traffic loops.
+- The VPN tunnel starts only for a cooperating, verified proxy. A reachable public DNS or HTTP server is not enough and cannot be used as arbitrary proxy.
+- Explicitly not a SlipNet or DNS tunnel implementation yet. The user needs a genuine authorized SOCKS5 relay, not just an accessible IP.
+- UDP/DNS availability depends on SOCKS5 UDP ASSOCIATE at the remote server. Some apps may not work without it.
+- Plain SOCKS5 is not encrypted by itself. Do not use a proxy of unknown provenance and do not share credentials. Debug build, not tested on physical Android device.
 
-## What it does NOT
-- No VPN tunnel, no traffic forwarding, no circumvention claim, no probing government/private endpoints, no mass-IP scanning.
-- Does not guarantee an endpoint is a relay or can be used as a proxy.
-- Cannot discover every possible whitelist destination without information or a probing range.
-
-## Compile
-Gradle 8.10.2, Android Gradle Plugin 8.7.3, JDK 17, SDK 35.
-
-gradle -p project-b :app:assembleDebug
-
-Build result: project-b/app/build/outputs/apk/debug/app-debug.apk
-
-Debug APK has a developer/debug signing key and will not upgrade any existing app. 
+Build: gradle -p project-b :app:assembleDebug
