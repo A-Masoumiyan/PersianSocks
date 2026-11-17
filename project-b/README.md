@@ -1,28 +1,25 @@
-# Project B — PathFinder v0.3
+# Project B / PathFinder v0.4
 
-This is an experimental Android app for **offline-input route diagnostics and cautious tunnel testing**.
+**Iranian-IP public proxy verifier**.
 
-## What changes in v0.3
-- Main UI now offers an automatic connect entry, not an empty SOCKS5 field.
-- APK bundles a snapshot of proxy candidates from this repository as a **build-time static asset**. It makes no requests to fetch lists at runtime.
-- Bounded concurrency (20) and at most 240 shuffled candidates per scan, validating an actual SOCKS5 CONNECT and HTTPS TLS to a different domain, not merely port-open checks.
-- If a legitimate compatible SOCKS5 relay responds, the client asks for Android VPN permission, then starts the native `hev-socks5-tunnel` TUN.
-- Optional diagnostic "direct VPN plumbing test" uses an authenticated loopback SOCKS bridge whose physical sockets are protected with VpnService.protect(). This **does not bypass filtering**; it only proves Android VPN packet handling on currently working Internet, and may not cover UDP apps.
-- Manual authorized SOCKS5 configuration is optional and collapsed by default.
-- Stops or fails without displaying a fake connected success.
+## Goal
+Show proxies *hosted on Iranian IPv4 addresses* that can reach Telegram API or YouTube **through the proxy**. No successful foreign-IP proxy belongs in results.
 
-## Security and accuracy
-- Public proxies are untrusted: they may log traffic and can observe unencrypted payloads and metadata. User explicit consent is required before scanning those candidates.
-- The offline proxy snapshot can go stale quickly; no success is guaranteed now or during a blackout.
-- This is NOT an implementation of SlipNet, DNSTT, whitelisted-network discovery, arbitrary HTTPS proxying, or access through government servers. It does not circumvent a zero-egress shutdown.
-- A browser returning data through the tunnel must be checked on a device before considering the VPN functional.
-- Native engine upstream socks traffic may support TCP while UDP-dependent apps fail.
-- No real-device acceptance test is yet completed.
-- This is a debug signed build, for Android 10+.
+## Implementation
+- Bundled offline country-range index (`ip-country.bin`) filters candidates to exact Iranian source IPv4 before making network probes.
+- Bundled public-source candidates: SOCKS5, HTTP CONNECT and a small additionally curated list with source comments. No runtime download of proxy or DNS lists.
+- Each candidate is tested through a genuine CONNECT tunnel followed by hostname-verified TLS and HTTP response from **api.telegram.org** and **www.youtube.com** separately. For YouTube positives, an additional image CDN check is attempted.
+- Results list **all verified candidates in the bundled list**, deduplicated and sorted, with protocol, IP, port, measured time and separate flags for each service.
+- The results can be copied or shared. If a qualifying SOCKS5 server exists, the UI optionally permits a real TUN-based VPN attempt after consent.
+- No random probing of every Iranian IP address and no unauthorized open-relay or government server exploitation.
+- HTTP CONNECT candidates are tested and shown but the current TUN connector only accepts SOCKS5.
+- The test indicates HTTPS reachability of a service endpoint, *not* guarantee that Telegram MTProto works or a YouTube video actually plays.
+- This is a debug APK; neither physical-device success nor network-through-filtering behavior is verified.
+
+## Snapshot limits
+An offline proxy list will go stale after installation. It cannot capture **all** Iranian IPs or all unpublished / non-public proxies. The GeoIP dataset is an approximate location assignment and may not reflect actual physical hosting; a proxy can forward to other relays.
 
 ## Build
-```sh
-gradle -p project-b --no-daemon :app:assembleDebug
-```
+`gradle -p project-b :app:assembleDebug`, JDK 17, Android SDK 35, Gradle 8.10.2.
 
-The build copies the offline list from the repository's existing Android bootstrap assets.
+Source lists from the existing repository's bootstrap assets are copied into APK at build time; no downloads at runtime. Country data from the same existing app is included.
