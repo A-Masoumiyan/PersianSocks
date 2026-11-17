@@ -8,8 +8,8 @@ android {
         applicationId "ir.pathfinder.b"
         minSdk 29
         targetSdk 35
-        versionCode 3
-        versionName "0.3.0"
+        versionCode 4
+        versionName "0.4.0"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -21,12 +21,16 @@ dependencies { implementation files('../../app/libs/hev-socks5-tunnel.aar') }
 
 tasks.register('seedOfflineCandidates') {
     doLast {
-        def bundled = rootProject.file('../app/src/main/assets/bootstrap-socks5.txt')
-        if (!bundled.isFile()) throw new GradleException('Offline bootstrap list is missing')
-        copy {
-            from bundled
-            into file('src/main/assets')
-            rename 'bootstrap-socks5.txt', 'offline-socks5.txt'
+        def assets = rootProject.file('../app/src/main/assets')
+        def pairs = [
+            'bootstrap-socks5.txt':'offline-socks5.txt',
+            'bootstrap-http.txt':'offline-http.txt',
+            'ip-country.bin':'offline-ip-country.bin'
+        ]
+        pairs.each { input, output ->
+            def fileIn = new File(assets,input)
+            if (!fileIn.isFile()) throw new GradleException('Missing pinned asset: '+input)
+            copy { from fileIn; into file('src/main/assets'); rename input, output }
         }
     }
 }
