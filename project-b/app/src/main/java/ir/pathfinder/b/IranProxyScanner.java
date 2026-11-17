@@ -16,7 +16,7 @@ final class IranProxyScanner {
   interface Progress {
     void update(int done,int total,int successful);
   }
-  enum Type { SOCKS5, SOCKS4, HTTP }
+  enum Type { SOCKS5, SOCKS4, SOCKS4A, HTTP }
   static final class Candidate {
     final String ip;final int port;final Type type;
     Candidate(String ip,int port,Type type){this.ip=ip;this.port=port;this.type=type;}
@@ -106,7 +106,7 @@ final class IranProxyScanner {
     if(text.isEmpty()||text.startsWith("#")||text.length()>150)return null;
     Type kind=suggested;
     if(text.startsWith("socks5://")){text=text.substring(9);kind=Type.SOCKS5;}
-    else if(text.startsWith("socks4://")){text=text.substring(9);kind=Type.SOCKS4;}
+    else if(text.startsWith("socks4://")){text=text.substring(9);kind=Type.SOCKS4A;}
     else if(text.startsWith("http://")){text=text.substring(7);kind=Type.HTTP;}
     else if(text.startsWith("https://"))return null; // TLS-wrapped proxy requires separate trust verification
     int index=text.lastIndexOf(':');if(index<1||index==text.length()-1||text.contains("@"))return null;
@@ -131,7 +131,7 @@ final class IranProxyScanner {
        ||(p[0]==192&&p[1]==168)||(p[0]==100&&p[1]>=64&&p[1]<=127)
        ||(p[0]==198&&(p[1]==18||p[1]==19)));
   }
-  private static Hit test(Network network,Candidate candidate,AtomicBoolean stop){
+  static Hit test(Network network,Candidate candidate,AtomicBoolean stop){
     if(stop.get())return null;
     long t=android.os.SystemClock.elapsedRealtime();
     boolean telegram=attempt(network,candidate,"api.telegram.org","/");
@@ -148,10 +148,19 @@ final class IranProxyScanner {
       base.setSoTimeout(4000);
       base.connect(new InetSocketAddress(InetAddress.getByName(c.ip),c.port),2500);
       InputStream in=base.getInputStream();OutputStream out=base.getOutputStream();
-      if(c.type==Type.SOCKS4){
-        byte[] target=dest.getBytes("US-ASCII");
-        out.write(new byte[]{4,1,1,(byte)187,0,0,0,1,0});
-        out.write(target);out.write(0);out.flush();
+      if(c.type==Type.SOCKS4 || c.type==Type.SOCKS4A){
+        if(c.type==Type.SOCKS4A){
+          byte[] target=dest.getBytes("US-ASCII");
+          out.write(new byte[]{4,1,1,(byte)187,0,0,0,1,0});
+          out.write(target);out.write(0);out.flush();
+        }else{
+          InetAddress[] destIps=n==null?InetAddress.getAllByName(dest):n.getAllByName(dest);
+          Inet4Address ipv4=null;
+          for(InetAddress addr:destIps)if(addr instanceof Inet4Address){ipv4=(Inet4Address)addr;break;}
+          if(ipv4==null)return false;
+          out.write(new byte[]{4,1,1,(byte)187});
+          out.write(ipv4.getAddress());out.write(0);out.flush();
+        }
         byte[] reply=RelayProbe.take(in,8);
         if((reply[1]&255)!=90)return false;
       }else if(c.type==Type.SOCKS5) {
