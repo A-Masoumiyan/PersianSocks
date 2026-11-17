@@ -8,8 +8,8 @@ android {
         applicationId "ir.pathfinder.b"
         minSdk 29
         targetSdk 35
-        versionCode 2
-        versionName "0.2.0"
+        versionCode 3
+        versionName "0.3.0"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -18,3 +18,16 @@ android {
 }
 
 dependencies { implementation files('../../app/libs/hev-socks5-tunnel.aar') }
+
+tasks.register('seedOfflineCandidates') {
+    doLast {
+        def bundled = rootProject.file('../app/src/main/assets/bootstrap-socks5.txt')
+        if (!bundled.isFile()) throw new GradleException('Offline bootstrap list is missing')
+        copy {
+            from bundled
+            into file('src/main/assets')
+            rename 'bootstrap-socks5.txt', 'offline-socks5.txt'
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'seedOfflineCandidates' }
