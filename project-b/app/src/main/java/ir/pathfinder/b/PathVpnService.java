@@ -13,6 +13,7 @@ import hev.htproxy.TProxyService;
 /** Only starts a TUN after a real external SOCKS5 relay is verified. */
 public final class PathVpnService extends VpnService {
   static final String CONNECT="ir.pathfinder.b.CONNECT",STOP="ir.pathfinder.b.STOP";
+  static final String DIRECT="ir.pathfinder.b.DIRECT";
   static final String STATUS="ir.pathfinder.b.STATUS";
   static final String HOST="host",PORT="port",USER="user",PASS="password";
   private static final int ID=502;
@@ -20,6 +21,7 @@ public final class PathVpnService extends VpnService {
   private volatile ParcelFileDescriptor tun;
   private volatile boolean active;
   private Thread monitor;
+  private LocalDirectGateway directGateway;
   private volatile int generation;
   @Override public void onCreate(){
     super.onCreate();
@@ -40,22 +42,23 @@ public final class PathVpnService extends VpnService {
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null)return START_NOT_STICKY;
     if(STOP.equals(intent.getAction())){shutdown();state("VPN قطع شد");stopSelf();return START_NOT_STICKY;}
-    if(!CONNECT.equals(intent.getAction()))return START_NOT_STICKY;
+    boolean direct=DIRECT.equals(intent.getAction());
+    if(!direct && !CONNECT.equals(intent.getAction()))return START_NOT_STICKY;
     if(VpnService.prepare(this)!=null){state("اجازه VPN صادر نشده");stopSelf();return START_NOT_STICKY;}
     String host=intent.getStringExtra(HOST);
     int port=intent.getIntExtra(PORT,0);
     String user=intent.getStringExtra(USER),pass=intent.getStringExtra(PASS);
-    if(host==null||port<=0||port>65535){stopSelf();return START_NOT_STICKY;}
+    if(!direct&&(host==null||port<=0||port>65535)){stopSelf();return START_NOT_STICKY;}
     try {
       if(Build.VERSION.SDK_INT>=34)startForeground(ID,notification("تأیید رله…"),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
       else startForeground(ID,notification("تأیید رله…"));
     }catch(Throwable e){state("اعلان VPN فعال نشد: "+e.getMessage());stopSelf();return START_NOT_STICKY;}
     int myGen=++generation;
-    RelayProbe.Entry entry=new RelayProbe.Entry(host,port,user==null?"":user,pass==null?"":pass);
-    new Thread(()->connect(entry,myGen),"pathfinder-vpn").start();
+    RelayProbe.Entry entry=direct?null:new RelayProbe.Entry(host,port,user==null?"":user,pass==null?"":pass);
+    new Thread(()->connect(entry,myGen,direct),"pathfinder-vpn").start();
     return START_STICKY;
   }
-  private void connect(RelayProbe.Entry entry,int token){
+  private void connect(RelayProbe.Entry original,int token,boolean direct){
     try {
       shutdownEngine();
       ConnectivityManager mgr=getSystemService(ConnectivityManager.class);
@@ -67,7 +70,14 @@ public final class PathVpnService extends VpnService {
           physical=network;break;
         }
       }
+      RelayProbe.Entry entry=original;
+      if(direct) {
+        directGateway=new LocalDirectGateway(this,physical);
+        entry=new RelayProbe.Entry("127.0.0.1",directGateway.port(),
+            directGateway.user,directGateway.password);
+      }
       Inet4Address ip=RelayProbe.verify(physical,entry);
+      final RelayProbe.Entry activeRelay=entry;
       if(token!=generation)return;
       Builder b=new Builder().setSession("PathFinder B / verified relay")
         .setMtu(1400).setBlocking(false)
@@ -105,8 +115,8 @@ public final class PathVpnService extends VpnService {
       if(!TProxyService.TProxyStartService(cfg.getAbsolutePath(),tun.getFd()))
         throw new IOException("Native TUN engine could not start");
       active=true;
-      state("تونل راه‌اندازی شد: "+entry.label()+"؛ عملکرد مرورگر را هم بررسی کنید");
-      getSystemService(NotificationManager.class).notify(ID,notification("تونل: "+entry.label()));
+      state((direct?"آزمایش تونل مستقیم: ":"پراکسی تأییدشده: ")+activeRelay.label()+"؛ لطفاً مرورگر را تست کنید");
+      getSystemService(NotificationManager.class).notify(ID,notification((direct?"آزمایش مستقیم: ":"رله: ")+activeRelay.label()));
       monitor=new Thread(()->{
         while(active&&token==generation)try{
           Thread.sleep(1250);
@@ -140,6 +150,7 @@ public final class PathVpnService extends VpnService {
     active=false;
     if(monitor!=null){monitor.interrupt();monitor=null;}
     try{TProxyService.TProxyStopService();}catch(Throwable ignored){}
+    if(directGateway!=null){try{directGateway.close();}catch(Exception ignored){}directGateway=null;}
     if(tun!=null){try{tun.close();}catch(Exception ignored){}tun=null;}
     new File(getFilesDir(),"pathfinder-vpn.yml").delete();
   }
