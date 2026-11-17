@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
         scroll.addView(page);
         setContentView(scroll);
 
-        TextView tag = text("PROJECT B  /  0.3", 13, ACCENT, true);
+        TextView tag = text("PROJECT B  /  0.4", 13, ACCENT, true);
         page.addView(tag);
         TextView title = text("کشف مسیر ارتباط", 26, INK, true);
         space(page, 6);
@@ -92,7 +92,7 @@ public class MainActivity extends Activity {
         card.addView(share);
         share.setOnClickListener(v -> shareReport());
         space(page, 15);
-        Button openConnect=button("کشف خودکار و تلاش برای اتصال", Color.rgb(46,132,113));
+        Button openConnect=button("جستجوی پراکسی‌های ایرانی برای تلگرام و یوتیوب", Color.rgb(46,132,113));
         page.addView(openConnect);
         openConnect.setOnClickListener(v -> startActivity(new Intent(this, ConnectActivity.class)));
         space(page,15);
