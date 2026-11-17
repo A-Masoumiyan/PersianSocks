@@ -1,0 +1,13 @@
+# Published Iranian IP proxy endpoints snapshot; these are NOT verified working.
+# Source: https://proxyhub.me/en/ir-socks5-proxy-list.html (observed on 2026-11-17; entries page last checked July 2026)
+socks5://81.91.145.8:10808
+socks5://62.60.131.232:5759
+socks5://81.91.145.5:10808
+socks5://185.53.142.171:40000
+socks5://81.91.159.14:7777
+socks5://185.49.97.72:1080
+socks5://62.60.131.232:5681
+# Source: https://proxyhub.me/en/ir-socks5-proxy-list.html (search dated 2026-11-17)
+socks5://80.210.50.126:9991
+# Source: https://justfreeproxies.com/free-proxy-list/ir (search result dated 2026-11-17)
+http://46.209.123.101:1155
