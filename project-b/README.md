@@ -1,25 +1,20 @@
-# Project B / PathFinder v0.4
+# Project B — PathFinder v0.5: authorized CIDR audit
 
-**Iranian-IP public proxy verifier**.
+Fixed scope: **37.32.0.0/19**, all 8,192 IPv4 addresses (37.32.0.0–37.32.31.255). Not a generic Internet-wide scanner.
 
-## Goal
-Show proxies *hosted on Iranian IPv4 addresses* that can reach Telegram API or YouTube **through the proxy**. No successful foreign-IP proxy belongs in results.
+## How it works
 
-## Implementation
-- Bundled offline country-range index (`ip-country.bin`) filters candidates to exact Iranian source IPv4 before making network probes.
-- Bundled public-source candidates: SOCKS5, HTTP CONNECT and a small additionally curated list with source comments. No runtime download of proxy or DNS lists.
-- Each candidate is tested through a genuine CONNECT tunnel followed by hostname-verified TLS and HTTP response from **api.telegram.org** and **www.youtube.com** separately. For YouTube positives, an additional image CDN check is attempted.
-- Results list **all verified candidates in the bundled list**, deduplicated and sorted, with protocol, IP, port, measured time and separate flags for each service.
-- The results can be copied or shared. If a qualifying SOCKS5 server exists, the UI optionally permits a real TUN-based VPN attempt after consent.
-- No random probing of every Iranian IP address and no unauthorized open-relay or government server exploitation.
-- HTTP CONNECT candidates are tested and shown but the current TUN connector only accepts SOCKS5.
-- The test indicates HTTPS reachability of a service endpoint, *not* guarantee that Telegram MTProto works or a YouTube video actually plays.
-- This is a debug APK; neither physical-device success nor network-through-filtering behavior is verified.
+1. On-device, rate-limited TCP connect to user-selected ports across the **entire authorized CIDR**. Default ports: 1080, 10808, 10809, 8080, 3128, 8000, 8888, 4145, 9050, 8118, 80, 443. Maximum 24 unique ports, with 24 worker threads and approximately 33 attempts per second. This may entail many tens of thousands of checks.
+2. For open ports, try **SOCKS5**, **SOCKS4a** (remote hostname), **SOCKS4** (IPv4 destination), and **HTTP CONNECT**, independently.
+3. Test real HTTPS over the candidate protocol to Telegram API and YouTube. Validate the remote TLS hostname and fetch a response; on YouTube success, also test a thumbnail host. Only endpoints with a successful verified response are listed.
+4. Keep a persisted batch-level checkpoint of scanning phase, next index, open ports, and successful proxies. Pause and resume on the same port configuration. Reset clears progress. Duplicate endpoint results are suppressed.
+5. Export all verified endpoints and per-service results. An optional experimental Android TUN connector supports verified SOCKS5 endpoints only. SOCKS4(a) and HTTP CONNECT are **scanner/verifier** protocols in this release, not VPN connectors.
 
-## Snapshot limits
-An offline proxy list will go stale after installation. It cannot capture **all** Iranian IPs or all unpublished / non-public proxies. The GeoIP dataset is an approximate location assignment and may not reflect actual physical hosting; a proxy can forward to other relays.
+No proxy/DNS lists are downloaded at run time. The scanner does **not** use the old public proxy list to define scan scope.
 
-## Build
-`gradle -p project-b :app:assembleDebug`, JDK 17, Android SDK 35, Gradle 8.10.2.
+This is an opt-in diagnostic utility for an explicitly authorized address range. It is not evidence that an untested proxy is open, and TLS/HTTP reachability does not imply a Telegram MTProto session or YouTube video playback. Avoid sending sensitive data over unknown proxies.
 
-Source lists from the existing repository's bootstrap assets are copied into APK at build time; no downloads at runtime. Country data from the same existing app is included.
+Development status: APK build can be checked in GitHub Actions; no real phone or Iranian network access has been tested from this environment.
+
+Build with JDK17, Android SDK 35, Gradle 8.10.2:
+`gradle -p project-b --no-daemon :app:assembleDebug`.
