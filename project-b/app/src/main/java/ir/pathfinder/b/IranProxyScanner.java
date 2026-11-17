@@ -16,7 +16,7 @@ final class IranProxyScanner {
   interface Progress {
     void update(int done,int total,int successful);
   }
-  enum Type { SOCKS5, HTTP }
+  enum Type { SOCKS5, SOCKS4, HTTP }
   static final class Candidate {
     final String ip;final int port;final Type type;
     Candidate(String ip,int port,Type type){this.ip=ip;this.port=port;this.type=type;}
@@ -106,6 +106,7 @@ final class IranProxyScanner {
     if(text.isEmpty()||text.startsWith("#")||text.length()>150)return null;
     Type kind=suggested;
     if(text.startsWith("socks5://")){text=text.substring(9);kind=Type.SOCKS5;}
+    else if(text.startsWith("socks4://")){text=text.substring(9);kind=Type.SOCKS4;}
     else if(text.startsWith("http://")){text=text.substring(7);kind=Type.HTTP;}
     else if(text.startsWith("https://"))return null; // TLS-wrapped proxy requires separate trust verification
     int index=text.lastIndexOf(':');if(index<1||index==text.length()-1||text.contains("@"))return null;
@@ -147,7 +148,13 @@ final class IranProxyScanner {
       base.setSoTimeout(4000);
       base.connect(new InetSocketAddress(InetAddress.getByName(c.ip),c.port),2500);
       InputStream in=base.getInputStream();OutputStream out=base.getOutputStream();
-      if(c.type==Type.SOCKS5) {
+      if(c.type==Type.SOCKS4){
+        byte[] target=dest.getBytes("US-ASCII");
+        out.write(new byte[]{4,1,1,(byte)187,0,0,0,1,0});
+        out.write(target);out.write(0);out.flush();
+        byte[] reply=RelayProbe.take(in,8);
+        if((reply[1]&255)!=90)return false;
+      }else if(c.type==Type.SOCKS5) {
         out.write(new byte[]{5,1,0});out.flush();
         if(in.read()!=5||in.read()!=0)return false;
         byte[] target=dest.getBytes("US-ASCII");
